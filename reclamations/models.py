@@ -125,7 +125,7 @@ class Reclamation(models.Model):
         ('CIM', 'CIM'),
         ('CIB', 'CIB'),
         ('CLIENT', 'CLIENT'),
-        ('ALERT', 'ALERT'),
+        ('ALERTE', 'ALERTE'),
     ]
     
     numero_reclamation = models.CharField("N° Réclamation", max_length=50, unique=True)

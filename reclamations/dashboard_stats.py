@@ -179,14 +179,6 @@ class DashboardStats:
         
         return stats
     
-    def get_top_produits(self):
-        """Top 5 produits les plus réclamés"""
-        produits = Produit.objects.annotate(
-            nb_reclamations=Count('lignes_reclamation')
-        ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
-        
-        return produits
-    
     def get_ppm_stats(self):
         """Statistiques PPM"""
         ppm_calculator = PPMCalculator(annee=self.annee_courante)
@@ -400,8 +392,7 @@ class DashboardStats:
                 })
         
         return evolution
-
-    
+ 
     def get_all_stats(self):
         """Récupère toutes les statistiques"""
         return {
@@ -413,7 +404,6 @@ class DashboardStats:
             'imputation': self.get_repartition_imputation(),
             'delai_moyen': self.get_delai_moyen_cloture(),
             'type_nc': self.get_type_nc_stats(),
-            'top_produits': self.get_top_produits(),
             'ppm': self.get_ppm_stats(),
             'objectifs': self.get_objectifs_annee(),
             'nqc': {

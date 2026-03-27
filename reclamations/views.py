@@ -363,67 +363,108 @@ def dashboard(request):
     data = stats.get_all_stats()
 
     # Extraire les données NQC
-    nqc_data = data['nqc']['mois']
+    nqc_data = data.get('nqc', {}).get('mois', {})
+    
+    # Convertir les Decimal en float pour NQC par client
+    nqc_par_client_raw = data.get('nqc', {}).get('par_client', [])
+    nqc_par_client = []
+    for item in nqc_par_client_raw:
+        nqc_par_client.append({
+            'client__nom': item.get('client__nom', item.get('client_nom', 'Client inconnu')),
+            'client_nom': item.get('client__nom', item.get('client_nom', 'Client inconnu')),
+            'cout_total': float(item.get('cout_total', 0)) if item.get('cout_total') else 0,
+            'nombre': int(item.get('nombre', 0))
+        })
+    
+    # Convertir les Decimal en float pour NQC par type
+    nqc_par_type_raw = data.get('nqc', {}).get('par_type', [])
+    nqc_par_type = []
+    for item in nqc_par_type_raw:
+        nqc_par_type.append({
+            'label': item.get('label', ''),
+            'cout': float(item.get('cout', 0)) if item.get('cout') else 0,
+            'nombre': int(item.get('nombre', 0))
+        })
+    
+    # Convertir les Decimal pour PPM evolution
+    ppm_evolution_raw = data.get('ppm', {}).get('evolution', [])
+    ppm_evolution = []
+    for item in ppm_evolution_raw:
+        ppm_evolution.append({
+            'mois_nom': item.get('mois_nom', ''),
+            'ppm': float(item.get('ppm', 0)) if item.get('ppm') else 0
+        })
+    
+    # Convertir les Decimal pour recurrence_evolution
+    recurrence_evolution_raw = data.get('recurrence_evolution', {})
+    recurrence_evolution = {}
+    for produit, valeurs in recurrence_evolution_raw.items():
+        recurrence_evolution[produit] = []
+        for v in valeurs:
+            recurrence_evolution[produit].append({
+                'mois_nom': v.get('mois_nom', v.get('periode', '')),
+                'taux_recurrence': float(v.get('taux_recurrence', 0)) if v.get('taux_recurrence') else 0
+            })
+
     
     
     # Préparer le contexte avec les données JSON
     context = {
         # Stats globales
-        'total_reclamations': data['global']['total'],
-        'reclamations_ouvertes': data['global']['ouvertes'],
-        'reclamations_cloturees': data['global']['cloturees'],
-        'taux_cloture': data['global']['taux_cloture'],
-        'taux_reactivite': data['global']['taux_reactivite'],
-        'duree_moyenne': data['delai_moyen'],
-        'top_produits_recurrents': data.get('top_produits_recurrents', []),
-        'recurrence_evolution': data.get('recurrence_evolution', {}),
-
+        'total_reclamations': data.get('global', {}).get('total', 0),
+        'reclamations_ouvertes': data.get('global', {}).get('ouvertes', 0),
+        'reclamations_cloturees': data.get('global', {}).get('cloturees', 0),
+        'taux_cloture': data.get('global', {}).get('taux_cloture', 0),
+        'taux_reactivite': data.get('global', {}).get('taux_reactivite', 0),
+        'duree_moyenne': data.get('delai_moyen', 0),
         
         # Données pour les graphiques
-        'clients_labels': json.dumps(data['clients']['labels'], ensure_ascii=False),
-        'clients_data': json.dumps(data['clients']['data']),
+        'clients_labels': json.dumps(data.get('clients', {}).get('labels', []), ensure_ascii=False),
+        'clients_data': json.dumps(data.get('clients', {}).get('data', [])),
         
-        'uap_labels': json.dumps(data['uap']['labels'], ensure_ascii=False),
-        'uap_data': json.dumps(data['uap']['data']),
+        'uap_labels': json.dumps(data.get('uap', {}).get('labels', []), ensure_ascii=False),
+        'uap_data': json.dumps(data.get('uap', {}).get('data', [])),
         
-        'mois_labels': json.dumps(data['mois']['labels'], ensure_ascii=False),
-        'mois_data': json.dumps(data['mois']['data']),
+        'mois_labels': json.dumps(data.get('mois', {}).get('labels', []), ensure_ascii=False),
+        'mois_data': json.dumps(data.get('mois', {}).get('data', [])),
         
-        'typologie_par_mois': json.dumps(data['typologie'], ensure_ascii=False),
-        'type_nc_labels': json.dumps([t['label'] for t in data['typologie']], ensure_ascii=False),
+        'typologie_par_mois': json.dumps(data.get('typologie', []), ensure_ascii=False),
+        'type_nc_labels': json.dumps([t.get('label', '') for t in data.get('typologie', [])], ensure_ascii=False),
         
-        'imputation_labels': json.dumps(data['imputation']['labels'], ensure_ascii=False),
-        'imputation_data': json.dumps(data['imputation']['data']),
+        'imputation_labels': json.dumps(data.get('imputation', {}).get('labels', []), ensure_ascii=False),
+        'imputation_data': json.dumps(data.get('imputation', {}).get('data', [])),
 
-        # NQC
+        # NQC (converti)
         'nqc_mois_labels': json.dumps(nqc_data.get('labels', []), ensure_ascii=False),
         'nqc_mois_nombre': json.dumps(nqc_data.get('data_nombre', [])),
         'nqc_mois_cout': json.dumps(nqc_data.get('data_cout', [])),
-        'nqc_total': nqc_data.get('total_nqc', 0),
+        'nqc_total': float(nqc_data.get('total_nqc', 0)),
         'nqc_total_reclamations': nqc_data.get('total_reclamations', 0),
-        'nqc_cout_moyen': nqc_data.get('cout_moyen_global', 0),
-        'nqc_par_client': data.get('nqc', {}).get('par_client', []),
-        'nqc_par_type': data.get('nqc', {}).get('par_type', []),
+        'nqc_cout_moyen': float(nqc_data.get('cout_moyen_global', 0)),
+        'nqc_par_client': nqc_par_client,
+        'nqc_par_type': nqc_par_type,
         
         # Stats supplémentaires
-        'type_nc_stats': data['type_nc'],
-        'top_produits': data['top_produits'],
+        'type_nc_stats': data.get('type_nc', []),
         
-        # Données PPM
-        'ppm_clients': data['ppm']['clients'],
-        'ppm_labels': json.dumps(data['ppm']['labels'], ensure_ascii=False),
-        'ppm_data': json.dumps(data['ppm']['data']),
-        'ppm_evolution': json.dumps(data['ppm']['evolution'], ensure_ascii=False),
-        'ppm_global': data['ppm']['global'],
+        # Données PPM (converti)
+        'ppm_clients': data.get('ppm', {}).get('clients', []),
+        'ppm_labels': json.dumps(data.get('ppm', {}).get('labels', []), ensure_ascii=False),
+        'ppm_data': json.dumps(data.get('ppm', {}).get('data', [])),
+        'ppm_evolution': json.dumps(ppm_evolution, ensure_ascii=False),
+        'ppm_global': float(data.get('ppm', {}).get('global', 0)),
         
         # Objectifs
-        'objectifs_par_site': data['objectifs']['objectifs'],
-        'objectifs_moyennes': data['objectifs']['moyennes'],
+        'objectifs_par_site': data.get('objectifs', {}).get('objectifs', []),
+        'objectifs_moyennes': data.get('objectifs', {}).get('moyennes', {}),
         'annee_courante': stats.annee_courante,
+        
+        # Taux de récurrence (converti)
+        'top_produits_recurrents': data.get('top_produits_recurrents', []),
+        'recurrence_evolution': recurrence_evolution,
     }
     
     return render(request, 'reclamations/dashboard.html', context)
-
 @login_required
 def taux_recurrence_produits(request):
     """Calcule le taux de récurrence des défauts par produit"""

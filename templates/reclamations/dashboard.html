@@ -339,26 +339,6 @@
         <div class="col-xl-6">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-white border-bottom">
-                    <i class="fas fa-chart-line text-warning me-2"></i> NQC - Nombre de réclamations
-                </div>
-                <div class="card-body">
-                    {% if nqc_mois_labels and nqc_mois_nombre %}
-                    <div class="chart-container">
-                        <canvas id="chartNQCNombre"></canvas>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-info text-center">Aucune donnée disponible</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- NQC par client et par type -->
-    <div class="row g-4 mb-4">
-        <div class="col-xl-6">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header bg-white border-bottom">
                     <i class="fas fa-chart-bar text-primary me-2"></i> Top 10 clients - Coût NQC
                 </div>
                 <div class="card-body">
@@ -485,43 +465,6 @@
         </div>
     </div>
 
-    <!-- Top produits -->
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <i class="fas fa-box text-orange me-2"></i> Top 5 produits les plus réclamés
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                 <tr>
-                                    <th>Référence</th>
-                                    <th>Désignation</th>
-                                    <th class="text-end">Nb réclamations</th>
-                                 </tr>
-                            </thead>
-                            <tbody>
-                                {% for produit in top_produits %}
-                                <tr>
-                                    <td><code>{{ produit.product_number }}</code></td>
-                                    <td>{{ produit.designation|default:"-" }}</td>
-                                    <td class="text-end"><span class="badge bg-danger">{{ produit.nb_reclamations }}</span></td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="3" class="text-center text-muted">Aucun produit réclamé</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Section Taux de récurrence des produits -->
     <div class="row g-4 mb-4">
         <div class="col-12">
@@ -620,9 +563,24 @@ document.addEventListener('DOMContentLoaded', function() {
     Chart.defaults.font.size = 12;
     Chart.defaults.color = '#666';
     
+    // Helper function pour créer des graphiques en toute sécurité
+    function safeCreateChart(elementId, config) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            try {
+                return new Chart(element, config);
+            } catch(e) {
+                console.error(`Erreur création graphique ${elementId}:`, e);
+                return null;
+            }
+        }
+        console.warn(`Élément ${elementId} non trouvé`);
+        return null;
+    }
+    
     // 1. Histogramme des clients
     {% if clients_labels and clients_data %}
-    new Chart(document.getElementById('chartClients'), {
+    safeCreateChart('chartClients', {
         type: 'bar',
         data: {
             labels: {{ clients_labels|safe }},
@@ -638,14 +596,15 @@ document.addEventListener('DOMContentLoaded', function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
+            plugins: { tooltip: { callbacks: { label: ctx => `${ctx.raw} réclamation(s)` } } }
         }
     });
     {% endif %}
     
     // 2. Évolution mensuelle
     {% if mois_labels and mois_data %}
-    new Chart(document.getElementById('chartMois'), {
+    safeCreateChart('chartMois', {
         type: 'line',
         data: {
             labels: {{ mois_labels|safe }},
@@ -656,16 +615,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 borderColor: 'rgba(75, 192, 192, 1)',
                 tension: 0.4,
-                pointRadius: 4
+                pointRadius: 4,
+                pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } }
+        }
     });
     {% endif %}
     
     // 3. Graphique NQC - Coût mensuel
     {% if nqc_mois_labels and nqc_mois_cout %}
-    new Chart(document.getElementById('chartNQCCout'), {
+    safeCreateChart('chartNQCCout', {
         type: 'bar',
         data: {
             labels: {{ nqc_mois_labels|safe }},
@@ -700,131 +666,161 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     {% endif %}
     
-    // 4. Graphique NQC - Nombre de réclamations
-    {% if nqc_mois_labels and nqc_mois_nombre %}
-    new Chart(document.getElementById('chartNQCNombre'), {
-        type: 'line',
-        data: {
-            labels: {{ nqc_mois_labels|safe }},
-            datasets: [{
-                label: 'Nombre de réclamations',
-                data: {{ nqc_mois_nombre|safe }},
-                fill: true,
-                backgroundColor: 'rgba(255, 193, 7, 0.2)',
-                borderColor: 'rgba(255, 193, 7, 1)',
-                tension: 0.4,
-                pointRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { 
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { stepSize: 1 },
-                    title: { display: true, text: 'Nombre de réclamations' }
-                } 
-            }
-        }
-    });
-    {% endif %}
     
     // 5. Graphique NQC par client
     {% if nqc_par_client %}
-    const nqcClientData = {{ nqc_par_client|safe }};
-    new Chart(document.getElementById('chartNQCClient'), {
-        type: 'bar',
-        data: {
-            labels: nqcClientData.map(item => item.client__nom),
-            datasets: [{
-                label: 'Coût NQC (€)',
-                data: nqcClientData.map(item => item.cout_total),
-                backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { 
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { callback: function(v) { return v.toLocaleString('fr-FR') + ' €'; } },
-                    title: { display: true, text: 'Coût (€)' }
-                } 
+    (function() {
+        try {
+            const rawData = {{ nqc_par_client|safe }};
+            console.log("NQC Client Data:", rawData);
+            
+            if (rawData && rawData.length > 0) {
+                const labels = [];
+                const data = [];
+                
+                for (let i = 0; i < rawData.length; i++) {
+                    const item = rawData[i];
+                    // Utiliser client__nom ou client_nom
+                    const clientName = item.client__nom || item.client_nom || `Client ${i+1}`;
+                    labels.push(clientName);
+                    
+                    // Le coût est déjà un nombre (float)
+                    const cost = typeof item.cout_total === 'number' ? item.cout_total : 0;
+                    data.push(cost);
+                }
+                
+                console.log("Labels NQC:", labels);
+                console.log("Data NQC:", data);
+                
+                const ctx = document.getElementById('chartNQCClient');
+                if (ctx) {
+                    if (window.nqcClientChart) {
+                        window.nqcClientChart.destroy();
+                    }
+                    
+                    window.nqcClientChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Coût NQC (€)',
+                                data: data,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderRadius: 6,
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.raw.toLocaleString('fr-FR') + ' €';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'Coût (€)' },
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value.toLocaleString('fr-FR') + ' €';
+                                        }
+                                    }
+                                },
+                                x: {
+                                    title: { display: true, text: 'Client' }
+                                }
+                            }
+                        }
+                    });
+                    console.log("Graphique NQC client créé avec succès");
+                }
             }
+        } catch(e) {
+            console.error('Erreur création graphique NQC client:', e);
         }
-    });
+    })();
     {% endif %}
     
     // 6. Graphique NQC par type
-    {% if nqc_par_type %}
-    const nqcTypeData = {{ nqc_par_type|safe }};
-    new Chart(document.getElementById('chartNQCType'), {
-        type: 'pie',
-        data: {
-            labels: nqcTypeData.map(item => item.label),
-            datasets: [{
-                data: nqcTypeData.map(item => item.cout),
-                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const total = nqcTypeData.reduce((sum, item) => sum + item.cout, 0);
-                            const percentage = ((context.raw / total) * 100).toFixed(1);
-                            return `${context.label}: ${context.raw.toLocaleString('fr-FR')} € (${percentage}%)`;
-                        }
-                    }
+    {% if nqc_par_type and nqc_par_type|length > 0 %}
+    (function() {
+        try {
+            const nqcTypeData = {{ nqc_par_type|safe }};
+            const total = nqcTypeData.reduce((sum, item) => sum + (item.cout || 0), 0);
+            
+            safeCreateChart('chartNQCType', {
+                type: 'pie',
+                data: {
+                    labels: nqcTypeData.map(item => item.label),
+                    datasets: [{
+                        data: nqcTypeData.map(item => item.cout || 0),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                    }]
                 },
-                legend: {
-                    position: 'right'
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0;
+                                    return `${context.label}: ${context.raw.toLocaleString('fr-FR')} € (${percentage}%)`;
+                                }
+                            }
+                        },
+                        legend: { position: 'right' }
+                    }
                 }
-            }
+            });
+        } catch(e) {
+            console.error('Erreur création graphique NQC type:', e);
         }
-    });
+    })();
     {% endif %}
     
     // 7. PPM Evolution
-    {% if ppm_evolution %}
-    const ppmData = {{ ppm_evolution|safe }};
-    new Chart(document.getElementById('chartPPMEvolution'), {
-        type: 'line',
-        data: {
-            labels: ppmData.map(i => i.mois_nom),
-            datasets: [{
-                label: 'PPM',
-                data: ppmData.map(i => i.ppm),
-                fill: true,
-                backgroundColor: 'rgba(245, 87, 108, 0.2)',
-                borderColor: 'rgba(245, 87, 108, 1)',
-                tension: 0.4,
-                pointRadius: 4
-            }]
-        },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            scales: { 
-                y: { 
-                    beginAtZero: true,
-                    title: { display: true, text: 'PPM' }
-                } 
-            } 
+    {% if ppm_evolution and ppm_evolution|length > 0 %}
+    (function() {
+        try {
+            const ppmData = {{ ppm_evolution|safe }};
+            safeCreateChart('chartPPMEvolution', {
+                type: 'line',
+                data: {
+                    labels: ppmData.map(i => i.mois_nom),
+                    datasets: [{
+                        label: 'PPM',
+                        data: ppmData.map(i => i.ppm || 0),
+                        fill: true,
+                        backgroundColor: 'rgba(245, 87, 108, 0.2)',
+                        borderColor: 'rgba(245, 87, 108, 1)',
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointBackgroundColor: 'rgba(245, 87, 108, 1)'
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'PPM' } } }
+                }
+            });
+        } catch(e) {
+            console.error('Erreur création graphique PPM:', e);
         }
-    });
+    })();
     {% endif %}
     
     // 8. Répartition UAP
-    {% if uap_labels and uap_data %}
-    new Chart(document.getElementById('chartUAP'), {
+    {% if uap_labels and uap_data and uap_data|length > 0 %}
+    safeCreateChart('chartUAP', {
         type: 'pie',
         data: {
             labels: {{ uap_labels|safe }},
@@ -833,19 +829,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'] 
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { position: 'right' } } 
+        }
     });
     {% endif %}
     
     // 9. Répartition imputation
-    {% if imputation_labels and imputation_data %}
-    new Chart(document.getElementById('chartImputation'), {
+    {% if imputation_labels and imputation_data and imputation_data|length > 0 %}
+    safeCreateChart('chartImputation', {
         type: 'doughnut',
         data: {
             labels: {{ imputation_labels|safe }},
             datasets: [{ 
                 data: {{ imputation_data|safe }}, 
-                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'] 
+                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56','#FF9F45'] 
             }]
         },
         options: { responsive: true, maintainAspectRatio: false }
@@ -853,95 +853,107 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
     
     // 10. Typologie par mois
-    {% if typologie_par_mois and mois_labels %}
-    const typologieData = {{ typologie_par_mois|safe }};
-    const colorsTypo = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'];
-    new Chart(document.getElementById('chartTypologie'), {
-        type: 'line',
-        data: {
-            labels: {{ mois_labels|safe }},
-            datasets: typologieData.map((item, i) => ({
-                label: item.label,
-                data: item.data,
-                borderColor: colorsTypo[i % colorsTypo.length],
-                tension: 0.4,
-                fill: false,
-                pointRadius: 3
-            }))
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-    });
+    {% if typologie_par_mois and mois_labels and typologie_par_mois|length > 0 %}
+    (function() {
+        try {
+            const typologieData = {{ typologie_par_mois|safe }};
+            const colorsTypo = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'];
+            const moisLabels = {{ mois_labels|safe }};
+            
+            safeCreateChart('chartTypologie', {
+                type: 'line',
+                data: {
+                    labels: moisLabels,
+                    datasets: typologieData.map((item, i) => ({
+                        label: item.label,
+                        data: item.data || [],
+                        borderColor: colorsTypo[i % colorsTypo.length],
+                        backgroundColor: 'transparent',
+                        tension: 0.4,
+                        fill: false,
+                        pointRadius: 3,
+                        pointBackgroundColor: colorsTypo[i % colorsTypo.length],
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 1
+                    }))
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
+                    plugins: { tooltip: { mode: 'index', intersect: false } }
+                }
+            });
+        } catch(e) {
+            console.error('Erreur création graphique typologie:', e);
+        }
+    })();
     {% endif %}
     
     // 11. Graphique d'évolution des produits récurrents
     {% if recurrence_evolution and recurrence_evolution|length > 0 %}
-    try {
-        const recurrenceData = {{ recurrence_evolution|safe }};
-        const productColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FFA07A', '#20B2AA', '#87CEEB', '#DDA0DD'];
-        
-        if (recurrenceData && Object.keys(recurrenceData).length > 0) {
-            const firstProduct = Object.keys(recurrenceData)[0];
-            const labels = recurrenceData[firstProduct]?.map(p => p.mois_nom || p.periode) || [];
+    (function() {
+        try {
+            const recurrenceData = {{ recurrence_evolution|safe }};
+            const productColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FFA07A', '#20B2AA', '#87CEEB', '#DDA0DD'];
             
-            const datasets = Object.keys(recurrenceData).map((produit, idx) => ({
-                label: produit,
-                data: recurrenceData[produit].map(p => p.taux_recurrence || 0),
-                borderColor: productColors[idx % productColors.length],
-                backgroundColor: 'transparent',
-                fill: false,
-                tension: 0.4,
-                pointRadius: 3,
-                pointHoverRadius: 5,
-                borderWidth: 2
-            }));
-            
-            const ctx = document.getElementById('chartRecurrenceProduits');
-            if (ctx) {
-                new Chart(ctx, {
+            if (recurrenceData && Object.keys(recurrenceData).length > 0) {
+                const firstProduct = Object.keys(recurrenceData)[0];
+                const labels = (recurrenceData[firstProduct] || []).map(p => p.mois_nom || p.periode || '');
+                
+                const datasets = Object.keys(recurrenceData).map((produit, idx) => ({
+                    label: produit,
+                    data: recurrenceData[produit].map(p => p.taux_recurrence || 0),
+                    borderColor: productColors[idx % productColors.length],
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2
+                }));
+                
+                safeCreateChart('chartRecurrenceProduits', {
                     type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: datasets
-                    },
+                    data: { labels: labels, datasets: datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        return `${context.dataset.label}: ${context.raw}%`;
-                                    }
-                                }
-                            },
-                            legend: {
-                                position: 'top',
-                                labels: {
-                                    boxWidth: 12,
-                                    font: { size: 11 }
-                                }
-                            }
+                            tooltip: { mode: 'index', intersect: false, callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw}%` } },
+                            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
                         },
                         scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: { display: true, text: 'Taux de récurrence (%)', font: { weight: 'bold' } },
-                                ticks: { callback: function(v) { return v + '%'; } }
-                            },
-                            x: {
-                                title: { display: true, text: 'Période', font: { weight: 'bold' } }
-                            }
+                            y: { beginAtZero: true, title: { display: true, text: 'Taux de récurrence (%)' }, ticks: { callback: v => v + '%' } },
+                            x: { title: { display: true, text: 'Période' } }
                         }
                     }
                 });
             }
+        } catch(e) {
+            console.error('Erreur création graphique récurrence:', e);
         }
-    } catch(e) {
-        console.error('Erreur création graphique récurrence:', e);
-    }
+    })();
     {% endif %}
 });
+</script>
+<script>
+// Debug dans la console du navigateur
+console.log("=== DEBUG DONNÉES TEMPLATE ===");
+console.log("Imputation labels:", {{ imputation_labels|safe }});
+console.log("Imputation data:", {{ imputation_data|safe }});
+console.log("NQC par client:", {{ nqc_par_client|safe }});
+console.log("NQC par type:", {{ nqc_par_type|safe }});
+console.log("PPM evolution:", {{ ppm_evolution|safe }});
+console.log("Clients labels:", {{ clients_labels|safe }});
+console.log("Clients data:", {{ clients_data|safe }});
+console.log("UAP labels:", {{ uap_labels|safe }});
+console.log("UAP data:", {{ uap_data|safe }});
+console.log("Mois labels:", {{ mois_labels|safe }});
+console.log("Mois data:", {{ mois_data|safe }});
+console.log("Typologie:", {{ typologie_par_mois|safe }});
+console.log("Top produits récurrents:", {{ top_produits_recurrents|safe }});
+console.log("Recurrence evolution:", {{ recurrence_evolution|safe }});
+console.log("=== FIN DEBUG ===");
 </script>
 {% endblock %}
