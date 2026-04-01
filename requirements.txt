@@ -1,1 +1,51 @@
+# Django et framework principal
 Django>=4.2.0
+django-crispy-forms>=2.0
+crispy-bootstrap5>=0.7
+
+# Base de données
+psycopg2-binary>=2.9.0  # Pour PostgreSQL (optionnel)
+mysqlclient>=2.2.0      # Pour MySQL (optionnel)
+
+# Traitement des données
+pandas>=2.0.0
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+xlrd>=2.0.0
+
+# Export PDF
+reportlab>=4.0.0
+xhtml2pdf>=0.2.11
+weasyprint>=60.0  # Alternative plus moderne
+
+# Graphiques et visualisation
+plotly>=5.17.0
+matplotlib>=3.7.0
+
+# IA et Machine Learning (optionnel)
+# torch>=2.0.0        # Pour PyTorch
+# transformers>=4.30.0  # Pour les modèles Hugging Face
+# ollama>=0.1.0        # Pour l'IA locale
+
+# API REST (si vous voulez développer une API)
+djangorestframework>=3.14.0
+django-cors-headers>=4.0.0
+
+# Authentification et sécurité
+django-allauth>=0.54.0
+django-axes>=6.0.0   # Pour la sécurité des connexions
+
+# Utilitaires
+python-decouple>=3.8
+python-dotenv>=1.0.0
+Pillow>=10.0.0
+requests>=2.31.0
+
+# Tests
+pytest>=7.4.0
+pytest-django>=4.5.0
+coverage>=7.3.0
+
+# Développement
+ipython>=8.14.0
+django-debug-toolbar>=4.0.0

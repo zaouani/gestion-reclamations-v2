@@ -48,6 +48,14 @@
                     </li>
 
                     {% if user.role == 'admin' or user.role == 'quality_manager' or user.role == 'quality_engineer' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'reclamations:reclamations_en_retard' %}">
+                            <i class="fas fa-bell me-1"></i> Échéances
+                            {% if reclamations_retard_count > 0 %}
+                            <span class="badge-notification">{{ reclamations_retard_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
                     <!-- Dropdown Administration -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -100,15 +108,6 @@
                             </a></li>
                             {% endif %}
                         </ul>
-                    </li>
-                    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'reclamations:reclamations_en_retard' %}">
-                            <i class="fas fa-bell me-1"></i> Échéances
-                            {% if reclamations_retard_count > 0 %}
-                            <span class="badge-notification">{{ reclamations_retard_count }}</span>
-                            {% endif %}
-                        </a>
                     </li>
                     {% endif %}
                 </ul>
