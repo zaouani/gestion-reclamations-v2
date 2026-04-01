@@ -49,10 +49,11 @@
 
                     {% if user.role == 'admin' or user.role == 'quality_manager' or user.role == 'quality_engineer' %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'reclamations:reclamations_en_retard' %}">
-                            <i class="fas fa-bell me-1"></i> Échéances
+                        <a class="nav-link d-flex align-items-center" href="{% url 'reclamations:reclamations_en_retard' %}">
+                            <i class="fas fa-bell me-1"></i>
+                            <span>Échéances</span>
                             {% if reclamations_retard_count > 0 %}
-                            <span class="badge-notification">{{ reclamations_retard_count }}</span>
+                            <span class="badge-notification ms-1">{{ reclamations_retard_count }}</span>
                             {% endif %}
                         </a>
                     </li>
@@ -221,8 +222,8 @@
     
     <!-- Chatbot Widget -->
     <div id="chatbotWidget" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
-        <div id="chatbotToggle" class="chatbot-toggle" style="width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(3,49,110,0.3); cursor: pointer;">
-            <i class="fas fa-robot fa-2x text-white"></i>
+        <div id="chatbotToggle" class="chatbot-toggle" style="width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(3,49,110,0.3); cursor: pointer; background: linear-gradient(135deg, #03316e 0%, #0a4a9e 100%); transition: all 0.3s ease;">
+            <i class="fas fa-comments fa-2x text-white"></i>
         </div>
         
         <div id="chatbotWindow" style="display: none; position: absolute; bottom: 70px; right: 0; width: 380px; height: 550px; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column;">
