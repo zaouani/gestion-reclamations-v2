@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Supprimer utilisateur - {{ user.username }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Confirmer la suppression</h5>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{{ user.get_full_name|default:user.username }}</strong> ?</p>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Informations de l'utilisateur :</strong>
+                        <ul class="mt-2 mb-0">
+                            <li><strong>Nom d'utilisateur :</strong> {{ user.username }}</li>
+                            <li><strong>Email :</strong> {{ user.email|default:"-" }}</li>
+                            <li><strong>Rôle :</strong> {{ user.get_role_display }}</li>
+                            <li><strong>Département :</strong> {{ user.department|default:"-" }}</li>
+                            <li><strong>Date de création :</strong> {{ user.date_joined|date:"d/m/Y H:i" }}</li>
+                            <li><strong>Dernière connexion :</strong> {{ user.last_login|date:"d/m/Y H:i"|default:"Jamais" }}</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <strong>Attention !</strong> Cette action est irréversible.
+                        <ul class="mt-2 mb-0">
+                            <li>Toutes les données associées à cet utilisateur seront supprimées</li>
+                            <li>Les réclamations créées par cet utilisateur resteront mais ne seront plus modifiables</li>
+                        </ul>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="fas fa-trash"></i> Oui, supprimer définitivement
+                            </button>
+                            <a href="{% url 'accounts:liste_utilisateurs' %}" class="btn btn-secondary btn-lg">
+                                Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

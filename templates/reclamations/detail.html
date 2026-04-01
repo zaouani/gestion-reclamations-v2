@@ -15,8 +15,14 @@
             <a href="{% url 'reclamations:liste' %}" class="btn btn-secondary">
                 <i class="fas fa-list"></i> Liste
             </a>
+            <a href="{% url 'reclamations:modifier_reclamation' reclamation.id %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Modifier
+            </a>
             <a href="{% url 'reclamations:modifier_etats' reclamation.id %}" class="btn btn-warning">
                 <i class="fas fa-flag"></i> Modifier états
+            </a>
+            <a href="{% url 'reclamations:huitd_detail' reclamation.id %}" class="btn btn-info">
+                <i class="fas fa-chart-line"></i> Fiche 8D
             </a>
             <a href="{% url 'reclamations:supprimer_reclamation' reclamation.id %}" class="btn btn-danger">
                 <i class="fas fa-trash"></i> Supprimer
@@ -183,7 +189,7 @@
                     <h6>Evidence:</h6>
                     <p>{{ reclamation.evidence|default:"-" }}</p>
                     
-                    <h6>ME (Management Review):</h6>
+                    <h6>ME (Mesure de l'efficacité):</h6>
                     <p>{% if reclamation.me %}<span class="badge bg-success">Oui</span>{% else %}<span class="badge bg-secondary">Non</span>{% endif %}</p>
                 </div>
             </div>

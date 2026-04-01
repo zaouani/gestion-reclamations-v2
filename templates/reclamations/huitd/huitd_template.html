@@ -1,0 +1,337 @@
+<!-- templates/reclamations/huitd/huitd_template.html -->
+{% extends 'base.html' %}
+
+{% block title %}Fiche 8D - {{ reclamation.numero_reclamation }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .no-print {
+            display: none;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .huitd-section {
+            break-inside: avoid;
+        }
+    }
+    
+    .huitd-header {
+        text-align: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+    }
+    
+    .huitd-section {
+        margin-bottom: 25px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .huitd-title {
+        background-color: #4472C4;
+        color: white;
+        padding: 10px 15px;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    
+    .huitd-content {
+        padding: 15px;
+        background-color: #fef9e6;
+    }
+    
+    .info-line {
+        display: flex;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+    }
+    
+    .info-label {
+        width: 150px;
+        font-weight: bold;
+        color: #555;
+    }
+    
+    .info-value {
+        flex: 1;
+    }
+    
+    .signature-line {
+        margin-top: 40px;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .signature {
+        width: 200px;
+        text-align: center;
+        border-top: 1px solid #000;
+        padding-top: 5px;
+    }
+    
+    .fillable {
+        background-color: #fef9e6;
+        min-height: 40px;
+        padding: 8px;
+    }
+    
+    .badge-status {
+        padding: 3px 10px;
+        border-radius: 15px;
+        font-size: 11px;
+    }
+    .status-en_cours { background-color: #ffc107; color: #333; }
+    .status-valide { background-color: #17a2b8; color: white; }
+    .status-cloture { background-color: #28a745; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4 no-print">
+        <div class="col">
+            <h1><i class="fas fa-chart-line"></i> Fiche 8D</h1>
+            <p class="text-muted">{{ reclamation.numero_reclamation }} - {{ reclamation.client.nom }}</p>
+        </div>
+        <div class="col text-end no-print">
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="fas fa-print"></i> Imprimer
+            </button>
+            <a href="{% url 'reclamations:huitd_modifier' huitd.id %}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Modifier
+            </a>
+            <a href="{% url 'reclamations:detail_reclamation' reclamation.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+    
+    <div class="huitd-header">
+        <h2>Démarche 8D - Résolution de problème</h2>
+        <p>Référence: {{ huitd.numero_8d|default:"-" }}</p>
+        <p>
+            Statut: 
+            <span class="badge-status status-{{ huitd.etat|lower|cut:'_' }}">
+                {{ huitd.get_etat_display }}
+            </span>
+        </p>
+    </div>
+    
+    <!-- D0 - Préparation -->
+    <div class="huitd-section">
+        <div class="huitd-title">D0 - Préparation et planification</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Date de démarrage :</div>
+                <div class="info-value">{{ huitd.d0_date|date:"d/m/Y"|default:"__________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Équipe 8D :</div>
+                <div class="info-value">{{ huitd.d0_equipe|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D1 - Établir l'équipe -->
+    <div class="huitd-section">
+        <div class="huitd-title">D1 - Établir l'équipe</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Chef d'équipe :</div>
+                <div class="info-value">{{ huitd.d1_leader|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Membres :</div>
+                <div class="info-value">{{ huitd.d1_membres|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Compétences :</div>
+                <div class="info-value">{{ huitd.d1_competences|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D2 - Décrire le problème -->
+    <div class="huitd-section">
+        <div class="huitd-title">D2 - Décrire le problème</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Description :</div>
+                <div class="info-value">{{ huitd.d2_description|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Impact client/interne :</div>
+                <div class="info-value">{{ huitd.d2_impact|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Quantification :</div>
+                <div class="info-value">{{ huitd.d2_quantification|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Historique :</div>
+                <div class="info-value">{{ huitd.d2_historique|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D3 - Actions immédiates -->
+    <div class="huitd-section">
+        <div class="huitd-title">D3 - Actions immédiates (contenement)</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Actions :</div>
+                <div class="info-value">{{ huitd.d3_actions|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Responsable :</div>
+                <div class="info-value">{{ huitd.d3_responsable|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Date :</div>
+                <div class="info-value">{{ huitd.d3_date|date:"d/m/Y"|default:"___________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Efficacité :</div>
+                <div class="info-value">{{ huitd.d3_efficacite|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D4 - Causes racines -->
+    <div class="huitd-section">
+        <div class="huitd-title">D4 - Identification des causes racines</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Causes identifiées :</div>
+                <div class="info-value">{{ huitd.d4_causes|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Méthodes utilisées :</div>
+                <div class="info-value">{{ huitd.d4_methodes|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Validation :</div>
+                <div class="info-value">{{ huitd.d4_validation|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D5 - Actions correctives -->
+    <div class="huitd-section">
+        <div class="huitd-title">D5 - Actions correctives</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Actions :</div>
+                <div class="info-value">{{ huitd.d5_actions|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Responsable :</div>
+                <div class="info-value">{{ huitd.d5_responsable|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Date prévue :</div>
+                <div class="info-value">{{ huitd.d5_date_prevue|date:"d/m/Y"|default:"___________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Date réalisée :</div>
+                <div class="info-value">{{ huitd.d5_date_reelle|date:"d/m/Y"|default:"___________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Validation :</div>
+                <div class="info-value">{{ huitd.d5_validation|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D6 - Actions préventives -->
+    <div class="huitd-section">
+        <div class="huitd-title">D6 - Actions préventives (standardisation)</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Actions :</div>
+                <div class="info-value">{{ huitd.d6_actions|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Responsable :</div>
+                <div class="info-value">{{ huitd.d6_responsable|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Date :</div>
+                <div class="info-value">{{ huitd.d6_date|date:"d/m/Y"|default:"___________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Standardisation :</div>
+                <div class="info-value">{{ huitd.d6_standardisation|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D7 - Prévention de la récurrence -->
+    <div class="huitd-section">
+        <div class="huitd-title">D7 - Prévention de la récurrence</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Actions :</div>
+                <div class="info-value">{{ huitd.d7_actions|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Documentation :</div>
+                <div class="info-value">{{ huitd.d7_documentation|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Formation :</div>
+                <div class="info-value">{{ huitd.d7_formation|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- D8 - Félicitations -->
+    <div class="huitd-section">
+        <div class="huitd-title">D8 - Félicitations et reconnaissance</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Reconnaissance :</div>
+                <div class="info-value">{{ huitd.d8_equipe|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Retour d'expérience :</div>
+                <div class="info-value">{{ huitd.d8_retour|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Améliorations :</div>
+                <div class="info-value">{{ huitd.d8_amelioration|default:"_________________________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Validation -->
+    <div class="huitd-section">
+        <div class="huitd-title">Validation</div>
+        <div class="huitd-content">
+            <div class="info-line">
+                <div class="info-label">Validé par :</div>
+                <div class="info-value">{{ huitd.valide_par|default:"_________________________" }}</div>
+            </div>
+            <div class="info-line">
+                <div class="info-label">Date de validation :</div>
+                <div class="info-value">{{ huitd.date_validation|date:"d/m/Y"|default:"___________" }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="signature-line">
+        <div class="signature">Chef d'équipe :</div>
+        <div class="signature">Qualité :</div>
+        <div class="signature">Direction :</div>
+    </div>
+    
+    <div class="footer text-muted text-center mt-4 small">
+        Document généré automatiquement - {{ huitd.date_creation|date:"d/m/Y H:i" }}
+    </div>
+</div>
+{% endblock %}

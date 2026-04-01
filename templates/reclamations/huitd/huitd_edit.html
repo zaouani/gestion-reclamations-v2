@@ -1,0 +1,191 @@
+<!-- templates/reclamations/huitd/huitd_edit.html -->
+{% extends 'base.html' %}
+
+{% block title %}Modifier 8D - {{ reclamation.numero_reclamation }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-edit"></i> Modifier la fiche 8D</h1>
+            <p class="text-muted">{{ reclamation.numero_reclamation }} - {{ reclamation.client.nom }}</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'reclamations:huitd_detail' reclamation.id %}" class="btn btn-secondary">
+                <i class="fas fa-eye"></i> Voir
+            </a>
+        </div>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- D0 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D0 - Préparation</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label>Date de démarrage</label>
+                        <input type="date" name="d0_date" class="form-control" value="{{ huitd.d0_date|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label>Équipe 8D</label>
+                        <input type="text" name="d0_equipe" class="form-control" value="{{ huitd.d0_equipe }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- D1 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D1 - Établir l'équipe</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label>Chef d'équipe</label>
+                        <input type="text" name="d1_leader" class="form-control" value="{{ huitd.d1_leader }}">
+                    </div>
+                    <div class="col-md-8 mb-2">
+                        <label>Membres</label>
+                        <input type="text" name="d1_membres" class="form-control" value="{{ huitd.d1_membres }}">
+                    </div>
+                    <div class="col-12 mb-2">
+                        <label>Compétences requises</label>
+                        <textarea name="d1_competences" class="form-control" rows="2">{{ huitd.d1_competences }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- D2 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D2 - Décrire le problème</div>
+            <div class="card-body">
+                <textarea name="d2_description" class="form-control mb-2" rows="3" placeholder="Description du problème">{{ huitd.d2_description }}</textarea>
+                <textarea name="d2_impact" class="form-control mb-2" rows="2" placeholder="Impact client/interne">{{ huitd.d2_impact }}</textarea>
+                <textarea name="d2_quantification" class="form-control mb-2" rows="2" placeholder="Quantification (données)">{{ huitd.d2_quantification }}</textarea>
+                <textarea name="d2_historique" class="form-control" rows="2" placeholder="Historique du problème">{{ huitd.d2_historique }}</textarea>
+            </div>
+        </div>
+        
+        <!-- D3 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D3 - Actions immédiates</div>
+            <div class="card-body">
+                <textarea name="d3_actions" class="form-control mb-2" rows="2" placeholder="Actions">{{ huitd.d3_actions }}</textarea>
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label>Responsable</label>
+                        <input type="text" name="d3_responsable" class="form-control" value="{{ huitd.d3_responsable }}">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label>Date</label>
+                        <input type="date" name="d3_date" class="form-control" value="{{ huitd.d3_date|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                <textarea name="d3_efficacite" class="form-control" rows="2" placeholder="Efficacité des actions">{{ huitd.d3_efficacite }}</textarea>
+            </div>
+        </div>
+        
+        <!-- D4 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D4 - Causes racines</div>
+            <div class="card-body">
+                <textarea name="d4_causes" class="form-control mb-2" rows="3" placeholder="Causes racines">{{ huitd.d4_causes }}</textarea>
+                <textarea name="d4_methodes" class="form-control mb-2" rows="2" placeholder="Méthodes d'analyse">{{ huitd.d4_methodes }}</textarea>
+                <textarea name="d4_validation" class="form-control" rows="2" placeholder="Validation">{{ huitd.d4_validation }}</textarea>
+            </div>
+        </div>
+        
+        <!-- D5 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D5 - Actions correctives</div>
+            <div class="card-body">
+                <textarea name="d5_actions" class="form-control mb-2" rows="2" placeholder="Actions">{{ huitd.d5_actions }}</textarea>
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label>Responsable</label>
+                        <input type="text" name="d5_responsable" class="form-control" value="{{ huitd.d5_responsable }}">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label>Date prévue</label>
+                        <input type="date" name="d5_date_prevue" class="form-control" value="{{ huitd.d5_date_prevue|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label>Date réalisée</label>
+                        <input type="date" name="d5_date_reelle" class="form-control" value="{{ huitd.d5_date_reelle|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                <textarea name="d5_validation" class="form-control" rows="2" placeholder="Validation">{{ huitd.d5_validation }}</textarea>
+            </div>
+        </div>
+        
+        <!-- D6 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D6 - Actions préventives</div>
+            <div class="card-body">
+                <textarea name="d6_actions" class="form-control mb-2" rows="2" placeholder="Actions">{{ huitd.d6_actions }}</textarea>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label>Responsable</label>
+                        <input type="text" name="d6_responsable" class="form-control" value="{{ huitd.d6_responsable }}">
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label>Date</label>
+                        <input type="date" name="d6_date" class="form-control" value="{{ huitd.d6_date|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                <textarea name="d6_standardisation" class="form-control" rows="2" placeholder="Standardisation">{{ huitd.d6_standardisation }}</textarea>
+            </div>
+        </div>
+        
+        <!-- D7 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D7 - Prévention de la récurrence</div>
+            <div class="card-body">
+                <textarea name="d7_actions" class="form-control mb-2" rows="2" placeholder="Actions">{{ huitd.d7_actions }}</textarea>
+                <textarea name="d7_documentation" class="form-control mb-2" rows="2" placeholder="Documentation">{{ huitd.d7_documentation }}</textarea>
+                <textarea name="d7_formation" class="form-control" rows="2" placeholder="Formation">{{ huitd.d7_formation }}</textarea>
+            </div>
+        </div>
+        
+        <!-- D8 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">D8 - Félicitations</div>
+            <div class="card-body">
+                <textarea name="d8_equipe" class="form-control mb-2" rows="2" placeholder="Reconnaissance de l'équipe">{{ huitd.d8_equipe }}</textarea>
+                <textarea name="d8_retour" class="form-control mb-2" rows="2" placeholder="Retour d'expérience">{{ huitd.d8_retour }}</textarea>
+                <textarea name="d8_amelioration" class="form-control" rows="2" placeholder="Améliorations">{{ huitd.d8_amelioration }}</textarea>
+            </div>
+        </div>
+        
+        <!-- Validation -->
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">Validation</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label>Statut</label>
+                        <select name="etat" class="form-control">
+                            {% for value, label in etat_choices %}
+                            <option value="{{ value }}" {% if huitd.etat == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label>Validé par</label>
+                        <input type="text" name="valide_par" class="form-control" value="{{ huitd.valide_par }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-end">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-save"></i> Enregistrer
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

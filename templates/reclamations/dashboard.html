@@ -103,9 +103,12 @@
     <!-- En-tête -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h2 mb-1"><i class="fas fa-chart-line me-2 text-primary"></i>Tableau de bord</h1>
+            <h1 class="h2 mb-1">Tableau de bord</h1>
             <p class="text-muted mb-0">Synthèse des indicateurs qualité et performances</p>
         </div>
+        <button class="btn btn-outline-primary" id="btnAIAnalysis">
+            <i class="fas fa-robot me-2"></i> Analyser les KPIs
+        </button>
         <div class="dropdown">
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
                 <i class="fas fa-download me-1"></i> Exporter
@@ -125,6 +128,7 @@
         </div>
     </div>
 
+    <div id="aiAnalysisResult" style="display: none;" class="mb-4"></div>
     <!-- Cartes KPI principales -->
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6">
@@ -161,9 +165,14 @@
             <div class="card stat-card bg-secondary text-white">
                 <div class="card-body position-relative">
                     <div class="stat-icon"><i class="fas fa-rocket"></i></div>
-                    <div class="stat-label">Réactivité</div>
-                    <div class="stat-value">{{ taux_reactivite|default:0 }}%</div>
-                    <small>clôturées &lt; 30 jours</small>
+                    <div class="stat-label">Réactivité moyenne (4D/8D)</div>
+                    <div class="stat-value">{{ moyenne_reactivite|default:0 }}%</div>
+                    <small>
+                        moyenne {{ annee_courante }} 
+                        {% if moyenne_reactivite_2025 %}
+                        | 2025: {{ moyenne_reactivite_2025 }}%
+                        {% endif %}
+                    </small>
                 </div>
             </div>
         </div>
@@ -284,6 +293,8 @@
 
     <!-- Graphiques principaux -->
     <div class="row g-4 mb-4">
+
+        <!-- Top 10 clients -->
         <div class="col-xl-6">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-white border-bottom">
@@ -300,6 +311,8 @@
                 </div>
             </div>
         </div>
+
+        <!-- Évolution mensuelle -->
         <div class="col-xl-6">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-white border-bottom">
@@ -336,6 +349,8 @@
                 </div>
             </div>
         </div>
+
+        <!-- Top 10 clients - Coût NQC -->
         <div class="col-xl-6">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-white border-bottom">
@@ -352,6 +367,8 @@
                 </div>
             </div>
         </div>
+
+        <!-- Répartition NQC par type -->
         <div class="col-xl-6">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-white border-bottom">
@@ -368,23 +385,76 @@
                 </div>
             </div>
         </div>
+
+        <!-- Histogramme par site client -->
+        
+        <div class="col-xl-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <i class="fas fa-store-alt text-primary me-2"></i> Top 10 sites clients
+                </div>
+                <div class="card-body">
+                    {% if site_client_labels and site_client_data %}
+                    <div class="chart-container" style="height: 350px;">
+                        <canvas id="chartSiteClient"></canvas>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Aucune donnée disponible pour les sites clients.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
     </div>
 
     <!-- PPM Evolution -->
     <div class="row g-4 mb-4">
-        <div class="col-xl-12">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <i class="fas fa-chart-line text-danger me-2"></i> PPM - Évolution mensuelle
-                </div>
-                <div class="card-body">
-                    {% if ppm_evolution %}
-                    <div class="chart-container">
-                        <canvas id="chartPPMEvolution"></canvas>
+        <div class="col-xl-6">
+            <div class="col-xl-12">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-white border-bottom">
+                        <i class="fas fa-chart-line text-danger me-2"></i> PPM - Évolution mensuelle
                     </div>
-                    {% else %}
-                    <div class="alert alert-info text-center">Aucune donnée disponible</div>
-                    {% endif %}
+                    <div class="card-body">
+                        {% if ppm_evolution %}
+                        <div class="chart-container">
+                            <canvas id="chartPPMEvolution"></canvas>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info text-center">Aucune donnée disponible</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Histogramme des réclamations par mois pour un client -->
+        <div class="col-xl-6">
+            <div class="col-xl-12">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-chart-bar text-primary me-2"></i> 
+                            Réclamations par mois
+                            <span id="clientNameDisplay" class="badge bg-info ms-2">Tous les clients</span>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="clientFilter" class="form-select form-select-sm">
+                                <option value="all">Tous les clients</option>
+                                {% for client in clients %}
+                                <option value="{{ client.id }}">{{ client.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="chartReclamationsClientMois"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -408,6 +478,8 @@
                 </div>
             </div>
         </div>
+
+        <!-- Répartition par UAP -->
         <div class="col-xl-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-white border-bottom">
@@ -424,6 +496,8 @@
                 </div>
             </div>
         </div>
+
+        <!-- Répartition par type de NC -->
         <div class="col-xl-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-white border-bottom">
@@ -529,31 +603,53 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Graphique d'évolution des produits les plus récurrents -->
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <i class="fas fa-chart-line text-info me-2"></i> Évolution des produits les plus récurrents
-                </div>
-                <div class="card-body">
-                    {% if recurrence_evolution and recurrence_evolution|length > 0 %}
-                    <div class="chart-container" style="height: 350px;">
-                        <canvas id="chartRecurrenceProduits"></canvas>
+     <!-- Taux de réactivité par UAP -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white border-bottom">
+                <i class="fas fa-chart-line text-success me-2"></i> 
+                Taux de réactivité par UAP (%)
+                <span class="badge bg-info ms-2">4D: 2 jours ouvrés | 8D: 10 jours ouvrés</span>
+            </div>
+            <div class="card-body">
+                {% if reactivite_uap_par_annee %}
+                <!-- Sélecteur d'année -->
+                <ul class="nav nav-tabs mb-3" id="reactiviteUAPTabs" role="tablist">
+                    {% for annee in reactivite_uap_annees %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {% if forloop.first %}active{% endif %}" 
+                                id="tab-{{ annee }}" 
+                                data-bs-toggle="tab" 
+                                data-bs-target="#content-{{ annee }}" 
+                                type="button" 
+                                role="tab">
+                            Année {{ annee }}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                
+                <!-- Contenu des onglets -->
+                <div class="tab-content">
+                    {% for annee, data in reactivite_uap_par_annee.items %}
+                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
+                        id="content-{{ annee }}" 
+                        role="tabpanel">
+                        <div class="chart-container" style="height: 400px;">
+                            <canvas id="chartReactiviteUAP_{{ annee }}"></canvas>
+                        </div>
                     </div>
-                    {% else %}
-                    <div class="alert alert-info text-center">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Aucune donnée d'évolution disponible. Commencez par créer des réclamations.
-                    </div>
-                    {% endif %}
+                    {% endfor %}
                 </div>
+                {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Aucune donnée de réactivité disponible.
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -890,70 +986,390 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
     {% endif %}
     
-    // 11. Graphique d'évolution des produits récurrents
-    {% if recurrence_evolution and recurrence_evolution|length > 0 %}
+    // 12. Graphique par site client - Version améliorée
+    {% if site_client_labels and site_client_data %}
     (function() {
         try {
-            const recurrenceData = {{ recurrence_evolution|safe }};
-            const productColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FFA07A', '#20B2AA', '#87CEEB', '#DDA0DD'];
+            const labels = {{ site_client_labels|safe }};
+            const data = {{ site_client_data|safe }};
             
-            if (recurrenceData && Object.keys(recurrenceData).length > 0) {
-                const firstProduct = Object.keys(recurrenceData)[0];
-                const labels = (recurrenceData[firstProduct] || []).map(p => p.mois_nom || p.periode || '');
-                
-                const datasets = Object.keys(recurrenceData).map((produit, idx) => ({
-                    label: produit,
-                    data: recurrenceData[produit].map(p => p.taux_recurrence || 0),
-                    borderColor: productColors[idx % productColors.length],
-                    backgroundColor: 'transparent',
-                    fill: false,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointHoverRadius: 5,
-                    borderWidth: 2
-                }));
-                
-                safeCreateChart('chartRecurrenceProduits', {
-                    type: 'line',
-                    data: { labels: labels, datasets: datasets },
+            // Générer des couleurs basées sur la valeur
+            const colors = data.map(value => {
+                if (value < 5) return 'rgba(40, 167, 69, 0.6)';     // Vert
+                if (value < 15) return 'rgba(255, 193, 7, 0.6)';    // Jaune
+                return 'rgba(220, 53, 69, 0.6)';                    // Rouge
+            });
+            
+            const borderColors = data.map(value => {
+                if (value < 5) return 'rgb(40, 167, 69)';
+                if (value < 15) return 'rgb(255, 193, 7)';
+                return 'rgb(220, 53, 69)';
+            });
+            
+            safeCreateChart('chartSiteClient', {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nombre de réclamations',
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: borderColors,
+                        borderRadius: 6,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    let status = '';
+                                    if (value < 5) status = '✓ Bon';
+                                    else if (value < 15) status = '⚠️ Moyen';
+                                    else status = '✗ Critique';
+                                    return `${context.raw} réclamation(s) - ${status}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Nombre de réclamations' },
+                            ticks: { stepSize: 1, precision: 0 }
+                        },
+                        x: {
+                            title: { display: true, text: 'Site client' },
+                            ticks: { maxRotation: 45, minRotation: 45 }
+                        }
+                    }
+                }
+            });
+        } catch(e) {
+            console.error('Erreur création graphique site client:', e);
+        }
+    })();
+    {% endif %}
+
+    {% if reactivite_uap_par_annee %}
+    {% for annee, data in reactivite_uap_par_annee.items %}
+    (function() {
+        const moisLabels = {{ data.mois_labels|safe }};
+        const uapNoms = {{ data.uap_noms|safe }};
+        const dataValues = {{ data.data|safe }};
+        
+        if (moisLabels && moisLabels.length > 0 && uapNoms && uapNoms.length > 0) {
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FF5733', '#C70039'];
+            
+            const datasets = uapNoms.map((uap, idx) => {
+                const dataUAP = moisLabels.map(mois => dataValues[mois]?.[uap] || 0);
+                return {
+                    label: uap,
+                    data: dataUAP,
+                    borderColor: colors[idx % colors.length],
+                    backgroundColor: colors[idx % colors.length] + '33', // léger remplissage
+                    borderWidth: 3,
+                    tension: 0.2,                    // courbe légère
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#fff',
+                    pointBorderWidth: 2,
+                    fill: false
+                };
+            });
+            
+            const canvas = document.getElementById('chartReactiviteUAP_{{ annee }}');
+            if (canvas) {
+                new Chart(canvas, {
+                    type: 'line',                    // ← Changé en line
+                    data: {
+                        labels: moisLabels,
+                        datasets: datasets
+                    },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
                         plugins: {
-                            tooltip: { mode: 'index', intersect: false, callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw}%` } },
-                            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.raw.toFixed(1)}%`;
+                                    }
+                                }
+                            },
+                            legend: {
+                                position: 'top',
+                                labels: { 
+                                    boxWidth: 12, 
+                                    font: { size: 12 },
+                                    padding: 15
+                                }
+                            }
                         },
                         scales: {
-                            y: { beginAtZero: true, title: { display: true, text: 'Taux de récurrence (%)' }, ticks: { callback: v => v + '%' } },
-                            x: { title: { display: true, text: 'Période' } }
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                title: { 
+                                    display: true, 
+                                    text: 'Taux de réactivité (%)' 
+                                },
+                                ticks: { 
+                                    callback: v => v + '%' 
+                                }
+                            },
+                            x: {
+                                title: { display: true, text: 'Mois' },
+                                ticks: { 
+                                    maxRotation: 45, 
+                                    minRotation: 45 
+                                }
+                            }
                         }
                     }
                 });
             }
-        } catch(e) {
-            console.error('Erreur création graphique récurrence:', e);
         }
     })();
+    {% endfor %}
     {% endif %}
+
 });
 </script>
 <script>
-// Debug dans la console du navigateur
-console.log("=== DEBUG DONNÉES TEMPLATE ===");
-console.log("Imputation labels:", {{ imputation_labels|safe }});
-console.log("Imputation data:", {{ imputation_data|safe }});
-console.log("NQC par client:", {{ nqc_par_client|safe }});
-console.log("NQC par type:", {{ nqc_par_type|safe }});
-console.log("PPM evolution:", {{ ppm_evolution|safe }});
-console.log("Clients labels:", {{ clients_labels|safe }});
-console.log("Clients data:", {{ clients_data|safe }});
-console.log("UAP labels:", {{ uap_labels|safe }});
-console.log("UAP data:", {{ uap_data|safe }});
-console.log("Mois labels:", {{ mois_labels|safe }});
-console.log("Mois data:", {{ mois_data|safe }});
-console.log("Typologie:", {{ typologie_par_mois|safe }});
-console.log("Top produits récurrents:", {{ top_produits_recurrents|safe }});
-console.log("Recurrence evolution:", {{ recurrence_evolution|safe }});
-console.log("=== FIN DEBUG ===");
+    // Graphique des réclamations par mois pour un client
+    let chartReclamationsClientMois = null;
+
+    function loadReclamationsClientMois(clientId) {
+        const url = `{% url 'reclamations:api_reclamations_client_mois' %}?client_id=${clientId}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('chartReclamationsClientMois').getContext('2d');
+                
+                // Détruire l'ancien graphique s'il existe
+                if (chartReclamationsClientMois) {
+                    chartReclamationsClientMois.destroy();
+                }
+                
+                // Mettre à jour le nom du client
+                const clientNameDisplay = document.getElementById('clientNameDisplay');
+                if (data.client_nom) {
+                    clientNameDisplay.textContent = data.client_nom;
+                    clientNameDisplay.className = 'badge bg-success ms-2';
+                    
+                } else {
+                    clientNameDisplay.textContent = 'Tous les clients';
+                    clientNameDisplay.className = 'badge bg-info ms-2';
+                    
+                }
+                
+                // Créer le nouveau graphique
+                chartReclamationsClientMois = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: data.client_nom ? `Réclamations - ${data.client_nom}` : 'Réclamations - Tous clients',
+                            data: data.data,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.raw} réclamation(s)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Nombre de réclamations'
+                                },
+                                ticks: {
+                                    stepSize: 1,
+                                    precision: 0
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: false,
+                                    text: 'Mois'
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                document.getElementById('chartInfo').textContent = 'Erreur de chargement des données';
+            });
+    }
+
+    // Initialisation du graphique
+    document.addEventListener('DOMContentLoaded', function() {
+        // Charger les données initiales (tous les clients)
+        loadReclamationsClientMois('all');
+        
+        // Ajouter l'écouteur d'événement sur le filtre client
+        const clientFilter = document.getElementById('clientFilter');
+        if (clientFilter) {
+            clientFilter.addEventListener('change', function() {
+                const clientId = this.value;
+                loadReclamationsClientMois(clientId);
+            });
+        }
+    });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnAnalysis = document.getElementById('btnAIAnalysis');
+    const resultContainer = document.getElementById('aiAnalysisResult');
+    
+    if (btnAnalysis) {
+        btnAnalysis.addEventListener('click', function() {
+            // Désactiver le bouton pendant l'analyse
+            btnAnalysis.disabled = true;
+            btnAnalysis.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Analyse en cours...';
+            
+            // Afficher le conteneur avec un loader
+            resultContainer.style.display = 'block';
+            resultContainer.innerHTML = `
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-robot me-2"></i> Analyse IA des KPIs
+                    </div>
+                    <div class="card-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Analyse des indicateurs qualité en cours...</p>
+                    </div>
+                </div>
+            `;
+            
+            // Appeler l'API
+            fetch('/api/analyse-kpis/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Afficher les résultats
+                resultContainer.innerHTML = `
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-robot me-2"></i> Analyse IA des KPIs
+                            </div>
+                            <button class="btn-close btn-close-white" onclick="document.getElementById('aiAnalysisResult').style.display='none'"></button>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-5 mb-3">
+                                    <div class="card h-100 border-0 bg-light">
+                                        <div class="card-header bg-info text-white">
+                                            <i class="fas fa-stethoscope"></i> Diagnostic
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="card-text"><strong>${data.diagnostic || 'Analyse non disponible'}</strong></p>
+                                            <hr>
+                                            <small class="text-muted">
+                                                <i class="fas fa-search"></i> Causes probables: ${data.causes || 'À investiguer'}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="card border-0 bg-light mb-3">
+                                        <div class="card-header bg-warning text-dark">
+                                            <i class="fas fa-tasks"></i> Actions prioritaires
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-group list-group-flush">
+                                                ${(data.actions_prioritaires || []).map(action => `
+                                                    <li class="list-group-item bg-light border-0 ps-0">
+                                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                                        ${action}
+                                                    </li>
+                                                `).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-header bg-success text-white">
+                                            <i class="fas fa-lightbulb"></i> Recommandations
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-group list-group-flush">
+                                                ${(data.recommandations || []).map(rec => `
+                                                    <li class="list-group-item bg-light border-0 ps-0">
+                                                        <i class="fas fa-arrow-right text-primary me-2"></i>
+                                                        ${rec}
+                                                    </li>
+                                                `).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info mt-3 mb-0">
+                                <i class="fas fa-info-circle"></i>
+                                <small>Analyse basée sur les KPIs des 12 derniers mois. Modèle: TinyLlama</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Réactiver le bouton
+                btnAnalysis.disabled = false;
+                btnAnalysis.innerHTML = '<i class="fas fa-robot me-2"></i> Analyser les KPIs';
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                resultContainer.innerHTML = `
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-danger text-white">
+                            <i class="fas fa-exclamation-triangle me-2"></i> Erreur d'analyse
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0">Le service d'analyse IA est temporairement indisponible. Veuillez réessayer plus tard.</p>
+                        </div>
+                    </div>
+                `;
+                btnAnalysis.disabled = false;
+                btnAnalysis.innerHTML = '<i class="fas fa-robot me-2"></i> Analyser les KPIs';
+            });
+        });
+    }
+});
 </script>
 {% endblock %}

@@ -173,3 +173,21 @@ class PPMCalculator:
             return {'text': 'Moyen', 'class': 'warning'}
         else:
             return {'text': 'Critique', 'class': 'danger'}
+        
+from datetime import timedelta
+
+def est_jour_ouvre(date):
+    """Vérifie si une date est un jour ouvré (lundi à vendredi)"""
+    return date.weekday() < 5  # 0 = lundi, 4 = vendredi
+
+def calculer_date_limite_ouvree(date_debut, jours_ouvres):
+    """Calcule la date limite en jours ouvrés"""
+    date_limite = date_debut
+    jours_restants = jours_ouvres
+    
+    while jours_restants > 0:
+        date_limite += timedelta(days=1)
+        if est_jour_ouvre(date_limite):
+            jours_restants -= 1
+    
+    return date_limite

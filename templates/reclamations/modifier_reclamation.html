@@ -1,0 +1,433 @@
+{% extends 'base.html' %}
+
+{% block title %}Modifier Réclamation - {{ reclamation.numero_reclamation }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .ligne-reclamation {
+        background-color: #f8f9fa;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #ffc107;
+    }
+    .remove-ligne {
+        cursor: pointer;
+        color: #dc3545;
+        font-size: 1.2rem;
+    }
+    .remove-ligne:hover {
+        color: #bd2130;
+    }
+    .is-invalid {
+        border-color: #dc3545;
+    }
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-edit"></i> Modifier Réclamation</h1>
+            <p class="text-muted">{{ reclamation.numero_reclamation }} - {{ reclamation.client.nom }}</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'reclamations:detail_reclamation' reclamation.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <form method="post" id="reclamationForm">
+        {% csrf_token %}
+        
+        <!-- Informations générales -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Informations générales</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="numero_reclamation" class="form-label">N° Réclamation *</label>
+                        <input type="text" class="form-control" id="numero_reclamation" name="numero_reclamation" 
+                               value="{{ reclamation.numero_reclamation }}" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="date_reclamation" class="form-label">Date réclamation</label>
+                        <input type="date" class="form-control" id="date_reclamation" name="date_reclamation" 
+                               value="{{ reclamation.date_reclamation|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="client" class="form-label">Client *</label>
+                        <select class="form-control" id="client" name="client" required>
+                            <option value="">Sélectionnez un client</option>
+                            {% for client in clients %}
+                            <option value="{{ client.id }}" {% if reclamation.client.id == client.id %}selected{% endif %}>
+                                {{ client.nom }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="site_client" class="form-label">Site client concerné</label>
+                        <select class="form-control" id="site_client" name="site_client">
+                            <option value="">Sélectionnez un site client</option>
+                            {% for site in sites_client %}
+                            <option value="{{ site.id }}" {% if reclamation.site_client.id == site.id %}selected{% endif %}>
+                                {{ site.nom }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="site" class="form-label">Site usine *</label>
+                        <select class="form-control" id="site" name="site" required>
+                            <option value="">Sélectionnez un site usine</option>
+                            {% for site in sites_usine %}
+                            <option value="{{ site.id }}" {% if reclamation.site.id == site.id %}selected{% endif %}>
+                                {{ site.nom }} ({{ site.uap.nom }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="programme" class="form-label">Programme</label>
+                        <select class="form-control" id="programme" name="programme">
+                            <option value="">Sélectionnez un programme</option>
+                            {% for prog in programmes %}
+                            <option value="{{ prog.id }}" {% if reclamation.programme.id == prog.id %}selected{% endif %}>
+                                {{ prog.nom }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="imputation" class="form-label">Imputation</label>
+                        <select class="form-control" id="imputation" name="imputation">
+                            {% for value, label in imputation_choices %}
+                            <option value="{{ value }}" {% if reclamation.imputation == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="type_nc" class="form-label">Type de NC</label>
+                        <select class="form-control" id="type_nc" name="type_nc">
+                            {% for value, label in type_nc_choices %}
+                            <option value="{{ value }}" {% if reclamation.type_nc == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Numéros 4D et 8D -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-hashtag"></i> Numéros de référence</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="numero_4d" class="form-label">N° 4D</label>
+                        <input type="text" class="form-control" id="numero_4d" name="numero_4d" value="{{ reclamation.numero_4d|default:'' }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="numero_8d" class="form-label">N° 8D</label>
+                        <input type="text" class="form-control" id="numero_8d" name="numero_8d" value="{{ reclamation.numero_8d|default:'' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- États -->
+        <div class="card mb-4">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0"><i class="fas fa-flag"></i> États</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="etat_4d" class="form-label">État 4D</label>
+                        <select class="form-control" id="etat_4d" name="etat_4d">
+                            {% for value, label in etat_choices %}
+                            <option value="{{ value }}" {% if reclamation.etat_4d == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="etat_8d" class="form-label">État 8D</label>
+                        <select class="form-control" id="etat_8d" name="etat_8d">
+                            {% for value, label in etat_choices %}
+                            <option value="{{ value }}" {% if reclamation.etat_8d == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="cloture" name="cloture" {% if reclamation.cloture %}checked{% endif %}>
+                            <label class="form-check-label" for="cloture">
+                                Réclamation clôturée
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Lignes de réclamation -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list"></i> Produits concernés</h5>
+                <button type="button" class="btn btn-light btn-sm" id="addLigne">
+                    <i class="fas fa-plus"></i> Ajouter un produit
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="lignes-container">
+                    {% for ligne in reclamation.lignes.all %}
+                    <div class="ligne-reclamation" id="ligne-{{ ligne.id }}">
+                        <input type="hidden" name="ligne_id[]" value="{{ ligne.id }}">
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Produit *</label>
+                                <select class="form-control select2-produit" name="produit[]" required>
+                                    <option value="">Sélectionnez un produit</option>
+                                    {% for produit in produits %}
+                                    <option value="{{ produit.id }}" {% if ligne.produit.id == produit.id %}selected{% endif %}>
+                                        {{ produit.product_number }} - {{ produit.designation }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <label class="form-label">Quantité *</label>
+                                <input type="number" class="form-control" name="quantite[]" min="1" value="{{ ligne.quantite }}" required>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Description non-conformité</label>
+                                <textarea class="form-control" name="description[]" rows="2">{{ ligne.description_non_conformite }}</textarea>
+                            </div>
+                            <div class="col-md-1 mb-2">
+                                <label class="form-label">UAP</label>
+                                <select class="form-control" name="uap_concernee[]">
+                                    <option value="">Sélectionnez</option>
+                                    {% for uap in uaps %}
+                                    <option value="{{ uap.id }}" {% if ligne.uap_concernee.id == uap.id %}selected{% endif %}>
+                                        {{ uap.nom }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-1 mb-2 text-end">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <i class="fas fa-trash-alt remove-ligne" onclick="removeLigne({{ ligne.id }})"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <textarea class="form-control" name="commentaire[]" placeholder="Commentaire..." rows="2">{{ ligne.commentaire }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="alert alert-info" id="no-lignes-message" {% if reclamation.lignes.exists %}style="display: none;"{% endif %}>
+                    <i class="fas fa-info-circle"></i> Cliquez sur "Ajouter un produit" pour ajouter un produit.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Décision et coût -->
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-tasks"></i> Décision et coût</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="decision" class="form-label">Décision</label>
+                        <textarea class="form-control" id="decision" name="decision" rows="3">{{ reclamation.decision }}</textarea>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="nqc" class="form-label">Coût NQC (MAD)</label>
+                        <input type="number" step="0.01" class="form-control" id="nqc" name="nqc" value="{{ reclamation.nqc }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="me" name="me" {% if reclamation.me %}checked{% endif %}>
+                            <label class="form-check-label" for="me">
+                                ME (Management Review)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Évidence -->
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-file-alt"></i> Évidence</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <textarea class="form-control" id="evidence" name="evidence" rows="3">{{ reclamation.evidence }}</textarea>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-end mb-4">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-save"></i> Enregistrer les modifications
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+let ligneCounter = {{ reclamation.lignes.count }};
+
+$(document).ready(function() {
+    // Initialiser Select2
+    $('.select2-produit').select2({
+        width: '100%',
+        placeholder: 'Rechercher un produit...'
+    });
+});
+
+document.getElementById('addLigne').addEventListener('click', function() {
+    addLigneReclamation();
+});
+
+// Gestion du changement de client
+document.getElementById('client').addEventListener('change', function() {
+    const clientId = this.value;
+    const siteClientSelect = document.getElementById('site_client');
+    const programmeSelect = document.getElementById('programme');
+    
+    if (clientId) {
+        fetch(`/api/sites-client-par-client/?client_id=${clientId}`)
+            .then(response => response.json())
+            .then(data => {
+                siteClientSelect.innerHTML = '<option value="">Sélectionnez un site client</option>';
+                data.forEach(site => {
+                    siteClientSelect.innerHTML += `<option value="${site.id}">${site.nom}</option>`;
+                });
+            });
+        
+        fetch(`/api/programmes-par-client/?client_id=${clientId}`)
+            .then(response => response.json())
+            .then(data => {
+                programmeSelect.innerHTML = '<option value="">Sélectionnez un programme</option>';
+                data.forEach(prog => {
+                    programmeSelect.innerHTML += `<option value="${prog.id}">${prog.nom}</option>`;
+                });
+            });
+    }
+});
+
+function addLigneReclamation(data = {}) {
+    const container = document.getElementById('lignes-container');
+    const newId = 'new_' + (ligneCounter++);
+    
+    const template = `
+        <div class="ligne-reclamation" id="ligne-${newId}">
+            <input type="hidden" name="ligne_id[]" value="${newId}">
+            <div class="row">
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Produit *</label>
+                    <select class="form-control select2-produit-${newId}" name="produit[]" required>
+                        <option value="">Sélectionnez un produit</option>
+                        {% for produit in produits %}
+                        <option value="{{ produit.id }}">{{ produit.product_number }} - {{ produit.designation }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label">Quantité *</label>
+                    <input type="number" class="form-control" name="quantite[]" min="1" value="${data.quantite || '1'}" required>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Description non-conformité</label>
+                    <textarea class="form-control" name="description[]" rows="2">${data.description || ''}</textarea>
+                </div>
+                <div class="col-md-1 mb-2">
+                    <label class="form-label">UAP</label>
+                    <select class="form-control" name="uap_concernee[]">
+                        <option value="">Sélectionnez</option>
+                        {% for uap in uaps %}
+                        <option value="{{ uap.id }}">{{ uap.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1 mb-2 text-end">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <i class="fas fa-trash-alt remove-ligne" onclick="removeLigne('${newId}')"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <textarea class="form-control" name="commentaire[]" placeholder="Commentaire..." rows="2">${data.commentaire || ''}</textarea>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', template);
+    
+    // Initialiser Select2 sur le nouveau champ
+    $(`.select2-produit-${newId}`).select2({
+        width: '100%',
+        placeholder: 'Rechercher un produit...'
+    });
+    
+    document.getElementById('no-lignes-message').style.display = 'none';
+}
+
+function removeLigne(id) {
+    const ligne = document.getElementById(`ligne-${id}`);
+    if (ligne) {
+        ligne.remove();
+    }
+    
+    if (document.querySelectorAll('.ligne-reclamation').length === 0) {
+        document.getElementById('no-lignes-message').style.display = 'block';
+    }
+}
+</script>
+{% endblock %}

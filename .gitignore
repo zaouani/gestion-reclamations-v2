@@ -1,0 +1,22 @@
+tatus
+# Python
+__pycache__/
+*.pyc
+
+# Environnement virtuel
+venv/
+env/
+
+# Django
+db.sqlite3
+media/
+
+# Variables sensibles
+.env
+
+# VSCode
+.vscode/
+
+mon_travail.patch
+
+full_backup.json

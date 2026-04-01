@@ -15,6 +15,7 @@ urlpatterns = [
     path('<int:pk>/modifier-etats/', views.modifier_etats, name='modifier_etats'),
     path('<int:pk>/ajouter-ligne/', views.ajouter_ligne, name='ajouter_ligne'),
     path('<int:pk>/supprimer/', views.supprimer_reclamation, name='supprimer_reclamation'),
+    path('<int:pk>/modifier/', views.modifier_reclamation, name='modifier_reclamation'),
     
     # Gestion des UAP
     path('uap/', views.liste_uap, name='liste_uap'),
@@ -76,4 +77,21 @@ urlpatterns = [
     path('api/sites-client-par-client/', views.sites_client_par_client, name='sites_client_par_client'),
     path('api/recherche-produits/', views.recherche_produits, name='recherche_produits'),
     path('api/recherche-produits-ajax/', views.recherche_produits_ajax, name='recherche_produits_ajax'),
+    path('api/reclamations-client-mois/', views.api_reclamations_client_mois, name='api_reclamations_client_mois'),
+
+    #AI
+    path('api/analyse-kpis/', views.api_analyse_kpis, name='api_analyse_kpis'),
+    path('api/chatbot/', views.api_chatbot, name='api_chatbot'),
+
+    #AMDEC
+    path('amdec/', views.amdec_produit, name='amdec_produit'),
+    path('amdec/produit/<int:produit_id>/', views.amdec_produit, name='amdec_produit_detail'),
+    path('amdec/export-pdf/', views.amdec_export_pdf, name='amdec_export_pdf'),
+    path('amdec/export-pdf/<int:produit_id>/', views.amdec_export_pdf, name='amdec_export_pdf_detail'),
+    path('amdec/export-excel/', views.amdec_export_excel, name='amdec_export_excel'),
+    path('amdec/export-excel/<int:produit_id>/', views.amdec_export_excel, name='amdec_export_excel_detail'),
+
+    #8D
+    path('reclamation/<int:pk>/8d/', views.huitd_detail, name='huitd_detail'),
+    path('reclamation/8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
 ]

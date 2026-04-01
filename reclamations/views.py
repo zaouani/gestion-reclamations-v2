@@ -2,16 +2,15 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from .models import Reclamation, Client, Produit, LigneReclamation, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison
+from .models import Reclamation, Client, Produit, LigneReclamation, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison, HuitD
 from django.http import JsonResponse
-from django.db.models import Count, Q, F, Avg, Sum
+from django.db.models import Count, Q, F, Avg, Sum, Prefetch
 from django.db.models.functions import TruncMonth, ExtractMonth
-from datetime import timedelta
+from datetime import timedelta, datetime
 import json
 from django.db import connection
 from decimal import Decimal
 from .utils import PPMCalculator
-from datetime import datetime, timedelta
 from .dashboard_stats import DashboardStats
 import io
 import xlsxwriter
@@ -26,7 +25,14 @@ import pandas as pd
 from .notifications import NotificationService
 from django.core.paginator import Paginator
 from django.db import transaction
+from .services.ai_service import AIService
+from .services.chatbot_service import ChatbotService
+from io import BytesIO
 
+chatbot = ChatbotService()
+
+ai_service = AIService()
+moyenne_reactivite=100
 # ================ EXPORT PDF  ================
 @login_required
 def export_dashboard_pdf(request):
@@ -364,6 +370,12 @@ def dashboard(request):
 
     # Extraire les données NQC
     nqc_data = data.get('nqc', {}).get('mois', {})
+
+    # Récupérer les données pour le graphique par site client
+    site_client_data = data.get('reclamations_par_site_client', {})
+
+    # Récupérer tous les clients pour le filtre
+    clients = Client.objects.filter(actif=True).order_by('nom')
     
     # Convertir les Decimal en float pour NQC par client
     nqc_par_client_raw = data.get('nqc', {}).get('par_client', [])
@@ -386,6 +398,9 @@ def dashboard(request):
             'nombre': int(item.get('nombre', 0))
         })
     
+    # Récupérer les données de réactivité par UAP
+    reactivite_uap_data = data.get('taux_reactivite_par_uap', {})
+    
     # Convertir les Decimal pour PPM evolution
     ppm_evolution_raw = data.get('ppm', {}).get('evolution', [])
     ppm_evolution = []
@@ -394,17 +409,40 @@ def dashboard(request):
             'mois_nom': item.get('mois_nom', ''),
             'ppm': float(item.get('ppm', 0)) if item.get('ppm') else 0
         })
+
+    # Calculer la moyenne des taux de réactivité par UAP pour l'année courante
+    moyenne_reactivite = 0
+    annee_courante = timezone.now().year
     
-    # Convertir les Decimal pour recurrence_evolution
-    recurrence_evolution_raw = data.get('recurrence_evolution', {})
-    recurrence_evolution = {}
-    for produit, valeurs in recurrence_evolution_raw.items():
-        recurrence_evolution[produit] = []
-        for v in valeurs:
-            recurrence_evolution[produit].append({
-                'mois_nom': v.get('mois_nom', v.get('periode', '')),
-                'taux_recurrence': float(v.get('taux_recurrence', 0)) if v.get('taux_recurrence') else 0
-            })
+    if reactivite_uap_data and annee_courante in reactivite_uap_data:
+        annees_data = reactivite_uap_data.get(annee_courante, {})
+        data_mensuelle = annees_data.get('data', {})
+        
+        # Récupérer tous les taux
+        tous_les_taux = []
+        for mois, uap_data in data_mensuelle.items():
+            for uap, taux in uap_data.items():
+                if taux > 0:  # Ne compter que les UAP avec des données
+                    tous_les_taux.append(taux)
+        
+        # Calculer la moyenne
+        if tous_les_taux:
+            moyenne_reactivite = sum(tous_les_taux) / len(tous_les_taux)
+    
+    # Calculer aussi la moyenne pour 2025 (ou autre année)
+    moyenne_reactivite_2025 = 0
+    if reactivite_uap_data and 2025 in reactivite_uap_data:
+        annees_data = reactivite_uap_data.get(2025, {})
+        data_mensuelle = annees_data.get('data', {})
+        
+        tous_les_taux = []
+        for mois, uap_data in data_mensuelle.items():
+            for uap, taux in uap_data.items():
+                if taux > 0:
+                    tous_les_taux.append(taux)
+        
+        if tous_les_taux:
+            moyenne_reactivite_2025 = sum(tous_les_taux) / len(tous_les_taux)
 
     
     
@@ -461,10 +499,24 @@ def dashboard(request):
         
         # Taux de récurrence (converti)
         'top_produits_recurrents': data.get('top_produits_recurrents', []),
-        'recurrence_evolution': recurrence_evolution,
+
+        # Données pour le graphique par site client
+        'site_client_labels': json.dumps(site_client_data.get('labels', []), ensure_ascii=False),
+        'site_client_data': json.dumps(site_client_data.get('data', [])),
+
+        # Données pour le graphique de réactivité par UAP (toutes années)
+        'reactivite_uap_par_annee': reactivite_uap_data,
+        'reactivite_uap_annees': list(reactivite_uap_data.keys()),
+
+        # Taux de réactivité moyens
+        'moyenne_reactivite': round(moyenne_reactivite, 1),
+        'moyenne_reactivite_2025': round(moyenne_reactivite_2025, 1),
+        'clients': clients,
+
     }
     
     return render(request, 'reclamations/dashboard.html', context)
+
 @login_required
 def taux_recurrence_produits(request):
     """Calcule le taux de récurrence des défauts par produit"""
@@ -592,11 +644,87 @@ def ppm_detail_client(request, client_id):
     return render(request, 'reclamations/kpi/ppm_detail.html', context)
 
 # ================ GESTION DES RECLAMATIONS ================
+# reclamations/views.py
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q
+
+@login_required
 @login_required
 def liste_reclamations(request):
-    """Liste de toutes les réclamations"""
-    reclamations = Reclamation.objects.all().select_related('client').order_by('-date_reclamation')
-    return render(request, 'reclamations/liste.html', {'reclamations': reclamations})
+    """Liste des réclamations avec pagination et recherche"""
+    
+    # Récupérer tous les filtres
+    search = request.GET.get('search', '')
+    statut = request.GET.get('statut', '')
+    client_id = request.GET.get('client', '')
+    type_nc = request.GET.get('type_nc', '')
+    imputation = request.GET.get('imputation', '')
+    
+    # Requête de base avec sélection des relations et des produits
+    reclamations = Reclamation.objects.select_related(
+        'client', 'site', 'programme'
+    ).prefetch_related(
+        Prefetch('lignes', queryset=LigneReclamation.objects.select_related('produit'))
+    ).order_by('-date_reclamation')
+    
+    # Filtre par recherche (numéro réclamation ou client)
+    if search:
+        reclamations = reclamations.filter(
+            Q(numero_reclamation__icontains=search) |
+            Q(client__nom__icontains=search) |
+            Q(programme__nom__icontains=search)
+        )
+    
+    # Filtre par statut
+    if statut:
+        if statut == 'ouvert':
+            reclamations = reclamations.filter(cloture=False)
+        elif statut == 'cloture':
+            reclamations = reclamations.filter(cloture=True)
+    
+    # Filtre par client
+    if client_id:
+        reclamations = reclamations.filter(client_id=client_id)
+    
+    # Filtre par type de NC
+    if type_nc:
+        reclamations = reclamations.filter(type_nc=type_nc)
+    
+    # Filtre par imputation
+    if imputation:
+        reclamations = reclamations.filter(imputation=imputation)
+    
+    # Pagination (20 par page)
+    paginator = Paginator(reclamations, 20)
+    page = request.GET.get('page', 1)
+    
+    try:
+        reclamations_page = paginator.page(page)
+    except PageNotAnInteger:
+        reclamations_page = paginator.page(1)
+    except EmptyPage:
+        reclamations_page = paginator.page(paginator.num_pages)
+    
+    # Récupérer les données pour les filtres
+    clients = Client.objects.filter(actif=True).order_by('nom')
+    type_nc_choices = Reclamation.TYPE_NC_CHOICES
+    imputation_choices = Reclamation.IMPUTATION_CHOICES
+    
+    context = {
+        'reclamations': reclamations_page,
+        'clients': clients,
+        'type_nc_choices': type_nc_choices,
+        'imputation_choices': imputation_choices,
+        'search': search,
+        'statut_filter': statut,
+        'client_filter': client_id,
+        'type_nc_filter': type_nc,
+        'imputation_filter': imputation,
+        'total_reclamations': paginator.count,
+        'page_obj': reclamations_page,
+    }
+    
+    return render(request, 'reclamations/liste.html', context)
 
 @login_required
 def creer_reclamation(request):
@@ -864,6 +992,105 @@ def ajouter_ligne(request, pk):
     return render(request, 'reclamations/ajouter_ligne.html', context)
 
 @login_required
+def modifier_reclamation(request, pk):
+    """Modifier une réclamation complète"""
+    reclamation = get_object_or_404(
+        Reclamation.objects.prefetch_related('lignes__produit', 'lignes__uap_concernee'),
+        pk=pk
+    )
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Mettre à jour les champs de la réclamation
+                reclamation.numero_reclamation = request.POST.get('numero_reclamation')
+                reclamation.date_reclamation = request.POST.get('date_reclamation')
+                reclamation.client_id = request.POST.get('client')
+                reclamation.site_id = request.POST.get('site')
+                reclamation.site_client_id = request.POST.get('site_client') or None
+                reclamation.programme_id = request.POST.get('programme') or None
+                reclamation.imputation = request.POST.get('imputation')
+                reclamation.type_nc = request.POST.get('type_nc')
+                reclamation.numero_4d = request.POST.get('numero_4d', '')
+                reclamation.numero_8d = request.POST.get('numero_8d', '')
+                reclamation.etat_4d = request.POST.get('etat_4d')
+                reclamation.etat_8d = request.POST.get('etat_8d')
+                reclamation.evidence = request.POST.get('evidence', '')
+                reclamation.me = request.POST.get('me') == 'on'
+                reclamation.cloture = request.POST.get('cloture') == 'on'
+                reclamation.decision = request.POST.get('decision', '')
+                reclamation.nqc = Decimal(request.POST.get('nqc', 0))
+                reclamation.save()
+                
+                # Traiter les lignes de réclamation
+                # Récupérer les IDs des lignes existantes
+                lignes_ids = request.POST.getlist('ligne_id[]')
+                produits = request.POST.getlist('produit[]')
+                quantites = request.POST.getlist('quantite[]')
+                descriptions = request.POST.getlist('description[]')
+                commentaires = request.POST.getlist('commentaire[]')
+                uaps = request.POST.getlist('uap_concernee[]')
+                
+                # IDs des lignes à conserver
+                lignes_a_conserver = []
+                
+                for i in range(len(produits)):
+                    if produits[i] and quantites[i] and int(quantites[i]) > 0:
+                        ligne_id = lignes_ids[i] if i < len(lignes_ids) else None
+                        
+                        if ligne_id and ligne_id.startswith('new_'):
+                            # Créer une nouvelle ligne
+                            LigneReclamation.objects.create(
+                                reclamation=reclamation,
+                                produit_id=produits[i],
+                                quantite=quantites[i],
+                                description_non_conformite=descriptions[i] if i < len(descriptions) else '',
+                                commentaire=commentaires[i] if i < len(commentaires) else '',
+                                uap_concernee_id=uaps[i] if i < len(uaps) and uaps[i] else None
+                            )
+                        elif ligne_id and ligne_id.isdigit():
+                            # Mettre à jour une ligne existante
+                            ligne = LigneReclamation.objects.get(id=ligne_id, reclamation=reclamation)
+                            ligne.produit_id = produits[i]
+                            ligne.quantite = quantites[i]
+                            ligne.description_non_conformite = descriptions[i] if i < len(descriptions) else ''
+                            ligne.commentaire = commentaires[i] if i < len(commentaires) else ''
+                            ligne.uap_concernee_id = uaps[i] if i < len(uaps) and uaps[i] else None
+                            ligne.save()
+                            lignes_a_conserver.append(ligne.id)
+                
+                # Supprimer les lignes qui ne sont plus dans la liste
+                reclamation.lignes.exclude(id__in=lignes_a_conserver).delete()
+                
+                messages.success(request, f"Réclamation {reclamation.numero_reclamation} modifiée avec succès!")
+                return redirect('reclamations:detail_reclamation', pk=reclamation.id)
+                
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la modification: {str(e)}")
+    
+    # GET: afficher le formulaire
+    clients = Client.objects.filter(actif=True).order_by('nom')
+    sites_usine = Site.objects.all().select_related('uap').order_by('nom')
+    sites_client = SiteClient.objects.filter(client=reclamation.client, actif=True).order_by('nom') if reclamation.client else []
+    programmes = Programme.objects.filter(clients=reclamation.client, actif=True).order_by('nom') if reclamation.client else []
+    produits = Produit.objects.filter(actif=True).order_by('product_number')
+    uaps = UAP.objects.all().order_by('nom')
+    
+    context = {
+        'reclamation': reclamation,
+        'clients': clients,
+        'sites_usine': sites_usine,
+        'sites_client': sites_client,
+        'programmes': programmes,
+        'produits': produits,
+        'uaps': uaps,
+        'type_nc_choices': Reclamation.TYPE_NC_CHOICES,
+        'imputation_choices': Reclamation.IMPUTATION_CHOICES,
+        'etat_choices': Reclamation.ETAT_CHOICES,
+    }
+    return render(request, 'reclamations/modifier_reclamation.html', context)
+
+@login_required
 def supprimer_reclamation(request, pk):
     """Supprimer une réclamation"""
     reclamation = get_object_or_404(Reclamation, pk=pk)
@@ -891,10 +1118,11 @@ def reclamations_en_retard(request):
     """Affiche les réclamations en retard"""
     reclamations_retard = NotificationService.get_reclamations_a_notifier()
     reclamations_alerte = NotificationService.get_reclamations_en_alerte()
-    
+    total_a_traiter = len(reclamations_retard) + len(reclamations_alerte)
     context = {
         'reclamations_retard': reclamations_retard,
         'reclamations_alerte': reclamations_alerte,
+        'total_a_traiter': total_a_traiter,
     }
     return render(request, 'reclamations/notifications/liste.html', context)
 
@@ -1974,7 +2202,6 @@ def import_clients_excel(request):
     
     return render(request, 'reclamations/import/clients.html')
 
-
 # ================ IMPORT RÉCLAMATIONS DEPUIS EXCEL ================
 
 def extraire_produits(produits_raw):
@@ -2362,3 +2589,571 @@ def recherche_produits_ajax(request):
         'has_previous': produits_page.has_previous()
     })
 
+@login_required
+def api_reclamations_client_mois(request):
+    """API pour récupérer les données de réclamations par mois pour un client"""
+    client_id = request.GET.get('client_id')
+    
+    stats = DashboardStats()
+    
+    if client_id and client_id != 'all':
+        data = stats.get_reclamations_par_client_mois(client_id=int(client_id))
+    else:
+        data = stats.get_reclamations_par_client_mois()
+    
+    return JsonResponse(data)
+
+@login_required
+def api_analyse_kpis(request):
+    """API pour analyser les KPIs avec IA - déclenchée à la demande"""
+    from .dashboard_stats import DashboardStats
+    from .services.ai_service import AIService
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        # Récupérer les données
+        stats = DashboardStats()
+        data = stats.get_all_stats()
+        # Récupérer les données de réactivité par UAP
+        reactivite_uap_data = data.get('taux_reactivite_par_uap', {})
+                # Calculer la moyenne des taux de réactivité par UAP pour l'année courante
+        moyenne_reactivite = 0
+        annee_courante = timezone.now().year
+    
+        if reactivite_uap_data and annee_courante in reactivite_uap_data:
+            annees_data = reactivite_uap_data.get(annee_courante, {})
+            data_mensuelle = annees_data.get('data', {})
+            
+            # Récupérer tous les taux
+            tous_les_taux = []
+            for mois, uap_data in data_mensuelle.items():
+                for uap, taux in uap_data.items():
+                    if taux > 0:  # Ne compter que les UAP avec des données
+                        tous_les_taux.append(taux)
+            
+            # Calculer la moyenne
+            if tous_les_taux:
+                moyenne_reactivite = sum(tous_les_taux) / len(tous_les_taux)
+        
+        # Préparer les données pour l'IA
+        kpis_data = {
+            'total_reclamations': data.get('global', {}).get('total', 0),
+            'taux_cloture': data.get('global', {}).get('taux_cloture', 0),
+            'taux_reactivite': round(moyenne_reactivite, 1),
+            'duree_moyenne': data.get('delai_moyen', 0),
+            'ppm_global': data.get('ppm', {}).get('global', 0),
+            'nqc_total': data.get('nqc', {}).get('mois', {}).get('total_nqc', 0),
+            'top_clients_nqc': data.get('nqc', {}).get('par_client', [])[:5],
+            'uap_risque': []
+        }
+        
+        # Analyser avec IA
+        ai_service = AIService()
+        analyse = ai_service.analyser_kpis(kpis_data)
+        
+        return JsonResponse(analyse)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'error': str(e),
+            'diagnostic': "Erreur d'analyse",
+            'actions_prioritaires': [],
+            'recommandations': []
+        }, status=500)
+    
+@login_required
+def api_chatbot(request):
+    """API pour le chatbot"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        message = data.get('message', '')
+        historique = data.get('historique', [])
+        
+        response = chatbot.get_response(message, historique)
+        
+        return JsonResponse(response)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def amdec_produit(request, produit_id=None):
+    """Génère une AMDEC pour un produit spécifique ou pour les produits les plus critiques"""
+    
+    # Si un produit est spécifié, l'utiliser
+    if produit_id:
+        produit = get_object_or_404(Produit, pk=produit_id)
+        produits = [produit]
+    else:
+        # Sinon, prendre les 5 produits les plus réclamés
+        produits = Produit.objects.annotate(
+            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)
+        ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
+    
+    # Analyser les défauts pour chaque produit
+    amdec_data = []
+    
+    for produit in produits:
+        # Récupérer toutes les lignes de réclamation pour ce produit
+        lignes = LigneReclamation.objects.filter(produit=produit).select_related('reclamation')
+        
+        # Compter les occurrences de chaque type de défaut
+        defauts = lignes.values('description_non_conformite').annotate(
+            nb_occurences=Count('id'),
+            quantite_totale=Sum('quantite')
+        ).order_by('-nb_occurences')
+        
+        # Analyser chaque défaut
+        defauts_analyses = []
+        for defaut in defauts:
+            description = defaut['description_non_conformite'] or "Défaut non spécifié"
+            
+            # Récupérer les réclamations associées à ce défaut
+            reclamations_defaut = lignes.filter(description_non_conformite=description).values_list('reclamation__numero_reclamation', flat=True).distinct()
+            
+            defauts_analyses.append({
+                'description': description,
+                'nb_occurences': defaut['nb_occurences'],
+                'quantite_totale': defaut['quantite_totale'] or 0,
+                'reclamations': list(reclamations_defaut)[:5],  # Limiter à 5 exemples
+                'pourcentage': round(defaut['nb_occurences'] / lignes.count() * 100, 1) if lignes.count() > 0 else 0
+            })
+        
+        amdec_data.append({
+            'produit': produit,
+            'total_defauts': lignes.count(),
+            'defauts': defauts_analyses,
+            'date_analyse': datetime.now()
+        })
+    
+    context = {
+        'amdec_data': amdec_data,
+        'date_analyse': datetime.now(),
+        'produit_unique': produit_id is not None
+    }
+    
+    return render(request, 'reclamations/amdec/amdec_template.html', context)
+
+try:
+    from xhtml2pdf import pisa
+    XHTML2PDF_AVAILABLE = True
+except ImportError:
+    XHTML2PDF_AVAILABLE = False
+    print("⚠️ xhtml2pdf n'est pas installé. Installez-le avec: pip install xhtml2pdf")
+@login_required
+def amdec_export_pdf(request, produit_id=None):
+    """Exporte l'AMDEC en PDF"""
+    
+    if not XHTML2PDF_AVAILABLE:
+        return HttpResponse(
+            "La bibliothèque xhtml2pdf n'est pas installée. "
+            "Installez-la avec: pip install xhtml2pdf", 
+            status=500
+        )
+    
+    # Récupérer les données
+    if produit_id:
+        produit = get_object_or_404(Produit, pk=produit_id)
+        produits = [produit]
+    else:
+        produits = Produit.objects.annotate(
+            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)
+        ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
+    
+    amdec_data = []
+    for produit in produits:
+        lignes = LigneReclamation.objects.filter(produit=produit).select_related('reclamation')
+        defauts = lignes.values('description_non_conformite').annotate(
+            nb_occurences=Count('id'),
+            quantite_totale=Sum('quantite')
+        ).order_by('-nb_occurences')
+        
+        defauts_analyses = []
+        for defaut in defauts:
+            description = defaut['description_non_conformite'] or "Défaut non spécifié"
+            reclamations_defaut = lignes.filter(
+                description_non_conformite=description
+            ).values_list('reclamation__numero_reclamation', flat=True).distinct()
+            
+            defauts_analyses.append({
+                'description': description,
+                'nb_occurences': defaut['nb_occurences'],
+                'quantite_totale': defaut['quantite_totale'] or 0,
+                'reclamations': list(reclamations_defaut)[:5],
+                'pourcentage': round(defaut['nb_occurences'] / lignes.count() * 100, 1) if lignes.count() > 0 else 0
+            })
+        
+        amdec_data.append({
+            'produit': produit,
+            'total_defauts': lignes.count(),
+            'defauts': defauts_analyses,
+            'date_analyse': datetime.now()
+        })
+    
+    context = {
+        'amdec_data': amdec_data,
+        'date_analyse': datetime.now(),
+        'produit_unique': produit_id is not None
+    }
+    
+    # Générer le PDF
+    template = get_template('reclamations/amdec/amdec_pdf.html')
+    html = template.render(context)
+    
+    # Créer la réponse PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="AMDEC_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf"'
+    
+    # Convertir HTML en PDF
+    result = pisa.CreatePDF(io.BytesIO(html.encode('UTF-8')), dest=response)
+    
+    if result.err:
+        return HttpResponse('Erreur lors de la génération du PDF: ' + str(result.err), status=500)
+    
+    return response
+
+@login_required
+def amdec_export_excel(request, produit_id=None):
+    """Exporte l'AMDEC en Excel"""
+    
+    # Récupérer les données (même logique que la vue amdec_produit)
+    if produit_id:
+        produit = get_object_or_404(Produit, pk=produit_id)
+        produits = [produit]
+    else:
+        produits = Produit.objects.annotate(
+            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)
+        ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
+    
+    # Analyser les défauts pour chaque produit
+    amdec_data = []
+    
+    for produit in produits:
+        lignes = LigneReclamation.objects.filter(produit=produit).select_related('reclamation')
+        
+        defauts = lignes.values('description_non_conformite').annotate(
+            nb_occurences=Count('id'),
+            quantite_totale=Sum('quantite')
+        ).order_by('-nb_occurences')
+        
+        defauts_analyses = []
+        for defaut in defauts:
+            description = defaut['description_non_conformite'] or "Défaut non spécifié"
+            reclamations_defaut = lignes.filter(
+                description_non_conformite=description
+            ).values_list('reclamation__numero_reclamation', flat=True).distinct()
+            
+            defauts_analyses.append({
+                'description': description,
+                'nb_occurences': defaut['nb_occurences'],
+                'quantite_totale': defaut['quantite_totale'] or 0,
+                'reclamations': list(reclamations_defaut)[:5],
+                'pourcentage': round(defaut['nb_occurences'] / lignes.count() * 100, 1) if lignes.count() > 0 else 0
+            })
+        
+        amdec_data.append({
+            'produit': produit,
+            'total_defauts': lignes.count(),
+            'defauts': defauts_analyses,
+            'date_analyse': datetime.now()
+        })
+    
+    # Créer le fichier Excel
+    output = BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    
+    # Formats
+    header_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#4472C4',
+        'font_color': 'white',
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter',
+        'text_wrap': True
+    })
+    
+    subheader_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#D9E1F2',
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+    
+    cell_format = workbook.add_format({
+        'border': 1,
+        'align': 'left',
+        'valign': 'vcenter',
+        'text_wrap': True
+    })
+    
+    center_format = workbook.add_format({
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+    
+    fillable_format = workbook.add_format({
+        'border': 1,
+        'bg_color': '#FEF9E6',
+        'align': 'left',
+        'valign': 'vcenter',
+        'text_wrap': True
+    })
+    
+    title_format = workbook.add_format({
+        'bold': True,
+        'font_size': 14,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+    
+    # Créer une feuille par produit
+    for data in amdec_data:
+        produit = data['produit']
+        worksheet = workbook.add_worksheet(f"{produit.product_number}"[:31])  # Limiter à 31 caractères
+        
+        # Titre
+        worksheet.merge_range('A1:H1', f"AMDEC - Produit: {produit.product_number}", title_format)
+        if produit.designation:
+            worksheet.merge_range('A2:H2', f"Désignation: {produit.designation}", title_format)
+        worksheet.merge_range('A3:H3', f"Date d'analyse: {data['date_analyse'].strftime('%d/%m/%Y')}", title_format)
+        
+        row = 4
+        
+        # Synthèse
+        worksheet.merge_range(f'A{row+1}:H{row+1}', f"Synthèse: {data['total_defauts']} défaut(s) analysé(s)", cell_format)
+        row += 2
+        
+        # En-tête du tableau principal
+        headers = ['#', 'Mode de défaillance', 'Effets potentiels', 'G', 'Causes potentielles', 'O', 'D', 'CRIT']
+        for col, header in enumerate(headers):
+            worksheet.write(row, col, header, header_format)
+        
+        # Largeurs des colonnes
+        worksheet.set_column('A:A', 5)
+        worksheet.set_column('B:B', 35)
+        worksheet.set_column('C:C', 30)
+        worksheet.set_column('D:D', 5)
+        worksheet.set_column('E:E', 30)
+        worksheet.set_column('F:F', 5)
+        worksheet.set_column('G:G', 5)
+        worksheet.set_column('H:H', 8)
+        
+        row += 1
+        
+        # Données des défauts
+        for idx, defaut in enumerate(data['defauts'], 1):
+            worksheet.write(row, 0, idx, center_format)
+            worksheet.write(row, 1, defaut['description'], cell_format)
+            worksheet.write(row, 2, "", fillable_format)
+            worksheet.write(row, 3, "", center_format)
+            worksheet.write(row, 4, "", fillable_format)
+            worksheet.write(row, 5, "", center_format)
+            worksheet.write(row, 6, "", center_format)
+            worksheet.write(row, 7, "", center_format)
+            row += 1
+        
+        row += 1
+        
+        # Tableau des actions
+        worksheet.merge_range(f'A{row}:E{row}', "ACTIONS RECOMMANDÉES", header_format)
+        row += 1
+        
+        actions_headers = ['#', 'Actions préventives / correctives', 'Responsable', 'Délai', 'Suivi / Commentaires']
+        for col, header in enumerate(actions_headers):
+            worksheet.write(row, col, header, subheader_format)
+        
+        worksheet.set_column('A:A', 5)
+        worksheet.set_column('B:B', 40)
+        worksheet.set_column('C:C', 20)
+        worksheet.set_column('D:D', 15)
+        worksheet.set_column('E:E', 30)
+        
+        row += 1
+        
+        # Lignes d'actions (une par défaut + 2 supplémentaires)
+        for idx in range(1, len(data['defauts']) + 3):
+            worksheet.write(row, 0, idx, center_format)
+            worksheet.write(row, 1, "", fillable_format)
+            worksheet.write(row, 2, "", fillable_format)
+            worksheet.write(row, 3, "", fillable_format)
+            worksheet.write(row, 4, "", fillable_format)
+            row += 1
+        
+        row += 1
+        
+        # Tableau de validation
+        validation_data = [
+            ['Criticité maximale (CRIT max) :', '', 'Seuil d\'action :', ''],
+            ['Approbateur :', '', 'Date :', ''],
+            ['Animateur :', '', 'Date prochaine revue :', ''],
+            ['Méthode de calcul :', 'G × O × D (Gravité × Occurrence × Détection)', '', '']
+        ]
+        
+        for v_row, v_data in enumerate(validation_data):
+            worksheet.write(row + v_row, 0, v_data[0], subheader_format)
+            worksheet.write(row + v_row, 1, v_data[1], fillable_format)
+            worksheet.write(row + v_row, 2, v_data[2], subheader_format)
+            worksheet.write(row + v_row, 3, v_data[3], fillable_format)
+        
+        # Ajuster la hauteur des lignes
+        worksheet.set_default_row(30)
+    
+    # Ajouter une feuille de synthèse
+    worksheet_synth = workbook.add_worksheet("Synthèse")
+    
+    # En-tête synthèse
+    synth_headers = ['Produit', 'Total défauts', 'Défaut principal', 'Occurrences', 'Quantité', 'Pourcentage']
+    for col, header in enumerate(synth_headers):
+        worksheet_synth.write(0, col, header, header_format)
+    
+    worksheet_synth.set_column('A:A', 20)
+    worksheet_synth.set_column('B:B', 12)
+    worksheet_synth.set_column('C:C', 35)
+    worksheet_synth.set_column('D:D', 12)
+    worksheet_synth.set_column('E:E', 12)
+    worksheet_synth.set_column('F:F', 12)
+    
+    row = 1
+    for data in amdec_data:
+        produit = data['produit']
+        defauts = data['defauts']
+        if defauts:
+            principal = defauts[0]
+            worksheet_synth.write(row, 0, produit.product_number, cell_format)
+            worksheet_synth.write(row, 1, data['total_defauts'], center_format)
+            worksheet_synth.write(row, 2, principal['description'], cell_format)
+            worksheet_synth.write(row, 3, principal['nb_occurences'], center_format)
+            worksheet_synth.write(row, 4, principal['quantite_totale'], center_format)
+            worksheet_synth.write(row, 5, f"{principal['pourcentage']}%", center_format)
+            row += 1
+    
+    # Ajouter une feuille de légende
+    worksheet_legend = workbook.add_worksheet("Légende")
+    worksheet_legend.write(0, 0, "LÉGENDE AMDEC", title_format)
+    
+    legend_data = [
+        ["Gravité (G)", "1-5", "1: Mineur, 5: Critique (sécurité, non-conformité majeure)"],
+        ["Occurrence (O)", "1-5", "1: Très rare, 5: Très fréquent"],
+        ["Détection (D)", "1-5", "1: Très facile à détecter, 5: Impossible à détecter"],
+        ["CRIT", "G × O × D", "Criticité = Gravité × Occurrence × Détection"],
+        ["", "", "Seuil d'action recommandé: > 50"]
+    ]
+    
+    for i, data in enumerate(legend_data, 1):
+        worksheet_legend.write(i, 0, data[0], subheader_format)
+        worksheet_legend.write(i, 1, data[1], cell_format)
+        worksheet_legend.write(i, 2, data[2], cell_format)
+    
+    worksheet_legend.set_column('A:A', 15)
+    worksheet_legend.set_column('B:B', 10)
+    worksheet_legend.set_column('C:C', 50)
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Créer la réponse
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="AMDEC_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx"'
+    
+    return response
+
+@login_required
+def huitd_detail(request, pk):
+    """Affiche la fiche 8D d'une réclamation"""
+    reclamation = get_object_or_404(Reclamation, pk=pk)
+    huitd, created = HuitD.objects.get_or_create(reclamation=reclamation)
+    
+    if not huitd.numero_8d:
+        huitd.numero_8d = f"8D-{reclamation.numero_reclamation}"
+        huitd.save()
+    
+    context = {
+        'reclamation': reclamation,
+        'huitd': huitd,
+    }
+    return render(request, 'reclamations/huitd/huitd_template.html', context)
+
+@login_required
+def huitd_modifier(request, pk):
+    """Modifie la fiche 8D"""
+    huitd = get_object_or_404(HuitD, pk=pk)
+    
+    if request.method == 'POST':
+        # D0
+        huitd.d0_date = request.POST.get('d0_date') or None
+        huitd.d0_equipe = request.POST.get('d0_equipe', '')
+        
+        # D1
+        huitd.d1_leader = request.POST.get('d1_leader', '')
+        huitd.d1_membres = request.POST.get('d1_membres', '')
+        huitd.d1_competences = request.POST.get('d1_competences', '')
+        
+        # D2
+        huitd.d2_description = request.POST.get('d2_description', '')
+        huitd.d2_impact = request.POST.get('d2_impact', '')
+        huitd.d2_quantification = request.POST.get('d2_quantification', '')
+        huitd.d2_historique = request.POST.get('d2_historique', '')
+        
+        # D3
+        huitd.d3_actions = request.POST.get('d3_actions', '')
+        huitd.d3_responsable = request.POST.get('d3_responsable', '')
+        huitd.d3_date = request.POST.get('d3_date') or None
+        huitd.d3_efficacite = request.POST.get('d3_efficacite', '')
+        
+        # D4
+        huitd.d4_causes = request.POST.get('d4_causes', '')
+        huitd.d4_methodes = request.POST.get('d4_methodes', '')
+        huitd.d4_validation = request.POST.get('d4_validation', '')
+        
+        # D5
+        huitd.d5_actions = request.POST.get('d5_actions', '')
+        huitd.d5_responsable = request.POST.get('d5_responsable', '')
+        huitd.d5_date_prevue = request.POST.get('d5_date_prevue') or None
+        huitd.d5_date_reelle = request.POST.get('d5_date_reelle') or None
+        huitd.d5_validation = request.POST.get('d5_validation', '')
+        
+        # D6
+        huitd.d6_actions = request.POST.get('d6_actions', '')
+        huitd.d6_responsable = request.POST.get('d6_responsable', '')
+        huitd.d6_date = request.POST.get('d6_date') or None
+        huitd.d6_standardisation = request.POST.get('d6_standardisation', '')
+        
+        # D7
+        huitd.d7_actions = request.POST.get('d7_actions', '')
+        huitd.d7_documentation = request.POST.get('d7_documentation', '')
+        huitd.d7_formation = request.POST.get('d7_formation', '')
+        
+        # D8
+        huitd.d8_equipe = request.POST.get('d8_equipe', '')
+        huitd.d8_retour = request.POST.get('d8_retour', '')
+        huitd.d8_amelioration = request.POST.get('d8_amelioration', '')
+        
+        # Validation
+        huitd.etat = request.POST.get('etat', 'EN_COURS')
+        if huitd.etat == 'CLOTURE':
+            huitd.date_validation = timezone.now().date()
+        huitd.valide_par = request.POST.get('valide_par', '')
+        
+        huitd.save()
+        messages.success(request, "Fiche 8D enregistrée avec succès!")
+        return redirect('reclamations:huitd_detail', pk=huitd.reclamation.id)
+    
+    context = {
+        'huitd': huitd,
+        'reclamation': huitd.reclamation,
+        'etat_choices': HuitD.ETAT_CHOICES,
+    }
+    return render(request, 'reclamations/huitd/huitd_edit.html', context)

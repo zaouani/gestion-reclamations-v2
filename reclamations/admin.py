@@ -97,6 +97,10 @@ class ReclamationAdmin(admin.ModelAdmin):
                 'site', 'programme', 'site_client', 'imputation', 'type_nc'
             )
         }),
+        ('Références qualité', {
+            'fields': ('numero_4d', 'numero_8d'),
+            'classes': ('collapse',)
+        }),
         ('États et clôture', {
             'fields': (
                 'etat_4d', 'etat_8d', 'me', 'cloture', 
@@ -134,21 +138,3 @@ class ReclamationAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related(
             'client', 'site', 'site__uap', 'programme', 'createur'
         )
-
-@admin.register(ObjectifsAnnuel)
-class ObjectifsAnnuelAdmin(admin.ModelAdmin):
-    list_display = ['annee', 'obj_nc_court', 'obj_nqc_court', 'date_modification']
-    search_fields = ['annee']
-    ordering = ['-annee']
-    
-    def obj_nc_court(self, obj):
-        if obj.obj_nc and len(obj.obj_nc) > 50:
-            return obj.obj_nc[:50] + "..."
-        return obj.obj_nc
-    obj_nc_court.short_description = "Objectif NC"
-    
-    def obj_nqc_court(self, obj):
-        if obj.obj_nqc and len(obj.obj_nqc) > 50:
-            return obj.obj_nqc[:50] + "..."
-        return obj.obj_nqc
-    obj_nqc_court.short_description = "Objectif NQC"

@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+
+{% block title %}AMDEC - Analyse des Modes de Défaillance{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .no-print {
+            display: none;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        body {
+            font-size: 10pt;
+        }
+        .amdec-table td, .amdec-table th {
+            font-size: 9pt;
+        }
+    }
+    
+    .amdec-header {
+        text-align: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+    }
+    
+    .amdec-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-size: 12px;
+    }
+    
+    .amdec-table th, .amdec-table td {
+        border: 1px solid #333;
+        padding: 8px;
+        vertical-align: top;
+    }
+    
+    .amdec-table th {
+        background-color: #f0f0f0;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    .amdec-section {
+        margin-bottom: 30px;
+    }
+    
+    .amdec-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin: 20px 0 10px 0;
+        padding-bottom: 5px;
+        border-bottom: 2px solid #333;
+    }
+    
+    .signature-line {
+        margin-top: 30px;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .signature {
+        width: 200px;
+        text-align: center;
+        border-top: 1px solid #000;
+        padding-top: 5px;
+    }
+    
+    .empty-field {
+        color: #999;
+        font-style: italic;
+    }
+    
+    textarea, input {
+        width: 100%;
+        border: 1px solid #ccc;
+        padding: 4px;
+        font-family: inherit;
+        font-size: inherit;
+    }
+    
+    .fillable {
+        min-height: 40px;
+        background-color: #fef9e6;
+    }
+    
+    .note {
+        background-color: #f9f9f9;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-left: 3px solid #ffc107;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4 no-print">
+        <div class="col">
+            <h1><i class="fas fa-chart-line"></i> AMDEC - Analyse des Modes de Défaillance</h1>
+            <p class="text-muted">Analyse des défauts les plus récurrents pour les produits critiques</p>
+        </div>
+        <div class="col text-end no-print">
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="fas fa-print"></i> Imprimer
+            </button>
+            <a href="{% url 'reclamations:amdec_export_pdf' %}" class="btn btn-success">
+                <i class="fas fa-file-pdf"></i> Exporter en PDF
+            </a>
+            <a href="{% url 'reclamations:amdec_export_excel' %}" class="btn btn-success">
+                <i class="fas fa-file-excel"></i> Exporter Excel
+            </a>
+            <a href="{% url 'reclamations:dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+    
+    <div class="amdec-header">
+        <h2>ANALYSE DES MODES DE DÉFAILLANCE, DE LEURS EFFETS ET DE LEUR CRITICITÉ</h2>
+        <h3>AMDEC Produit / Processus</h3>
+        <p>Date d'analyse : {{ date_analyse|date:"d/m/Y" }}</p>
+        <p>Référence document : AMDEC-Q-{{ date_analyse|date:"Ymd" }}</p>
+    </div>
+    
+    {% for data in amdec_data %}
+    <div class="amdec-section {% if not forloop.first %}page-break{% endif %}">
+        <div class="amdec-title">
+            <i class="fas fa-box"></i> Produit : {{ data.produit.product_number }}
+            {% if data.produit.designation %} - {{ data.produit.designation }}{% endif %}
+        </div>
+        
+        <div class="note">
+            <strong> Synthèse des données :</strong><br>
+            - Nombre total de défauts analysés : {{ data.total_defauts }}<br>
+            - Période d'analyse : 12 derniers mois<br>
+            - Produit actif : {% if data.produit.actif %}Oui{% else %}Non{% endif %}
+        </div>
+        
+        <table class="amdec-table">
+            <thead>
+                <tr>
+                    <th style="width: 5%">#</th>
+                    <th style="width: 25%">Fonction / Mode de défaillance</th>
+                    <th style="width: 20%">Effets potentiels</th>
+                    <th style="width: 10%">Gravité (G)<br><small>1-5</small></th>
+                    <th style="width: 15%">Causes potentielles</th>
+                    <th style="width: 10%">Occurrence (O)<br><small>1-5</small></th>
+                    <th style="width: 10%">Détection (D)<br><small>1-5</small></th>
+                    <th style="width: 5%">CRIT<br><small>G×O×D</small></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for defaut in data.defauts %}
+                <tr>
+                    <td style="text-align: center;">{{ forloop.counter }}</td>
+                    <td>
+                        <strong>Mode :</strong> {{ defaut.description }}<br>
+                        <small class="text-muted">({{ defaut.nb_occurences }} occurrences, {{ defaut.quantite_totale }} pièces)</small>
+                        {% if defaut.pourcentage > 10 %}
+                        <span class="badge bg-danger">Critique {{ defaut.pourcentage }}%</span>
+                        {% endif %}
+                        <div class="mt-1">
+                            <small><strong>Références :</strong> {{ defaut.reclamations|join:", " }}</small>
+                        </div>
+                    </td>
+                    <td class="fillable">
+                        <textarea rows="2" placeholder="Décrire les effets du défaut..."></textarea>
+                    </td>
+                    <td class="fillable" style="text-align: center;">
+                        <input type="text" size="2" placeholder="1-5">
+                    </td>
+                    <td class="fillable">
+                        <textarea rows="3" placeholder="Causes potentielles..."></textarea>
+                    </td>
+                    <td class="fillable" style="text-align: center;">
+                        <input type="text" size="2" placeholder="1-5">
+                    </td>
+                    <td class="fillable" style="text-align: center;">
+                        <input type="text" size="2" placeholder="1-5">
+                    </td>
+                    <td class="fillable" style="text-align: center; background-color: #ffe6e6;">
+                        <span class="empty-field">À calculer</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center;">Aucun défaut enregistré pour ce produit</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- Actions recommandées -->
+        <table class="amdec-table" style="margin-top: 20px;">
+            <thead>
+                <tr style="background-color: #e8f4f8;">
+                    <th colspan="6">ACTIONS RECOMMANDÉES</th>
+                </tr>
+                <tr>
+                    <th style="width: 5%">#</th>
+                    <th style="width: 25%">Actions préventives / correctives</th>
+                    <th style="width: 15%">Responsable</th>
+                    <th style="width: 15%">Délai</th>
+                    <th style="width: 20%">Suivi / Commentaires</th>
+                    <th style="width: 10%">Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for defaut in data.defauts %}
+                <tr>
+                    <td style="text-align: center;">{{ forloop.counter }}</td>
+                    <td class="fillable">
+                        <textarea rows="2" placeholder="Actions à mener..."></textarea>
+                    </td>
+                    <td class="fillable">
+                        <input type="text" placeholder="Nom / Service">
+                    </td>
+                    <td class="fillable">
+                        <input type="text" placeholder="JJ/MM/AAAA">
+                    </td>
+                    <td class="fillable">
+                        <textarea rows="2" placeholder="Commentaires..."></textarea>
+                    </td>
+                    <td class="fillable" style="text-align: center;">
+                        <select style="width: 100%;">
+                            <option value="">--</option>
+                            <option value="En cours">En cours</option>
+                            <option value="Terminé">Terminé</option>
+                            <option value="À valider">À valider</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td style="text-align: center;">&nbsp;</td>
+                    <td class="fillable"><textarea rows="2" placeholder="..."></textarea></td>
+                    <td class="fillable"><input type="text"></td>
+                    <td class="fillable"><input type="text"></td>
+                    <td class="fillable"><textarea rows="2"></textarea></td>
+                    <td class="fillable"></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Synthèse et validation -->
+        <table class="amdec-table" style="margin-top: 20px;">
+            <thead>
+                <tr style="background-color: #f0f0f0;">
+                    <th colspan="4">SYNTHÈSE ET VALIDATION</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="width: 20%"><strong>Criticité maximale (CRIT max) :</strong></td>
+                    <td style="width: 30%" class="fillable"><input type="text" placeholder="_____"></td>
+                    <td style="width: 20%"><strong>Seuil d'action :</strong></td>
+                    <td style="width: 30%" class="fillable"><input type="text" placeholder="_____"></td>
+                </tr>
+                <tr>
+                    <td><strong>Approbateur :</strong></td>
+                    <td class="fillable"><input type="text" placeholder="Nom, fonction"></td>
+                    <td><strong>Date :</strong></td>
+                    <td class="fillable"><input type="text" placeholder="__/__/____"></td>
+                </tr>
+                <tr>
+                    <td><strong>Animateur :</strong></td>
+                    <td class="fillable"><input type="text" placeholder="Nom"></td>
+                    <td><strong>Date prochaine revue :</strong></td>
+                    <td class="fillable"><input type="text" placeholder="__/__/____"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+    
+    <!-- Pied de page pour impression -->
+    <div class="signature-line no-print">
+        <div class="signature">Établi par :</div>
+        <div class="signature">Vérifié par :</div>
+        <div class="signature">Approuvé par :</div>
+    </div>
+    
+    <div class="text-muted mt-4 small text-center">
+        Document généré automatiquement - {{ date_analyse|date:"d/m/Y H:i" }}<br>
+    </div>
+</div>
+{% endblock %}

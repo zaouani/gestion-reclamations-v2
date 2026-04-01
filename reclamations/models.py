@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator, DecimalValidator
 from django.utils import timezone
@@ -157,8 +158,12 @@ class Reclamation(models.Model):
     # Timestamps
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
-    createur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='reclamations_crees')
-    
+    createur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='reclamations_crees'
+    )
     class Meta:
         verbose_name = "Réclamation"
         verbose_name_plural = "Réclamations"
@@ -202,7 +207,6 @@ class LigneReclamation(models.Model):
     def __str__(self):
         return f"{self.reclamation.numero_reclamation} - {self.produit.product_number}"
     
-
 class ObjectifsAnnuel(models.Model):
     """Objectifs par année et par site"""
     annee = models.IntegerField("Année", default=timezone.now().year)
@@ -259,4 +263,77 @@ class Livraison(models.Model):
     def __str__(self):
         return f"{self.client.nom} - {self.date_livraison} - {self.quantite_livree} pcs"
     
+class HuitD(models.Model):
+    """Modèle pour la méthode 8D"""
+    ETAT_CHOICES = [
+        ('EN_COURS', 'En cours'),
+        ('VALIDE', 'Validé'),
+        ('CLOTURE', 'Clôturé'),
+    ]
     
+    reclamation = models.OneToOneField(Reclamation, on_delete=models.CASCADE, related_name='huitd')
+    numero_8d = models.CharField("N° 8D", max_length=50, blank=True, null=True)
+    
+    # D0 - Préparation
+    d0_date = models.DateField("Date de démarrage", null=True, blank=True)
+    d0_equipe = models.TextField("Équipe 8D", blank=True, help_text="Membres de l'équipe")
+    
+    # D1 - Établir l'équipe
+    d1_leader = models.CharField("Chef d'équipe", max_length=100, blank=True)
+    d1_membres = models.TextField("Membres de l'équipe", blank=True)
+    d1_competences = models.TextField("Compétences requises", blank=True)
+    
+    # D2 - Décrire le problème
+    d2_description = models.TextField("Description du problème", blank=True)
+    d2_impact = models.TextField("Impact client / interne", blank=True)
+    d2_quantification = models.TextField("Quantification (données)", blank=True)
+    d2_historique = models.TextField("Historique du problème", blank=True)
+    
+    # D3 - Actions immédiates
+    d3_actions = models.TextField("Actions immédiates", blank=True)
+    d3_responsable = models.CharField("Responsable", max_length=100, blank=True)
+    d3_date = models.DateField("Date de réalisation", null=True, blank=True)
+    d3_efficacite = models.TextField("Efficacité des actions", blank=True)
+    
+    # D4 - Causes racines
+    d4_causes = models.TextField("Causes racines identifiées", blank=True)
+    d4_methodes = models.TextField("Méthodes d'analyse utilisées", blank=True)
+    d4_validation = models.TextField("Validation des causes", blank=True)
+    
+    # D5 - Actions correctives
+    d5_actions = models.TextField("Actions correctives", blank=True)
+    d5_responsable = models.CharField("Responsable", max_length=100, blank=True)
+    d5_date_prevue = models.DateField("Date prévue", null=True, blank=True)
+    d5_date_reelle = models.DateField("Date réalisée", null=True, blank=True)
+    d5_validation = models.TextField("Validation des actions", blank=True)
+    
+    # D6 - Actions préventives
+    d6_actions = models.TextField("Actions préventives", blank=True)
+    d6_responsable = models.CharField("Responsable", max_length=100, blank=True)
+    d6_date = models.DateField("Date de réalisation", null=True, blank=True)
+    d6_standardisation = models.TextField("Standardisation", blank=True)
+    
+    # D7 - Prévention de la récurrence
+    d7_actions = models.TextField("Actions de prévention", blank=True)
+    d7_documentation = models.TextField("Documentation mise à jour", blank=True)
+    d7_formation = models.TextField("Formation réalisée", blank=True)
+    
+    # D8 - Félicitations
+    d8_equipe = models.TextField("Reconnaissance de l'équipe", blank=True)
+    d8_retour = models.TextField("Retour d'expérience", blank=True)
+    d8_amelioration = models.TextField("Améliorations identifiées", blank=True)
+    
+    # Validation
+    etat = models.CharField("État", max_length=20, choices=ETAT_CHOICES, default='EN_COURS')
+    date_validation = models.DateField("Date de validation", null=True, blank=True)
+    valide_par = models.CharField("Validé par", max_length=100, blank=True)
+    
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Démarche 8D"
+        verbose_name_plural = "Démarches 8D"
+    
+    def __str__(self):
+        return f"8D - {self.reclamation.numero_reclamation}"
