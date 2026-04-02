@@ -531,7 +531,7 @@ def taux_recurrence_produits(request):
     
     for produit in produits:
         # Récupérer les lignes de réclamation pour ce produit
-        lignes = LigneReclamation.objects.filter(produit=produit)
+        lignes = LigneReclamation.objects.filter(produit=produit, reclamation__imputation__in=['CIM', 'ALERTE'])
         
         if not lignes.exists():
             continue
@@ -2693,17 +2693,16 @@ def amdec_produit(request, produit_id=None):
         produits = [produit]
     else:
         # Sinon, prendre les 5 produits les plus réclamés
-        produits = Produit.objects.annotate(
-            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)
-        ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
+        produits = Produit.objects.filter(lignes_reclamation__reclamation__imputation__in=['CIM', 'ALERTE']).annotate( nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
     
     # Analyser les défauts pour chaque produit
     amdec_data = []
     
     for produit in produits:
         # Récupérer toutes les lignes de réclamation pour ce produit
-        lignes = LigneReclamation.objects.filter(produit=produit).select_related('reclamation')
-        
+        lignes = LigneReclamation.objects.filter(produit=produit, reclamation__imputation__in=['CIM', 'ALERTE']).select_related('reclamation')
+        if not lignes.exists():
+            continue
         # Compter les occurrences de chaque type de défaut
         defauts = lignes.values('description_non_conformite').annotate(
             nb_occurences=Count('id'),
@@ -2722,7 +2721,7 @@ def amdec_produit(request, produit_id=None):
                 'description': description,
                 'nb_occurences': defaut['nb_occurences'],
                 'quantite_totale': defaut['quantite_totale'] or 0,
-                'reclamations': list(reclamations_defaut)[:5],  # Limiter à 5 exemples
+                'reclamations': list(reclamations_defaut)[:5],  # Limiter à 5 
                 'pourcentage': round(defaut['nb_occurences'] / lignes.count() * 100, 1) if lignes.count() > 0 else 0
             })
         
@@ -2930,7 +2929,7 @@ def amdec_export_excel(request, produit_id=None):
         row = 4
         
         # Synthèse
-        worksheet.merge_range(f'A{row+1}:H{row+1}', f"Synthèse: {data['total_defauts']} défaut(s) analysé(s)", cell_format)
+        worksheet.merge_range(f'A{row+1}:H{row+1}', f"Synthèse: {data['total_defauts']} Réclamation(s) analysée(s)", cell_format)
         row += 2
         
         # En-tête du tableau principal
