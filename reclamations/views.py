@@ -10,7 +10,7 @@ from datetime import timedelta, datetime
 import json
 from django.db import connection
 from decimal import Decimal
-from .utils import PPMCalculator
+from .utils import PPMCalculator, AMDEC_calculator
 from .dashboard_stats import DashboardStats
 import io
 import xlsxwriter
@@ -23,11 +23,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 import pandas as pd
 from .notifications import NotificationService
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db import transaction
 from .services.ai_service import AIService
 from .services.chatbot_service import ChatbotService
 from io import BytesIO
+
+
 
 chatbot = ChatbotService()
 
@@ -644,11 +646,6 @@ def ppm_detail_client(request, client_id):
     return render(request, 'reclamations/kpi/ppm_detail.html', context)
 
 # ================ GESTION DES RECLAMATIONS ================
-# reclamations/views.py
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.db.models import Q
-
-@login_required
 @login_required
 def liste_reclamations(request):
     """Liste des réclamations avec pagination et recherche"""
@@ -2687,56 +2684,7 @@ def api_chatbot(request):
 def amdec_produit(request, produit_id=None):
     """Génère une AMDEC pour un produit spécifique ou pour les produits les plus critiques"""
     
-    # Si un produit est spécifié, l'utiliser
-    if produit_id:
-        produit = get_object_or_404(Produit, pk=produit_id)
-        produits = [produit]
-    else:
-        # Sinon, prendre les 5 produits les plus réclamés
-        produits = Produit.objects.filter(lignes_reclamation__reclamation__imputation__in=['CIM', 'ALERTE']).annotate( nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
-    
-    # Analyser les défauts pour chaque produit
-    amdec_data = []
-    
-    for produit in produits:
-        # Récupérer toutes les lignes de réclamation pour ce produit
-        lignes = LigneReclamation.objects.filter(produit=produit, reclamation__imputation__in=['CIM', 'ALERTE']).select_related('reclamation')
-        if not lignes.exists():
-            continue
-        # Compter les occurrences de chaque type de défaut
-        defauts = lignes.values('description_non_conformite').annotate(
-            nb_occurences=Count('id'),
-            quantite_totale=Sum('quantite')
-        ).order_by('-nb_occurences')
-        
-        # Analyser chaque défaut
-        defauts_analyses = []
-        for defaut in defauts:
-            description = defaut['description_non_conformite'] or "Défaut non spécifié"
-            
-            # Récupérer les réclamations associées à ce défaut
-            reclamations_defaut = lignes.filter(description_non_conformite=description).values_list('reclamation__numero_reclamation', flat=True).distinct()
-            
-            defauts_analyses.append({
-                'description': description,
-                'nb_occurences': defaut['nb_occurences'],
-                'quantite_totale': defaut['quantite_totale'] or 0,
-                'reclamations': list(reclamations_defaut)[:5],  # Limiter à 5 
-                'pourcentage': round(defaut['nb_occurences'] / lignes.count() * 100, 1) if lignes.count() > 0 else 0
-            })
-        
-        amdec_data.append({
-            'produit': produit,
-            'total_defauts': lignes.count(),
-            'defauts': defauts_analyses,
-            'date_analyse': datetime.now()
-        })
-    
-    context = {
-        'amdec_data': amdec_data,
-        'date_analyse': datetime.now(),
-        'produit_unique': produit_id is not None
-    }
+    context = AMDEC_calculator.AMDEC()
     
     return render(request, 'reclamations/amdec/amdec_template.html', context)
 
@@ -2758,49 +2706,7 @@ def amdec_export_pdf(request, produit_id=None):
         )
     
     # Récupérer les données
-    if produit_id:
-        produit = get_object_or_404(Produit, pk=produit_id)
-        produits = [produit]
-    else:
-        produits = Produit.objects.annotate(
-            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)
-        ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
-    
-    amdec_data = []
-    for produit in produits:
-        lignes = LigneReclamation.objects.filter(produit=produit).select_related('reclamation')
-        defauts = lignes.values('description_non_conformite').annotate(
-            nb_occurences=Count('id'),
-            quantite_totale=Sum('quantite')
-        ).order_by('-nb_occurences')
-        
-        defauts_analyses = []
-        for defaut in defauts:
-            description = defaut['description_non_conformite'] or "Défaut non spécifié"
-            reclamations_defaut = lignes.filter(
-                description_non_conformite=description
-            ).values_list('reclamation__numero_reclamation', flat=True).distinct()
-            
-            defauts_analyses.append({
-                'description': description,
-                'nb_occurences': defaut['nb_occurences'],
-                'quantite_totale': defaut['quantite_totale'] or 0,
-                'reclamations': list(reclamations_defaut)[:5],
-                'pourcentage': round(defaut['nb_occurences'] / lignes.count() * 100, 1) if lignes.count() > 0 else 0
-            })
-        
-        amdec_data.append({
-            'produit': produit,
-            'total_defauts': lignes.count(),
-            'defauts': defauts_analyses,
-            'date_analyse': datetime.now()
-        })
-    
-    context = {
-        'amdec_data': amdec_data,
-        'date_analyse': datetime.now(),
-        'produit_unique': produit_id is not None
-    }
+    context=AMDEC_calculator.AMDEC()
     
     # Générer le PDF
     template = get_template('reclamations/amdec/amdec_pdf.html')
@@ -2821,50 +2727,10 @@ def amdec_export_pdf(request, produit_id=None):
 @login_required
 def amdec_export_excel(request, produit_id=None):
     """Exporte l'AMDEC en Excel"""
+
+    context=AMDEC_calculator.AMDEC()
+    amdec_data=context['amdec_data']
     
-    # Récupérer les données (même logique que la vue amdec_produit)
-    if produit_id:
-        produit = get_object_or_404(Produit, pk=produit_id)
-        produits = [produit]
-    else:
-        produits = Produit.objects.annotate(
-            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)
-        ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
-    
-    # Analyser les défauts pour chaque produit
-    amdec_data = []
-    
-    for produit in produits:
-        lignes = LigneReclamation.objects.filter(produit=produit).select_related('reclamation')
-        
-        defauts = lignes.values('description_non_conformite').annotate(
-            nb_occurences=Count('id'),
-            quantite_totale=Sum('quantite')
-        ).order_by('-nb_occurences')
-        
-        defauts_analyses = []
-        for defaut in defauts:
-            description = defaut['description_non_conformite'] or "Défaut non spécifié"
-            reclamations_defaut = lignes.filter(
-                description_non_conformite=description
-            ).values_list('reclamation__numero_reclamation', flat=True).distinct()
-            
-            defauts_analyses.append({
-                'description': description,
-                'nb_occurences': defaut['nb_occurences'],
-                'quantite_totale': defaut['quantite_totale'] or 0,
-                'reclamations': list(reclamations_defaut)[:5],
-                'pourcentage': round(defaut['nb_occurences'] / lignes.count() * 100, 1) if lignes.count() > 0 else 0
-            })
-        
-        amdec_data.append({
-            'produit': produit,
-            'total_defauts': lignes.count(),
-            'defauts': defauts_analyses,
-            'date_analyse': datetime.now()
-        })
-    
-    # Créer le fichier Excel
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output)
     

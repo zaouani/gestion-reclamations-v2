@@ -151,6 +151,12 @@
                         {% if defaut.reclamations %}
                         <br><span class="small-text">Réf: {{ defaut.reclamations|slice:":3"|join:", " }}</span>
                         {% endif %}
+                        {% if defaut.clients %}
+                        <br><span class="small-text">Client: {{ defaut.clients|slice:":3"|join:", " }}</span>
+                        {% endif %}
+                        {% if defaut.Programmes %}
+                        <br><span class="small-text">Programme: {{ defaut.Programmes|slice:":3"|join:", " }}</span>
+                        {% endif %}
                     </td>
                     <td class="fillable">
                         <span class="empty-placeholder">________________</span>
