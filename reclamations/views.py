@@ -1001,7 +1001,15 @@ def modifier_reclamation(request, pk):
             with transaction.atomic():
                 # Mettre à jour les champs de la réclamation
                 reclamation.numero_reclamation = request.POST.get('numero_reclamation')
-                reclamation.date_reclamation = request.POST.get('date_reclamation')
+                
+                # Gestion de la date - nettoyer les caractères invisibles
+                date_raw = request.POST.get('date_reclamation', '').strip()
+                if date_raw and date_raw != '  ':  # Ignorer les espaces invisibles
+                    try:
+                        reclamation.date_reclamation = date_raw
+                    except:
+                        reclamation.date_reclamation = timezone.now().date()
+                
                 reclamation.client_id = request.POST.get('client')
                 reclamation.site_id = request.POST.get('site')
                 reclamation.site_client_id = request.POST.get('site_client') or None
@@ -1016,11 +1024,28 @@ def modifier_reclamation(request, pk):
                 reclamation.me = request.POST.get('me') == 'on'
                 reclamation.cloture = request.POST.get('cloture') == 'on'
                 reclamation.decision = request.POST.get('decision', '')
-                reclamation.nqc = Decimal(request.POST.get('nqc', 0))
+                
+                # Gestion sécurisée du NQC (Decimal)
+                nqc_value = request.POST.get('nqc', '0')
+                if nqc_value == '' or nqc_value is None:
+                    nqc_value = '0'
+                # Nettoyer la valeur
+                nqc_value = str(nqc_value).strip().replace(',', '.')
+                # Supprimer les caractères non numériques (sauf point et moins)
+                import re
+                nqc_value = re.sub(r'[^0-9.-]', '', nqc_value)
+                if nqc_value == '' or nqc_value == '-':
+                    nqc_value = '0'
+                
+                try:
+                    reclamation.nqc = Decimal(nqc_value)
+                except (InvalidOperation, ValueError, TypeError):
+                    reclamation.nqc = Decimal('0')
+                    messages.warning(request, "La valeur NQC était invalide, elle a été mise à 0.")
+                
                 reclamation.save()
                 
                 # Traiter les lignes de réclamation
-                # Récupérer les IDs des lignes existantes
                 lignes_ids = request.POST.getlist('ligne_id[]')
                 produits = request.POST.getlist('produit[]')
                 quantites = request.POST.getlist('quantite[]')
@@ -1064,6 +1089,8 @@ def modifier_reclamation(request, pk):
                 
         except Exception as e:
             messages.error(request, f"Erreur lors de la modification: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     # GET: afficher le formulaire
     clients = Client.objects.filter(actif=True).order_by('nom')
