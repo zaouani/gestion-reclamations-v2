@@ -8,14 +8,14 @@ def AMDEC(produit_id=None):
             produits = [produit]
     else:
         # Sinon, prendre les 5 produits les plus réclamés
-        produits = Produit.objects.filter(lignes_reclamation__reclamation__imputation__in=['CIM', 'ALERTE']).annotate( nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
+        produits = Produit.objects.filter(lignes_reclamation__reclamation__imputation__in=['CIM']).annotate( nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:5]
     
         # Analyser les défauts pour chaque produit
         amdec_data = []
         
         for produit in produits:
             # Récupérer toutes les lignes de réclamation pour ce produit
-            lignes = LigneReclamation.objects.filter(produit=produit, reclamation__imputation__in=['CIM', 'ALERTE']).select_related('reclamation')
+            lignes = LigneReclamation.objects.filter(produit=produit, reclamation__imputation__in=['CIM']).select_related('reclamation')
             if not lignes.exists():
                 continue
             # Compter les occurrences de chaque type de défaut

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Alertes FAI - OF {{ of.numero_of }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #03316e 0%, #0a4a9e 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header p {
+            margin: 5px 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 20px;
+        }
+        .summary {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            flex: 1;
+            margin: 0 5px;
+        }
+        .summary-card.critique { background-color: #dc3545; color: white; }
+        .summary-card.urgent { background-color: #ffc107; color: #333; }
+        .summary-card.alerte { background-color: #17a2b8; color: white; }
+        .summary-card.info { background-color: #6c757d; color: white; }
+        .summary-card h3 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .summary-card p {
+            margin: 5px 0 0;
+            font-size: 12px;
+        }
+        .alert-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .alert-table th,
+        .alert-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .alert-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .badge-critique { background-color: #dc3545; color: white; }
+        .badge-urgent { background-color: #ffc107; color: #333; }
+        .badge-alerte { background-color: #17a2b8; color: white; }
+        .badge-info { background-color: #6c757d; color: white; }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+        .button {
+            display: inline-block;
+            background-color: #03316e;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .button:hover {
+            background-color: #022558;
+        }
+        .info-of {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Alertes FAI</h1>
+            <p>Norme EN9102 - First Article Inspection</p>
+        </div>
+        
+        <div class="content">
+            <div class="info-of">
+                <strong>📋 Ordre de Fabrication:</strong> {{ of.numero_of }}<br>
+                <strong>🏭 Atelier:</strong> {{ of.atelier|default:"Non spécifié" }}<br>
+                <strong>📅 Date création:</strong> {{ of.date_creation|date:"d/m/Y" }}<br>
+                <strong>👤 Responsable:</strong> {{ of.responsable|default:"Non spécifié" }}<br>
+                <strong>⚡ Priorité:</strong> 
+                    {% if of.priorite == 1 %}Haute
+                    {% elif of.priorite == 2 %}Moyenne
+                    {% else %}Basse{% endif %}
+            </div>
+            
+            <div class="summary">
+                <div class="summary-card critique">
+                    <h3>{{ niveaux.CRITIQUE }}</h3>
+                    <p>Critique</p>
+                </div>
+                <div class="summary-card urgent">
+                    <h3>{{ niveaux.URGENT }}</h3>
+                    <p>Urgent</p>
+                </div>
+                <div class="summary-card alerte">
+                    <h3>{{ niveaux.ALERTE }}</h3>
+                    <p>Alerte</p>
+                </div>
+                <div class="summary-card info">
+                    <h3>{{ niveaux.INFO }}</h3>
+                    <p>Information</p>
+                </div>
+            </div>
+            
+            <h3>📦 Produits nécessitant une attention</h3>
+            
+            <table class="alert-table">
+                <thead>
+                    <tr>
+                        <th>Produit</th>
+                        <th>Niveau</th>
+                        <th>Message</th>
+                        <th>Dernière production</th>
+                        <th>Expiration</th>
+                    </thead>
+                <tbody>
+                    {% for alerte in alertes %}
+                    <tr>
+                        <td>
+                            <strong>{{ alerte.produit.product_number }}</strong><br>
+                            <small class="text-muted">{{ alerte.produit.designation|truncatechars:40 }}</small>
+                        </td>
+                        <td>
+                            <span class="badge badge-{{ alerte.niveau|lower }}">
+                                {{ alerte.get_niveau_display }}
+                            </span>
+                        </td>
+                        <td>{{ alerte.message }}</td>
+                        <td>{{ alerte.derniere_production|date:"d/m/Y"|default:"-" }}</td>
+                        <td>{{ alerte.date_expiration|date:"d/m/Y"|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div style="text-align: center;">
+                <a href="{{ site_url }}/fai/alertes/of/{{ of.id }}/" class="button">
+                    🔍 Voir le détail des alertes
+                </a>
+            </div>
+            
+            <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107;">
+                <strong>⚠️ Actions recommandées:</strong>
+                <ul style="margin: 10px 0 0 20px;">
+                    <li>Les produits en statut <strong>CRITIQUE</strong> nécessitent une inspection immédiate</li>
+                    <li>Les produits en statut <strong>URGENT</strong> doivent être planifiés dans les 7 jours</li>
+                    <li>Préparer les documents FAI pour les produits en statut <strong>ALERTE</strong></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Cet email est généré automatiquement par le système de gestion des réclamations.</p>
+            <p>© {% now "Y" %} - Tous droits réservés</p>
+        </div>
+    </div>
+</body>
+</html>

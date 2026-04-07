@@ -1,0 +1,84 @@
+<!-- templates/reclamations/emails/fai_traitee.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>FAI traitée - {{ alerte.produit.product_number }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #28a745;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+        }
+        .info {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #03316e;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ Alerte FAI traitée</h1>
+        </div>
+        
+        <div class="content">
+            <p>Bonjour,</p>
+            
+            <p>L'alerte FAI suivante a été traitée :</p>
+            
+            <div class="info">
+                <strong>📦 Produit:</strong> {{ alerte.produit.product_number }}<br>
+                <strong>📋 OF associé:</strong> {{ alerte.ordre_fabrication.numero_of }}<br>
+                <strong>⚠️ Niveau:</strong> {{ alerte.get_niveau_display }}<br>
+                <strong>💬 Commentaire:</strong> {{ alerte.commentaire|default:"-" }}
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="{{ site_url }}/fai/alertes/{{ alerte.id }}/traiter/" class="button">
+                    📝 Voir le détail
+                </a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Email automatique - Merci de ne pas y répondre</p>
+        </div>
+    </div>
+</body>
+</html>

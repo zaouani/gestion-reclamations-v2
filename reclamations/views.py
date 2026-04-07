@@ -1,8 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+import logging
 from django.utils import timezone
-from .models import Reclamation, Client, Produit, LigneReclamation, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison, HuitD
+from .models import (Reclamation, Client, Produit, LigneReclamation, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison, HuitD, OrdreFabrication, LigneOF, AlerteFAI)
 from django.http import JsonResponse
 from django.db.models import Count, Q, F, Avg, Sum, Prefetch
 from django.db.models.functions import TruncMonth, ExtractMonth
@@ -28,13 +29,20 @@ from django.db import transaction
 from .services.ai_service import AIService
 from .services.chatbot_service import ChatbotService
 from io import BytesIO
+from typing import Generator
+from .services.ollama_service import OllamaService
+from .services.fai_alert_service import FAIAlertService
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 
 
 
-chatbot = ChatbotService()
+# CONFIGURATION LOGGER
+logger = logging.getLogger(__name__)
+ollama_service = OllamaService(model="phi3:mini") 
+moyenne_reactivite=100 
+ollama_service = OllamaService(model="llama3.2:3b")
 
-ai_service = AIService()
-moyenne_reactivite=100
 # ================ EXPORT PDF  ================
 @login_required
 def export_dashboard_pdf(request):
@@ -2627,71 +2635,10 @@ def api_reclamations_client_mois(request):
     
     return JsonResponse(data)
 
-@login_required
-def api_analyse_kpis(request):
-    """API pour analyser les KPIs avec IA - déclenchée à la demande"""
-    from .dashboard_stats import DashboardStats
-    from .services.ai_service import AIService
-    
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
-    
-    try:
-        # Récupérer les données
-        stats = DashboardStats()
-        data = stats.get_all_stats()
-        # Récupérer les données de réactivité par UAP
-        reactivite_uap_data = data.get('taux_reactivite_par_uap', {})
-                # Calculer la moyenne des taux de réactivité par UAP pour l'année courante
-        moyenne_reactivite = 0
-        annee_courante = timezone.now().year
-    
-        if reactivite_uap_data and annee_courante in reactivite_uap_data:
-            annees_data = reactivite_uap_data.get(annee_courante, {})
-            data_mensuelle = annees_data.get('data', {})
-            
-            # Récupérer tous les taux
-            tous_les_taux = []
-            for mois, uap_data in data_mensuelle.items():
-                for uap, taux in uap_data.items():
-                    if taux > 0:  # Ne compter que les UAP avec des données
-                        tous_les_taux.append(taux)
-            
-            # Calculer la moyenne
-            if tous_les_taux:
-                moyenne_reactivite = sum(tous_les_taux) / len(tous_les_taux)
-        
-        # Préparer les données pour l'IA
-        kpis_data = {
-            'total_reclamations': data.get('global', {}).get('total', 0),
-            'taux_cloture': data.get('global', {}).get('taux_cloture', 0),
-            'taux_reactivite': round(moyenne_reactivite, 1),
-            'duree_moyenne': data.get('delai_moyen', 0),
-            'ppm_global': data.get('ppm', {}).get('global', 0),
-            'nqc_total': data.get('nqc', {}).get('mois', {}).get('total_nqc', 0),
-            'top_clients_nqc': data.get('nqc', {}).get('par_client', [])[:5],
-            'uap_risque': []
-        }
-        
-        # Analyser avec IA
-        ai_service = AIService()
-        analyse = ai_service.analyser_kpis(kpis_data)
-        
-        return JsonResponse(analyse)
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({
-            'error': str(e),
-            'diagnostic': "Erreur d'analyse",
-            'actions_prioritaires': [],
-            'recommandations': []
-        }, status=500)
-    
-@login_required
+   
+"""@login_required
 def api_chatbot(request):
-    """API pour le chatbot"""
+    ""API pour le chatbot""
     if request.method != 'POST':
         return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
     
@@ -2705,7 +2652,7 @@ def api_chatbot(request):
         return JsonResponse(response)
         
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)"""
 
 @login_required
 def amdec_produit(request, produit_id=None):
@@ -3049,3 +2996,561 @@ def huitd_modifier(request, pk):
         'etat_choices': HuitD.ETAT_CHOICES,
     }
     return render(request, 'reclamations/huitd/huitd_edit.html', context)
+
+# ====================== CHATBOT VIEWS ======================
+ 
+@login_required
+def chatbot_ollama_status(request):
+    """Vérifie si Ollama est disponible"""
+    try:
+        is_connected = ollama_service.test_connection()
+        models = ollama_service.list_models() if is_connected else []
+       
+        return JsonResponse({
+            'ollama_available': is_connected,
+            'models': models,
+            'current_model': ollama_service.model,
+            'status': 'OK' if is_connected else 'Ollama non démarré'
+        })
+    except Exception as e:
+        logger.error(f"Error checking Ollama status: {e}")
+        return JsonResponse({
+            'ollama_available': False,
+            'error': str(e)
+        }, status=500)
+ 
+# API Chatbot 
+@login_required
+def api_chatbot(request):
+    """Endpoint non-streaming (alternative au streaming)"""
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+        historique = data.get('historique', [])
+ 
+        if not user_message:
+            return JsonResponse({'error': 'Message vide'}, status=400)
+ 
+        # Utilise Ollama si disponible, sinon fallback
+        if ollama_service.test_connection():
+            result = ollama_service.get_response(user_message, historique)
+            reponse = result.get('reponse', '')
+            suggestions = result.get('suggestions', [])
+        else:
+            reponse = traiter_message_chatbot(user_message, historique)
+            suggestions = generer_suggestions(user_message)
+ 
+        return JsonResponse({
+            'reponse': reponse,
+            'suggestions': suggestions
+        })
+ 
+    except Exception as e:
+        logger.exception("Error in api_chatbot")
+        return JsonResponse({'error': 'Erreur interne'}, status=500)
+   
+@login_required
+def chat_stream(request):
+    """Endpoint principal pour le streaming du chatbot"""
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+        historique = data.get('historique', [])
+ 
+        if not user_message:
+            return JsonResponse({'error': 'Message vide'}, status=400)
+ 
+        response = StreamingHttpResponse(
+            stream_generator(user_message, historique),
+            content_type='text/event-stream',
+        )
+       
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+       
+        return response
+ 
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON invalide'}, status=400)
+    except Exception as e:
+        logger.exception("Error in chat_stream")
+        return JsonResponse({'error': 'Erreur interne du serveur'}, status=500)
+ 
+ 
+def stream_generator(message: str, historique: list) -> Generator:
+    """Streaming optimisé - plus rapide et plus naturel"""
+    try:
+        if ollama_service.test_connection():
+            result = ollama_service.get_response(message, historique)
+            reponse_complete = result.get('reponse', '')
+        else:
+            reponse_complete = traiter_message_chatbot(message, historique)
+    except Exception as e:
+        logger.warning(f"Ollama failed: {e}")
+        reponse_complete = traiter_message_chatbot(message, historique)
+ 
+    # Version améliorée : on envoie par mots au lieu de caractère par caractère
+    words = reponse_complete.split(' ')
+    for i, word in enumerate(words):
+        yield (word + ' ').encode('utf-8')
+        # Pause variable : plus courte pour les mots courts
+        time.sleep(0.1 if len(word) > 8 else 0.04)
+ 
+    # Petit délai final pour que le dernier mot s’affiche bien
+    time.sleep(1)
+ 
+ 
+def traiter_message_chatbot(message: str, historique: list = None) -> str:
+    """Fallback manuel quand Ollama n'est pas disponible"""
+    if historique is None:
+        historique = []
+   
+    message_lower = message.lower().strip()
+ 
+    if any(word in message_lower for word in ['bonjour', 'salut', 'coucou', 'hello', 'hi']):
+        return "Bonjour ! Je suis votre assistant qualité. Comment puis-je vous aider aujourd'hui ?"
+ 
+    elif any(word in message_lower for word in ['réclamation', 'reclamation']):
+        if any(word in message_lower for word in ['créer', 'nouvelle', 'ajouter']):
+            return "Pour créer une nouvelle réclamation, cliquez sur 'Nouvelle réclamation' dans le menu. Renseignez le client, le produit et décrivez le problème."
+        elif any(word in message_lower for word in ['statut', 'suivi']):
+            return "Pour voir le statut d'une réclamation, allez dans 'Liste des réclamations' et recherchez par numéro ou client."
+        else:
+            return "Les réclamations sont accessibles via le menu 'Réclamations'. Vous pouvez les lister, les filtrer et exporter les données."
+ 
+    elif any(word in message_lower for word in ['délai', 'retard', 'échéance']):
+        return "Les échéances et réclamations en retard sont visibles dans l'onglet 'Échéances' du menu principal."
+ 
+    elif 'dashboard' in message_lower or 'tableau' in message_lower or 'kpi' in message_lower:
+        return "Le Dashboard affiche les indicateurs clés : nombre de réclamations, taux de clôture, PPM, etc. Accédez-y depuis le menu principal."
+ 
+    elif 'ppm' in message_lower:
+        return "Le PPM mesure la qualité fournisseur. Vous pouvez le consulter par client dans la section dédiée.\nObjectif général : < 1000 PPM."
+ 
+    elif any(word in message_lower for word in ['8d', '4d']):
+        return "La méthode 8D est utilisée pour résoudre les problèmes qualité. Chaque réclamation importante dispose d'une fiche 8D dédiée."
+ 
+    elif 'aide' in message_lower or 'help' in message_lower:
+        return ("Je peux vous aider sur :\n"
+                "• Créer ou suivre une réclamation\n"
+                "• Consulter le dashboard et les statistiques\n"
+                "• Comprendre le PPM et la méthode 8D\n"
+                "• Gestion des produits et clients\n\n"
+                "Que souhaitez-vous faire ?")
+ 
+    else:
+        return ("Je n'ai pas bien compris votre demande.\n\n"
+                "Essayez de me parler de :\n"
+                "• Réclamations\n"
+                "• Dashboard\n"
+                "• PPM\n"
+                "• 8D\n\n"
+                "Ou tapez 'aide'.")
+ 
+ 
+def generer_suggestions(message: str) -> list:
+    """Génère des suggestions contextuelles pour le frontend"""
+    message_lower = message.lower().strip()
+   
+    if any(k in message_lower for k in ['dashboard', 'statistique', 'kpi']):
+        return ['Voir le dashboard', 'Export Excel', 'Graphiques PPM']
+   
+    elif any(k in message_lower for k in ['réclamation', 'reclamation']):
+        return ['Créer une réclamation', 'Liste des réclamations', 'Réclamations en retard']
+   
+    elif 'ppm' in message_lower:
+        return ['PPM par client', 'Tendance PPM', 'Objectifs qualité']
+   
+    elif any(k in message_lower for k in ['8d', '4d']):
+        return ['Voir fiche 8D', 'Modifier états', 'Actions correctives']
+   
+    else:
+        return ['Dashboard', 'Liste des réclamations', 'Créer réclamation', 'Aide']
+ 
+# ====================== CHATBOT SUGGESTIONS ======================
+ 
+# Suggestions that will always be shown to the user (quick start ideas)
+CHATBOT_SUGGESTIONS = [
+    "Créer une nouvelle réclamation",
+    "Liste des réclamations",
+    "Consulter le PPM",
+    "Réclamations en retard",
+    "Comment utiliser la méthode 8D ?",
+    "Voir les statistiques qualité",
+    "Aide"
+]
+
+@login_required
+def get_chatbot_suggestions(request):
+    """Return static suggestions for the chatbot interface"""
+    return JsonResponse({
+        'suggestions': CHATBOT_SUGGESTIONS
+    })
+
+@login_required
+def api_analyse_kpis(request):
+    """API pour analyser les KPIs avec IA - déclenchée à la demande"""
+    from .dashboard_stats import DashboardStats
+    from .services.ai_service import AIService
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+    
+    try:
+        # Récupérer les données
+        stats = DashboardStats()
+        data = stats.get_all_stats()
+        # Récupérer les données de réactivité par UAP
+        reactivite_uap_data = data.get('taux_reactivite_par_uap', {})
+                # Calculer la moyenne des taux de réactivité par UAP pour l'année courante
+        moyenne_reactivite = 0
+        annee_courante = timezone.now().year
+    
+        if reactivite_uap_data and annee_courante in reactivite_uap_data:
+            annees_data = reactivite_uap_data.get(annee_courante, {})
+            data_mensuelle = annees_data.get('data', {})
+            
+            # Récupérer tous les taux
+            tous_les_taux = []
+            for mois, uap_data in data_mensuelle.items():
+                for uap, taux in uap_data.items():
+                    if taux > 0:  # Ne compter que les UAP avec des données
+                        tous_les_taux.append(taux)
+            
+            # Calculer la moyenne
+            if tous_les_taux:
+                moyenne_reactivite = sum(tous_les_taux) / len(tous_les_taux)
+        
+        # Préparer les données pour l'IA
+        kpis_data = {
+            'total_reclamations': data.get('global', {}).get('total', 0),
+            'taux_cloture': data.get('global', {}).get('taux_cloture', 0),
+            'taux_reactivite': round(moyenne_reactivite, 1),
+            'duree_moyenne': data.get('delai_moyen', 0),
+            'ppm_global': data.get('ppm', {}).get('global', 0),
+            'nqc_total': data.get('nqc', {}).get('mois', {}).get('total_nqc', 0),
+            'top_clients_nqc': data.get('nqc', {}).get('par_client', [])[:5],
+            'uap_risque': []
+        }
+        
+        # Analyser avec IA
+        ai_service = AIService()
+        analyse = ai_service.analyser_kpis(kpis_data)
+        
+        return JsonResponse(analyse)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'error': str(e),
+            'diagnostic': "Erreur d'analyse",
+            'actions_prioritaires': [],
+            'recommandations': []
+        }, status=500)
+ 
+#=========FAI Service====================
+
+@login_required
+def verifier_alertes_fai(request):
+    """Vérification manuelle des alertes FAI"""
+    service = FAIAlertService()
+    
+    # Lancer la vérification
+    resultats = service.verifier_of_non_fermes()
+    
+    # Compter les alertes par niveau
+    stats = {'CRITIQUE': 0, 'URGENT': 0, 'ALERTE': 0, 'INFO': 0, 'TOTAL': 0}
+    for resultat in resultats:
+        for alerte in resultat['alertes']:
+            stats[alerte.niveau] += 1
+            stats['TOTAL'] += 1
+    
+    context = {
+        'resultats': resultats,
+        'stats': stats,
+        'date_verification': timezone.now()
+    }
+    return render(request, 'reclamations/fai/verification_resultat.html', context)
+
+@login_required
+def liste_alertes_fai(request):
+    """Liste des alertes FAI"""
+    alertes = AlerteFAI.objects.select_related('ordre_fabrication', 'produit').all()
+    
+    # Filtres
+    statut = request.GET.get('statut', '')
+    niveau = request.GET.get('niveau', '')
+    of_id = request.GET.get('of', '')
+    
+    if statut:
+        alertes = alertes.filter(statut=statut)
+    if niveau:
+        alertes = alertes.filter(niveau=niveau)
+    if of_id:
+        alertes = alertes.filter(ordre_fabrication_id=of_id)
+    
+    context = {
+        'alertes': alertes,
+        'statut_choices': AlerteFAI.STATUT_CHOICES,
+        'niveau_choices': AlerteFAI.NIVEAU_CHOICES,
+    }
+    return render(request, 'reclamations/fai/liste_alertes.html', context)
+
+@login_required
+def traiter_alerte_fai(request, pk):
+    """Traiter manuellement une alerte FAI"""
+    alerte = get_object_or_404(AlerteFAI, pk=pk)
+    
+    if request.method == 'POST':
+        alerte.statut = request.POST.get('statut')
+        alerte.commentaire = request.POST.get('commentaire', '')
+        alerte.traite_par = request.user.get_full_name() or request.user.username
+        alerte.date_traitement = timezone.now()
+        alerte.save()
+        
+        messages.success(request, f"Alerte {alerte.get_niveau_display()} traitée")
+        return redirect('reclamations:liste_alertes_fai')
+    
+    context = {'alerte': alerte}
+    return render(request, 'reclamations/fai/traiter_alerte.html', context)
+
+@login_required
+def alertes_par_of(request, of_id):
+    """Alertes pour un OF spécifique"""
+    of = get_object_or_404(OrdreFabrication, pk=of_id)
+    alertes = AlerteFAI.objects.filter(ordre_fabrication=of).select_related('produit')
+    
+    context = {
+        'of': of,
+        'alertes': alertes
+    }
+    return render(request, 'reclamations/fai/alertes_par_of.html', context)
+
+@login_required
+def importer_of_erp(request):
+    """Import des OF depuis l'ERP (simulation)"""
+    if request.method == 'POST':
+        # Simulation d'import
+        data = request.POST.get('data')
+        # Traitement...
+        
+        messages.success(request, "Import des OF terminé")
+        return redirect('reclamations:verifier_alertes_fai')
+    
+    return render(request, 'reclamations/fai/importer_of.html')
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_importer_of(request):
+    """API pour importer des OF depuis l'ERP"""
+    try:
+        data = json.loads(request.body)
+        ofs_data = data.get('ofs', [])
+        
+        service = FAIAlertService()
+        resultats = service.importer_donnees_erp(ofs_data)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f"{resultats['crees']} OF créés, {resultats['mis_a_jour']} mis à jour",
+            'details': resultats
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@require_http_methods(["GET"])
+def api_statut_of(request):
+    """API pour obtenir le statut des OF"""
+    of_id = request.GET.get('of_id')
+    numero_of = request.GET.get('numero_of')
+    
+    try:
+        if of_id:
+            of = OrdreFabrication.objects.get(id=of_id)
+        elif numero_of:
+            of = OrdreFabrication.objects.get(numero_of=numero_of)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': "Paramètre of_id ou numero_of requis"
+            }, status=400)
+        
+        return JsonResponse({
+            'success': True,
+            'of': {
+                'id': of.id,
+                'numero_of': of.numero_of,
+                'statut': of.statut,
+                'statut_display': of.get_statut_display(),
+                'date_creation': of.date_creation.strftime('%Y-%m-%d'),
+                'date_previsionnelle': of.date_previsionnelle.strftime('%Y-%m-%d') if of.date_previsionnelle else None,
+                'date_reelle_fin': of.date_reelle_fin.strftime('%Y-%m-%d') if of.date_reelle_fin else None,
+                'responsable': of.responsable,
+                'atelier': of.atelier,
+                'priorite': of.priorite
+            }
+        })
+        
+    except OrdreFabrication.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': "OF non trouvé"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@login_required
+def liste_of(request):
+    """Liste des ordres de fabrication"""
+    ofs = OrdreFabrication.objects.all().order_by('-date_creation')
+    
+    # Filtres
+    statut = request.GET.get('statut', '')
+    if statut:
+        ofs = ofs.filter(statut=statut)
+    
+    context = {
+        'ofs': ofs,
+        'statut_choices': OrdreFabrication.STATUT_CHOICES
+    }
+    return render(request, 'reclamations/fai/liste_of.html', context)
+
+@login_required
+def detail_of(request, pk):
+    """Détail d'un ordre de fabrication"""
+    of = get_object_or_404(OrdreFabrication.objects.prefetch_related('lignes__produit'), pk=pk)
+    alertes = AlerteFAI.objects.filter(ordre_fabrication=of).select_related('produit')
+    
+    context = {
+        'of': of,
+        'alertes': alertes
+    }
+    return render(request, 'reclamations/fai/detail_of.html', context)
+
+
+@login_required
+def fermer_of(request, pk):
+    """Fermer manuellement un OF"""
+    of = get_object_or_404(OrdreFabrication, pk=pk)
+    
+    if request.method == 'POST':
+        of.statut = 'CLOTURE'
+        of.date_reelle_fin = timezone.now().date()
+        of.save()
+        
+        messages.success(request, f"OF {of.numero_of} clôturé avec succès")
+        return redirect('reclamations:liste_of')
+    
+    context = {'of': of}
+    return render(request, 'reclamations/fai/fermer_of.html', context)
+
+
+@login_required
+def envoyer_alertes_fai(request):
+    """Envoyer manuellement les alertes FAI groupées"""
+    if request.method == 'POST':
+        service = FAIAlertService()
+        alertes_envoyees = service.envoyer_alertes_groupes()
+        
+        messages.success(request, f"{len(alertes_envoyees)} alerte(s) groupée(s) envoyée(s)")
+        return redirect('reclamations:liste_alertes_fai')
+    
+    # GET: afficher confirmation avec statistiques calculées
+    service = FAIAlertService()
+    resultats = service.verifier_of_non_fermes()
+    
+    # Calculer les statistiques par OF
+    resultats_detail = []
+    for resultat in resultats:
+        nb_critique = sum(1 for a in resultat['alertes'] if a.niveau == 'CRITIQUE')
+        nb_urgent = sum(1 for a in resultat['alertes'] if a.niveau == 'URGENT')
+        nb_alerte = sum(1 for a in resultat['alertes'] if a.niveau == 'ALERTE')
+        
+        resultats_detail.append({
+            'of': resultat['of'],
+            'nb_alertes': len(resultat['alertes']),
+            'nb_critique': nb_critique,
+            'nb_urgent': nb_urgent,
+            'nb_alerte': nb_alerte
+        })
+    
+    nb_alertes_total = sum(r['nb_alertes'] for r in resultats_detail)
+    
+    context = {
+        'nb_of': len(resultats_detail),
+        'nb_alertes': nb_alertes_total,
+        'resultats': resultats_detail
+    }
+    return render(request, 'reclamations/fai/confirmation_envoi.html', context)
+
+@login_required
+def liste_produits_fai(request):
+    """Liste des produits avec suivi FAI"""
+    produits = Produit.objects.filter(
+        lignes_of__isnull=False
+    ).distinct().annotate(
+        nb_of=Count('lignes_of'),
+        derniere_production=Max('lignes_of__date_fin')
+    ).order_by('-derniere_production')
+    
+    context = {
+        'produits': produits
+    }
+    return render(request, 'reclamations/fai/liste_produits_fai.html', context)
+
+@login_required
+def detail_produit_fai(request, pk):
+    """Détail FAI d'un produit"""
+    produit = get_object_or_404(Produit, pk=pk)
+    alertes = AlerteFAI.objects.filter(produit=produit).select_related('ordre_fabrication')
+    historique_productions = LigneOF.objects.filter(produit=produit).select_related('ordre_fabrication').order_by('-date_fin')
+    
+    context = {
+        'produit': produit,
+        'alertes': alertes,
+        'historique_productions': historique_productions
+    }
+    return render(request, 'reclamations/fai/detail_produit_fai.html', context)
+
+
+@login_required
+def enregistrer_inspection_fai(request, pk):
+    """Enregistrer une inspection FAI réalisée"""
+    produit = get_object_or_404(Produit, pk=pk)
+    
+    if request.method == 'POST':
+        date_inspection = request.POST.get('date_inspection')
+        commentaire = request.POST.get('commentaire', '')
+        
+        # Mettre à jour ou créer l'article FAI
+        article, created = Article.objects.update_or_create(
+            produit=produit,
+            defaults={
+                'dernier_controle': date_inspection,
+                'statut': 'VALIDE',
+                'observations': commentaire
+            }
+        )
+        
+        # Mettre à jour les alertes associées
+        AlerteFAI.objects.filter(
+            produit=produit,
+            statut__in=['NOUVELLE', 'EN_COURS']
+        ).update(statut='TRAITEE', date_traitement=timezone.now())
+        
+        messages.success(request, f"Inspection FAI enregistrée pour {produit.product_number}")
+        return redirect('reclamations:detail_produit_fai', pk=produit.id)
+    
+    context = {
+        'produit': produit,
+        'today': timezone.now().date()
+    }
+    return render(request, 'reclamations/fai/enregistrer_inspection.html', context)

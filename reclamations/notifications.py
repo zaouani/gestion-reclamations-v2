@@ -1,4 +1,3 @@
-# reclamations/notifications.py
 import logging
 from datetime import datetime, timedelta
 from django.core.mail import send_mail

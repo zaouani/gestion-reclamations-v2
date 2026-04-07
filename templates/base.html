@@ -217,63 +217,37 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     <script src="{% static 'js/custom.js' %}"></script>
-    
-    {% block extra_js %}{% endblock %}
-    
+   
     <!-- Chatbot Widget -->
-    <div id="chatbotWidget" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
-        <div id="chatbotToggle" class="chatbot-toggle" style="width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(3,49,110,0.3); cursor: pointer; background: linear-gradient(135deg, #03316e 0%, #0a4a9e 100%); transition: all 0.3s ease;">
-            <i class="fas fa-comments fa-2x text-white"></i>
+    <!-- Bouton pour ouvrir le chat -->
+        <!-- Chatbot Widget -->
+    <!-- Bouton pour ouvrir le chat -->
+    <button id="chatbotToggle" class="chatbot-toggle">
+        💬
+    </button>
+ 
+    <!-- Fenêtre du chat -->
+    <div id="chatbotWindow" class="chatbot-window">
+        <div class="chatbot-header">
+            <h4>🤖 Assistant Réclamations</h4>
+            <button id="closeChatbot">×</button>
         </div>
-        
-        <div id="chatbotWindow" style="display: none; position: absolute; bottom: 70px; right: 0; width: 380px; height: 550px; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column;">
-            
-            <div class="chatbot-header" style="padding: 15px; color: white;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <i class="fas fa-robot me-2"></i>
-                        <strong>Assistant Qualité</strong>
-                    </div>
-                    <button id="closeChatbot" style="background: none; border: none; color: white; cursor: pointer;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <p style="font-size: 12px; margin: 5px 0 0 0;">Posez vos questions sur les réclamations, la qualité, les KPIs...</p>
-            </div>
-            
-            <div id="chatbotMessages" style="flex: 1; overflow-y: auto; padding: 15px; background: #f8f9fa;">
-                <div class="chat-message bot">
-                    <div style="background: white; padding: 12px; border-radius: 12px; max-width: 85%; display: inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                        Bonjour ! Je suis votre assistant qualité. Je peux vous aider avec :
-                        <ul style="margin: 8px 0 0 20px; font-size: 12px;">
-                            <li>La gestion des réclamations</li>
-                            <li>Les méthodes 4D et 8D</li>
-                            <li>Les indicateurs qualité (PPM, NQC)</li>
-                            <li>Les délais de clôture</li>
-                        </ul>
-                        Que voulez-vous savoir ?
-                    </div>
-                </div>
-            </div>
-            
-            <div id="chatbotSuggestions" style="padding: 10px; border-top: 1px solid #e0e0e0; background: white;">
-                <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px;">
-                    <button class="suggestion-btn">📊 Comment créer une réclamation ?</button>
-                    <button class="suggestion-btn">🔍 Qu'est-ce que le PPM ?</button>
-                    <button class="suggestion-btn">⏱️ Délais 4D et 8D ?</button>
-                </div>
-            </div>
-            
-            <div style="padding: 12px; border-top: 1px solid #e0e0e0; display: flex; gap: 10px; background: white;">
-                <input type="text" id="chatbotInput" placeholder="Posez votre question..." 
-                    style="flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 14px;">
-                <button id="sendChatbot" class="chatbot-send" style="background: #03316e; border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
+       
+        <div id="chatbotMessages" class="chatbot-messages">
+            <!-- Les messages apparaîtront ici -->
         </div>
-    </div>
-    
+       
+        <div id="chatbotSuggestions" class="chatbot-suggestions"></div>
+ 
+        <div class="chat-input-area">
+            <input type="text" id="chatbotInput" placeholder="Votre message...">
+            <button id="sendChatbot">➤</button>
+        </div>
+    </div>  <!-- Un seul </div> ici pour fermer chatbotWindow -->
+   
+    <!-- Chatbot JS (toujours à la fin, avant la fermeture de body) -->
     <script src="{% static 'js/chatbot.js' %}"></script>
+   
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

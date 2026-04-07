@@ -1,0 +1,94 @@
+<!-- templates/reclamations/fai/confirmation_envoi.html -->
+{% extends 'base.html' %}
+
+{% block title %}Confirmation envoi alertes FAI{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="fas fa-envelope"></i> Envoi des alertes FAI</h5>
+                </div>
+                <div class="card-body">
+                    <p>Vous allez envoyer des alertes pour :</p>
+                    
+                    <div class="alert alert-info">
+                        <strong>{{ nb_of }}</strong> OF concerné(s)<br>
+                        <strong>{{ nb_alertes }}</strong> alerte(s) à envoyer
+                    </div>
+                    
+                    {% if resultats %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>OF</th>
+                                    <th>Nb alertes</th>
+                                    <th>Critique</th>
+                                    <th>Urgent</th>
+                                    <th>Alerte</th>
+                                 </thead>
+                            <tbody>
+                                {% for resultat in resultats %}
+                                <tr>
+                                    <td>{{ resultat.of.numero_of }}</td>
+                                    <td>{{ resultat.alertes|length }}</td>
+                                    <td>
+                                        {% with critique_count=0 %}
+                                            {% for alerte in resultat.alertes %}
+                                                {% if alerte.niveau == 'CRITIQUE' %}
+                                                    {% with critique_count=critique_count|add:1 %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {{ critique_count }}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% with urgent_count=0 %}
+                                            {% for alerte in resultat.alertes %}
+                                                {% if alerte.niveau == 'URGENT' %}
+                                                    {% with urgent_count=urgent_count|add:1 %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {{ urgent_count }}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% with alerte_count=0 %}
+                                            {% for alerte in resultat.alertes %}
+                                                {% if alerte.niveau == 'ALERTE' %}
+                                                    {% with alerte_count=alerte_count|add:1 %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {{ alerte_count }}
+                                        {% endwith %}
+                                    </td>
+                                 </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Confirmer l'envoi
+                            </button>
+                            <a href="{% url 'reclamations:liste_alertes_fai' %}" class="btn btn-secondary">
+                                Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -337,3 +337,107 @@ class HuitD(models.Model):
     
     def __str__(self):
         return f"8D - {self.reclamation.numero_reclamation}"
+
+#========= Gestion des FAIs =============
+
+class OrdreFabrication(models.Model):
+    """Ordre de fabrication extrait de l'ERP"""
+    STATUT_CHOICES = [
+        ('CREEE', 'Créé'),
+        ('EN_COURS', 'En cours'),
+        ('TERMINE', 'Terminé'),
+        ('CLOTURE', 'Clôturé'),
+        ('ANNULE', 'Annulé'),
+    ]
+    
+    numero_of = models.CharField("N° OF", max_length=50, unique=True)
+    date_creation = models.DateField("Date création OF")
+    date_previsionnelle = models.DateField("Date prévisionnelle fin", null=True, blank=True)
+    date_reelle_fin = models.DateField("Date réelle fin", null=True, blank=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='CREEE')
+    
+    # Informations complémentaires
+    responsable = models.CharField("Responsable OF", max_length=200, blank=True)
+    atelier = models.CharField("Atelier", max_length=100, blank=True)
+    priorite = models.IntegerField("Priorité", default=3, choices=[(1, 'Haute'), (2, 'Moyenne'), (3, 'Basse')])
+    
+    date_import = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Ordre de fabrication"
+        verbose_name_plural = "Ordres de fabrication"
+        ordering = ['-date_creation', '-priorite']
+        indexes = [
+            models.Index(fields=['statut', 'date_creation']),
+            models.Index(fields=['numero_of']),
+        ]
+    
+    def __str__(self):
+        return f"{self.numero_of} - {self.get_statut_display()}"
+
+class LigneOF(models.Model):
+    """Lignes d'un OF (produits à fabriquer)"""
+    ordre_fabrication = models.ForeignKey(OrdreFabrication, on_delete=models.CASCADE, related_name='lignes')
+    produit = models.ForeignKey(Produit, on_delete=models.PROTECT, related_name='lignes_of')
+    quantite_prevue = models.IntegerField(default=0)
+    quantite_produite = models.IntegerField(default=0)
+    date_debut = models.DateField(null=True, blank=True)
+    date_fin = models.DateField(null=True, blank=True)
+    
+    class Meta:
+        verbose_name = "Ligne OF"
+        verbose_name_plural = "Lignes OF"
+        unique_together = ['ordre_fabrication', 'produit']
+    
+    def __str__(self):
+        return f"{self.ordre_fabrication.numero_of} - {self.produit.product_number}"
+
+class AlerteFAI(models.Model):
+    """Alertes FAI générées"""
+    NIVEAU_CHOICES = [
+        ('INFO', 'Information'),
+        ('ALERTE', 'Alerte'),
+        ('URGENT', 'Urgent'),
+        ('CRITIQUE', 'Critique'),
+    ]
+    
+    STATUT_CHOICES = [
+        ('NOUVELLE', 'Nouvelle'),
+        ('EN_COURS', 'En cours'),
+        ('TRAITEE', 'Traitée'),
+        ('IGNOREE', 'Ignorée'),
+    ]
+    
+    ordre_fabrication = models.ForeignKey(OrdreFabrication, on_delete=models.CASCADE, related_name='alertes_fai')
+    produit = models.ForeignKey(Produit, on_delete=models.CASCADE, related_name='alertes_fai')
+    niveau = models.CharField(max_length=20, choices=NIVEAU_CHOICES, default='ALERTE')
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='NOUVELLE')
+    
+    # Dates clés
+    derniere_production = models.DateField("Date dernière production", null=True, blank=True)
+    derniere_inspection = models.DateField("Date dernière inspection FAI", null=True, blank=True)
+    date_expiration = models.DateField("Date expiration FAI", null=True, blank=True)
+    
+    # Message
+    message = models.TextField()
+    commentaire = models.TextField(blank=True)
+    
+    # Traitement
+    traite_par = models.CharField(max_length=200, blank=True)
+    date_traitement = models.DateTimeField(null=True, blank=True)
+    
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Alerte FAI"
+        verbose_name_plural = "Alertes FAI"
+        ordering = ['-date_creation']
+        indexes = [
+            models.Index(fields=['statut', 'niveau']),
+            models.Index(fields=['ordre_fabrication', 'produit']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_niveau_display()} - {self.ordre_fabrication.numero_of} - {self.produit.product_number}"

@@ -117,3 +117,9 @@ DEFAULT_FROM_EMAIL = 'noreply@votre-domaine.com'
 # Notification settings
 NOTIFICATION_RESPONSABLE_EMAIL = 'responsable@votre-domaine.com'  # Email du responsable
 SITE_URL = 'http://127.0.0.1:8000'  # URL de votre site
+
+# Email pour les alertes FAI
+QUALITY_MANAGER_EMAIL = 'quality@votreentreprise.com'
+QUALITY_TEAM_EMAILS = ['quality1@entreprise.com', 'quality2@entreprise.com']
+SITE_URL = 'http://127.0.0.1:8000'
+

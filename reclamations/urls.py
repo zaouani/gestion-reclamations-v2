@@ -81,7 +81,9 @@ urlpatterns = [
 
     #AI
     path('api/analyse-kpis/', views.api_analyse_kpis, name='api_analyse_kpis'),
+    path('chat/stream/', views.chat_stream, name='chat_stream'),
     path('api/chatbot/', views.api_chatbot, name='api_chatbot'),
+    path('api/chatbot/suggestions/', views.get_chatbot_suggestions, name='chatbot_suggestions'),
 
     #AMDEC
     path('amdec/', views.amdec_produit, name='amdec_produit'),
@@ -94,4 +96,27 @@ urlpatterns = [
     #8D
     path('reclamation/<int:pk>/8d/', views.huitd_detail, name='huitd_detail'),
     path('reclamation/8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
+
+        # ================ GESTION FAI ================
+    # Vérification et alertes
+    path('fai/verifier/', views.verifier_alertes_fai, name='verifier_alertes_fai'),
+    path('fai/alertes/', views.liste_alertes_fai, name='liste_alertes_fai'),
+    path('fai/alertes/<int:pk>/traiter/', views.traiter_alerte_fai, name='traiter_alerte_fai'),
+    path('fai/alertes/envoyer/', views.envoyer_alertes_fai, name='envoyer_alertes_fai'),
+    path('fai/alertes/of/<int:of_id>/', views.alertes_par_of, name='alertes_par_of'),
+    
+    # Gestion des OF
+    path('fai/of/', views.liste_of, name='liste_of'),
+    path('fai/of/<int:pk>/', views.detail_of, name='detail_of'),
+    path('fai/of/importer/', views.importer_of_erp, name='importer_of_erp'),
+    path('fai/of/<int:pk>/fermer/', views.fermer_of, name='fermer_of'),
+    
+    # Gestion des produits FAI
+    path('fai/produits/', views.liste_produits_fai, name='liste_produits_fai'),
+    path('fai/produits/<int:pk>/', views.detail_produit_fai, name='detail_produit_fai'),
+    path('fai/produits/<int:pk>/inspection/', views.enregistrer_inspection_fai, name='enregistrer_inspection_fai'),
+    
+    # API pour l'ERP (intégration)
+    path('api/erp/importer-of/', views.api_importer_of, name='api_importer_of'),
+    path('api/erp/statut-of/', views.api_statut_of, name='api_statut_of'),
 ]

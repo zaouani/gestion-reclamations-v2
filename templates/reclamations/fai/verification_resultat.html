@@ -1,0 +1,118 @@
+<!-- templates/reclamations/fai/verification_resultat.html -->
+{% extends 'base.html' %}
+
+{% block title %}Vérification FAI - Résultats{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-clipboard-check"></i> Vérification FAI</h1>
+            <p class="text-muted">Vérification des OF non fermés - {{ date_verification|date:"d/m/Y H:i" }}</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'reclamations:envoyer_alertes_fai' %}" class="btn btn-primary">
+                <i class="fas fa-envelope"></i> Envoyer les alertes
+            </a>
+            <a href="{% url 'reclamations:liste_alertes_fai' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> Voir les alertes
+            </a>
+        </div>
+    </div>
+    
+    <!-- Statistiques -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.CRITIQUE }}</h2>
+                    <p>Critique</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.URGENT }}</h2>
+                    <p>Urgent</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.ALERTE }}</h2>
+                    <p>Alerte</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.TOTAL }}</h2>
+                    <p>Total alertes</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Résultats par OF -->
+    {% for resultat in resultats %}
+    <div class="card mb-4">
+        <div class="card-header {% if resultat.alertes|length > 0 %}bg-warning{% else %}bg-success{% endif %}">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-industry"></i> OF {{ resultat.of.numero_of }}
+                    <span class="badge bg-secondary">{{ resultat.of.get_statut_display }}</span>
+                </h5>
+                <div>
+                    <span class="badge bg-danger">{{ resultat.alertes|length }} alerte(s)</span>
+                    <a href="{% url 'reclamations:alertes_par_of' resultat.of.id %}" class="btn btn-sm btn-light">
+                        <i class="fas fa-eye"></i> Détail
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Niveau</th>
+                            <th>Message</th>
+                            <th>Dernière production</th>
+                            <th>Expiration</th>
+                         </thead>
+                    <tbody>
+                        {% for alerte in resultat.alertes %}
+                        <tr>
+                            <td>{{ alerte.produit.product_number }}<br>
+                                <small class="text-muted">{{ alerte.produit.designation|truncatechars:30 }}</small>
+                             </td>
+                            <td>
+                                <span class="badge 
+                                    {% if alerte.niveau == 'CRITIQUE' %}bg-danger
+                                    {% elif alerte.niveau == 'URGENT' %}bg-warning text-dark
+                                    {% elif alerte.niveau == 'ALERTE' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ alerte.get_niveau_display }}
+                                </span>
+                            </td>
+                            <td>{{ alerte.message }}</td>
+                            <td>{{ alerte.derniere_production|date:"d/m/Y"|default:"-" }}</td>
+                            <td>{{ alerte.date_expiration|date:"d/m/Y"|default:"-" }}</td>
+                         </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i> Aucune alerte FAI à signaler. Tous les OF sont en conformité.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
