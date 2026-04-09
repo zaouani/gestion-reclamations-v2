@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+
+{% block title %}Taux de récurrence des non-conformités{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    }
+    .stat-card .card-body {
+        padding: 1.5rem;
+    }
+    .stat-card h2 {
+        font-size: 2.2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card p {
+        margin-bottom: 0;
+        opacity: 0.9;
+    }
+    .table tbody tr {
+        transition: background-color 0.2s;
+    }
+    .table tbody tr:hover {
+        background-color: rgba(3, 49, 110, 0.05);
+    }
+    .badge-occurrence {
+        font-size: 0.85rem;
+        padding: 0.3rem 0.7rem;
+        border-radius: 20px;
+    }
+    .progress {
+        border-radius: 10px;
+        background-color: #e9ecef;
+    }
+    .progress-bar {
+        border-radius: 10px;
+        transition: width 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: bold;
+    }
+    .description-cell {
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+    .alert-info {
+        background-color: #e7f3ff;
+        border: none;
+        border-radius: 10px;
+        color: #03316e;
+    }
+    @media (max-width: 768px) {
+        .stat-card h2 { font-size: 1.5rem; }
+        .description-cell { max-width: 200px; }
+        .table td, .table th { padding: 0.5rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-2">
+                <i class="fas fa-chart-line text-primary me-2"></i>
+                Taux de récurrence des non-conformités
+            </h1>
+            <p class="text-muted">Analyse de la fréquence des descriptions de non-conformité à travers tous les produits</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'reclamations:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Retour
+            </a>
+        </div>
+    </div>
+    
+    <!-- Statistiques globales -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card stat-card bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-tag fs-1 mb-2 opacity-50"></i>
+                    <h2 class="mb-0">{{ descriptions|length }}</h2>
+                    <p>Types de défauts différents</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-bar fs-1 mb-2 opacity-50"></i>
+                    <h2 class="mb-0">{{ total_lignes }}</h2>
+                    <p>Total occurrences</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-alt fs-1 mb-2 opacity-50"></i>
+                    <h2 class="mb-0">{{ total_reclamations }}</h2>
+                    <p>Réclamations</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Liste des défauts -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom">
+            <i class="fas fa-ranking-star text-primary me-2"></i>
+            <strong>Classement des non-conformités par fréquence</strong>
+            <span class="badge bg-secondary ms-2">{{ descriptions|length }} défaut(s)</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 5%">#</th>
+                            <th style="width: 35%">Description du défaut</th>
+                            <th style="width: 10%" class="text-end">Occurrences</th>
+                            <th style="width: 10%" class="text-end">Quantité</th>
+                            <th style="width: 10%" class="text-end">Produits</th>
+                            <th style="width: 20%" class="text-end">Taux</th>
+                            <th style="width: 10%" class="text-center">Actions</th>
+                         </thead>
+                    <tbody>
+                        {% for desc in descriptions %}
+                        <tr>
+                            <td class="text-center fw-bold">{{ forloop.counter }}</td>
+                            <td class="description-cell">
+                                <strong>{{ desc.description }}</strong>
+                                {% if desc.nb_produits > 1 %}
+                                <br><small class="text-muted"><i class="fas fa-cube me-1"></i>{{ desc.nb_produits }} produits concernés</small>
+                                {% endif %}
+                             </td>
+                            <td class="text-end align-middle">
+                                <span class="badge bg-danger badge-occurrence">{{ desc.nb_occurences }}</span>
+                             </td>
+                            <td class="text-end align-middle">{{ desc.quantite_totale|floatformat:0 }}</td>
+                            <td class="text-end align-middle">
+                                <span class="badge bg-info badge-occurrence">{{ desc.nb_produits }}</span>
+                             </td>
+                            <td class="text-end align-middle" style="width: 180px;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 8px;">
+                                        <div class="progress-bar 
+                                            {% if desc.taux_recurrence < 5 %}bg-success
+                                            {% elif desc.taux_recurrence < 15 %}bg-warning
+                                            {% else %}bg-danger{% endif %}" 
+                                            style="width: {{ desc.taux_recurrence }}%;">
+                                        </div>
+                                    </div>
+                                    <small class="fw-bold {% if desc.taux_recurrence < 5 %}text-success
+                                           {% elif desc.taux_recurrence < 15 %}text-warning
+                                           {% else %}text-danger{% endif %}" style="min-width: 45px;">
+                                        {{ desc.taux_recurrence }}%
+                                    </small>
+                                </div>
+                             </td>
+                            <td class="text-center align-middle">
+                                <a href="{% url 'reclamations:detail_recurrence_nc' desc.description|urlencode %}" 
+                                   class="btn btn-sm btn-outline-info" title="Voir le détail">
+                                    <i class="fas fa-chart-line"></i>
+                                </a>
+                             </td>
+                          </tr>
+                        {% empty %}
+                          <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="lead mb-0">Aucune donnée disponible</p>
+                                <small class="text-muted">Créez des réclamations pour voir les statistiques</small>
+                             </td>
+                          </tr>
+                        {% endfor %}
+                    </tbody>
+                  </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white border-top">
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Légende :</strong>
+                <span class="badge bg-success ms-2">Taux &lt; 5% (Faible)</span>
+                <span class="badge bg-warning ms-2">Taux 5% - 15% (Modéré)</span>
+                <span class="badge bg-danger ms-2">Taux &gt; 15% (Élevé)</span>
+                <span class="ms-3 text-muted">Taux = (Occurrences du défaut / Total des occurrences) × 100</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Animation des progress bars au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBars = document.querySelectorAll('.progress-bar');
+        progressBars.forEach(bar => {
+            const width = bar.style.width;
+            bar.style.width = '0%';
+            setTimeout(() => {
+                bar.style.width = width;
+            }, 100);
+        });
+        
+        // Ajouter un tooltip sur les badges de produits
+        const productBadges = document.querySelectorAll('.badge-info');
+        productBadges.forEach(badge => {
+            if (badge.textContent > 1) {
+                badge.setAttribute('data-bs-toggle', 'tooltip');
+                badge.setAttribute('title', 'Nombre de produits différents concernés');
+            }
+        });
+    });
+</script>
+{% endblock %}

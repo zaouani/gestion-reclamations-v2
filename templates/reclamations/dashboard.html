@@ -210,13 +210,15 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
+        <div class="col-xl-3 col-md-6 mb-4">
             <div class="card stat-card bg-dark text-white">
                 <div class="card-body position-relative">
-                    <div class="stat-icon"><i class="fas fa-calculator"></i></div>
-                    <div class="stat-label">Coût moyen / réclamation</div>
-                    <div class="stat-value">{{ nqc_cout_moyen|floatformat:2|default:0 }} €</div>
-                    <small>par réclamation</small>
+                    <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="stat-label">Taux de récurrence</div>
+                    <div class="stat-value">{{ taux_recurrence_globale.taux|default:0 }}%</div>
+                    <small>
+                        {{ taux_recurrence_globale.defauts_recurrents|default:0 }} / {{ taux_recurrence_globale.total_defauts|default:0 }} défauts récurrents
+                    </small>
                 </div>
             </div>
         </div>
@@ -603,6 +605,100 @@
                 </div>
             </div>
         </div>
+    </div>
+    <!-- Section Top défauts récurrents -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i> 
+                    Top 5 défauts récurrents
+                    <span class="badge bg-secondary ms-2">analyse des non-conformités</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Description du défaut</th>
+                                    <th class="text-end">Occurrences</th>
+                                    <th class="text-end">Quantité</th>
+                                    <th class="text-end">Réclamations</th>
+                                    <th class="text-end">Produits</th>
+                                    <th class="text-end">Taux de récurrence</th>
+                                    <th class="text-center">Actions</th>
+                                </thead>
+                            <tbody>
+                                {% for defaut in top_defauts_recurrents %}
+                                <tr>
+                                    <td class="text-center">{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ defaut.description|truncatechars:50 }}</strong>
+                                        {% if defaut.nb_produits > 1 %}
+                                        <br><small class="text-muted">{{ defaut.nb_produits }} produits concernés</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge bg-danger">{{ defaut.nb_occurences }}</span>
+                                    </td>
+                                    <td class="text-end">{{ defaut.quantite_totale|floatformat:0 }}</td>
+                                    <td class="text-end">{{ defaut.nb_reclamations }}</td>
+                                    <td class="text-end">
+                                        <span class="badge bg-info">{{ defaut.nb_produits }}</span>
+                                    </td>
+                                    <td class="text-end" style="width: 150px;">
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar 
+                                                {% if defaut.taux_recurrence < 5 %}bg-success
+                                                {% elif defaut.taux_recurrence < 15 %}bg-warning
+                                                {% else %}bg-danger{% endif %}" 
+                                                role="progressbar" 
+                                                style="width: {{ defaut.taux_recurrence }}%;"
+                                                aria-valuenow="{{ defaut.taux_recurrence }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                {{ defaut.taux_recurrence }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{% url 'reclamations:detail_recurrence_nc' defaut.description|urlencode %}" 
+                                        class="btn btn-sm btn-info">
+                                            <i class="fas fa-chart-line"></i> Détail
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                        <p class="lead">Aucun défaut récurrent</p>
+                                        <small class="text-muted">Les défauts apparaîtront ici une fois les réclamations créées</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Légende :</strong>
+                        <span class="badge bg-success ms-2">Taux &lt; 5% (Faible)</span>
+                        <span class="badge bg-warning ms-2">Taux 5% - 15% (Modéré)</span>
+                        <span class="badge bg-danger ms-2">Taux &gt; 15% (Élevé)</span>
+                        <span class="ms-3">
+                            <i class="fas fa-chart-line"></i>
+                            <a href="{% url 'reclamations:taux_recurrence_nc' %}" class="text-decoration-none">
+                                Voir l'analyse complète des défauts
+                            </a>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
      <!-- Taux de réactivité par UAP -->
     <div class="col-12">
         <div class="card shadow-sm">

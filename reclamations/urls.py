@@ -7,7 +7,12 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('produits/recurrence/', views.taux_recurrence_produits, name='taux_recurrence_produits'),
     path('produits/<int:product_id>/recurrence/', views.detail_recurrence_produit, name='detail_recurrence_produit'),
-
+    
+    # Taux de récurrence des NC (tous produits confondus)
+    path('recurrence/nc/', views.taux_recurrence_nc, name='taux_recurrence_nc'),
+    path('recurrence/nc/<path:description>/', views.detail_recurrence_nc, name='detail_recurrence_nc'),
+    path('recurrence/nc/<path:description>/', views.detail_recurrence_nc, name='detail_recurrence_nc'),
+    
     # Gestion des reclamations
     path('liste/', views.liste_reclamations, name='liste'),
     path('creer/', views.creer_reclamation, name='creer'),

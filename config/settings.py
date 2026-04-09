@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -110,16 +111,16 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  # ou votre serveur SMTP
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'votre-email@gmail.com'
-EMAIL_HOST_PASSWORD = 'votre-mot-de-passe'
-DEFAULT_FROM_EMAIL = 'noreply@votre-domaine.com'
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = 'noreply@gmail.com'
 
 # Notification settings
-NOTIFICATION_RESPONSABLE_EMAIL = 'responsable@votre-domaine.com'  # Email du responsable
+NOTIFICATION_RESPONSABLE_EMAIL = 'zaouani.hicham@aiac.ma'  # Email du responsable
 SITE_URL = 'http://127.0.0.1:8000'  # URL de votre site
 
 # Email pour les alertes FAI
-QUALITY_MANAGER_EMAIL = 'quality@votreentreprise.com'
-QUALITY_TEAM_EMAILS = ['quality1@entreprise.com', 'quality2@entreprise.com']
+QUALITY_MANAGER_EMAIL = 'zaouani.hicham@aiac.ma'
+QUALITY_TEAM_EMAILS = []
 SITE_URL = 'http://127.0.0.1:8000'
 

@@ -302,39 +302,6 @@ class DashboardStats:
         
         return stats
     
-    def get_taux_recurrence_produits(self, top_n=10):
-        """
-        Calcule le taux de récurrence des défauts par produit
-        Retourne les produits les plus récurrents avec leurs statistiques
-        """
-        # Compter le nombre de réclamations par produit
-        produits_stats = Produit.objects.annotate(
-            nb_reclamations=Count('lignes_reclamation', distinct=True),
-            quantite_totale=Sum('lignes_reclamation__quantite'),
-            nb_lignes=Count('lignes_reclamation')
-        ).filter(
-            nb_reclamations__gt=0
-        ).order_by('-nb_reclamations')[:top_n]
-        
-        # Nombre total de réclamations
-        total_reclamations = Reclamation.objects.count()
-        
-        # Préparer les données
-        resultats = []
-        for produit in produits_stats:
-            taux = (produit.nb_reclamations / total_reclamations * 100) if total_reclamations > 0 else 0
-            
-            resultats.append({
-                'produit_id': produit.id,
-                'product_number': produit.product_number,
-                'designation': produit.designation,
-                'nb_reclamations': produit.nb_reclamations,
-                'quantite_totale': produit.quantite_totale or 0,
-                'nb_lignes': produit.nb_lignes,
-                'taux_recurrence': round(taux, 2)
-            })
-        
-        return resultats
     
     def get_top_produits_recurrents(self, top_n=5):
         """Récupère les produits les plus récurrents"""
@@ -578,6 +545,90 @@ class DashboardStats:
             'client_id': client_id
         }
 
+    
+    def get_top_defauts_recurrents(self, top_n=5):
+        """
+        Récupère les défauts (descriptions de non-conformité) les plus récurrents
+        UNIQUEMENT pour les réclamations avec imputation = CIM
+        """ 
+        # Compter les occurrences pour les réclamations CIM uniquement
+        defauts = LigneReclamation.objects.filter(
+            reclamation__imputation='CIM'  # ← Filtre sur l'imputation CIM
+        ).values('description_non_conformite').annotate(
+            nb_occurences=Count('id'),
+            quantite_totale=Sum('quantite'),
+            nb_reclamations=Count('reclamation', distinct=True)
+        ).filter(
+            description_non_conformite__isnull=False
+        ).exclude(
+            description_non_conformite=''
+        ).order_by('-nb_occurences')[:top_n]
+        
+        # Total des lignes pour les réclamations CIM uniquement
+        total_lignes_cim = LigneReclamation.objects.filter(
+            reclamation__imputation='CIM'
+        ).count()
+        
+        resultats = []
+        for defaut in defauts:
+            description = defaut['description_non_conformite']
+            
+            # Calculer le taux de récurrence basé sur les CIM uniquement
+            taux = (defaut['nb_occurences'] / total_lignes_cim * 100) if total_lignes_cim > 0 else 0
+            
+            # Récupérer les produits concernés (pour les CIM uniquement)
+            produits_concernes = Produit.objects.filter(
+                lignes_reclamation__description_non_conformite=description,
+                lignes_reclamation__reclamation__imputation='CIM'
+            ).distinct().count()
+            
+            resultats.append({
+                'description': description,
+                'nb_occurences': defaut['nb_occurences'],
+                'quantite_totale': defaut['quantite_totale'] or 0,
+                'nb_reclamations': defaut['nb_reclamations'],
+                'nb_produits': produits_concernes,
+                'taux_recurrence': round(taux, 2)
+            })
+        
+        return resultats
+    
+    def get_taux_recurrence_globale(self):
+        """
+        Calcule le taux de récurrence globale des défauts
+        = (Nombre de défauts qui apparaissent plus d'une fois) / (Nombre total de défauts distincts) × 100
+        """
+        from .models import LigneReclamation
+        
+        # Compter les défauts par description
+        defauts = LigneReclamation.objects.filter(
+            reclamation__imputation='CIM'  # Filtrer par CIM comme les autres stats
+        ).values('description_non_conformite').annotate(
+            nb_occurences=Count('id')
+        ).filter(
+            description_non_conformite__isnull=False
+        ).exclude(
+            description_non_conformite=''
+        )
+        
+        # Nombre total de défauts distincts
+        total_defauts = defauts.count()
+        
+        # Nombre de défauts récurrents (apparaissent plus d'une fois)
+        defauts_recurrents = defauts.filter(nb_occurences__gt=1).count()
+        
+        # Calcul du taux
+        if total_defauts > 0:
+            taux_recurrence = (defauts_recurrents / total_defauts) * 100
+        else:
+            taux_recurrence = 0
+        
+        return {
+            'taux': round(taux_recurrence, 1),
+            'defauts_recurrents': defauts_recurrents,
+            'total_defauts': total_defauts
+        }
+
     def get_all_stats(self):
         """Récupère toutes les statistiques"""
         return {
@@ -596,9 +647,10 @@ class DashboardStats:
                 'par_client': self.get_nqc_par_client(),
                 'par_type': self.get_nqc_par_type()
             },
-            'recurrence_produits': self.get_taux_recurrence_produits(),
             'top_produits_recurrents': self.get_top_produits_recurrents(),
             'reclamations_par_site_client': self.get_reclamations_par_site_client(),
             'taux_reactivite_par_uap': self.get_taux_reactivite_par_uap(),
             'reclamations_par_client_mois': self.get_reclamations_par_client_mois(),
+            'top_defauts_recurrents': self.get_top_defauts_recurrents(),
+            'taux_recurrence_globale': self.get_taux_recurrence_globale(),
         }

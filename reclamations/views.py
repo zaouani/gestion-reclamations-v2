@@ -410,7 +410,10 @@ def dashboard(request):
     
     # Récupérer les données de réactivité par UAP
     reactivite_uap_data = data.get('taux_reactivite_par_uap', {})
-    
+    # Récupérer les top défauts récurrents
+    top_defauts_recurrents = data.get('top_defauts_recurrents', [])
+    # Récupérer le taux de récurrence globale
+    taux_recurrence_globale = data.get('taux_recurrence_globale', {})
     # Convertir les Decimal pour PPM evolution
     ppm_evolution_raw = data.get('ppm', {}).get('evolution', [])
     ppm_evolution = []
@@ -509,6 +512,8 @@ def dashboard(request):
         
         # Taux de récurrence (converti)
         'top_produits_recurrents': data.get('top_produits_recurrents', []),
+        'top_defauts_recurrents': top_defauts_recurrents,
+        'taux_recurrence_globale': taux_recurrence_globale,
 
         # Données pour le graphique par site client
         'site_client_labels': json.dumps(site_client_data.get('labels', []), ensure_ascii=False),
@@ -619,6 +624,140 @@ def detail_recurrence_produit(request, product_id):
     }
     
     return render(request, 'reclamations/produit/recurrence_detail.html', context)
+
+@login_required
+def taux_recurrence_nc(request):
+    """
+    Calcule le taux de récurrence des descriptions de non-conformité (NC)
+    UNIQUEMENT pour les réclamations avec imputation CIM
+    """
+    from django.db.models import Count, Sum
+    
+    # Récupérer toutes les descriptions de non-conformité pour les CIM uniquement
+    descriptions = LigneReclamation.objects.filter(
+        reclamation__imputation='CIM'  # ← Filtre CIM
+    ).values('description_non_conformite').annotate(
+        nb_occurences=Count('id'),
+        quantite_totale=Sum('quantite'),
+        nb_produits=Count('produit', distinct=True),
+        nb_reclamations=Count('reclamation', distinct=True)
+    ).filter(
+        description_non_conformite__isnull=False
+    ).exclude(
+        description_non_conformite=''
+    ).order_by('-nb_occurences')
+    
+    # Total des lignes pour les CIM uniquement
+    total_lignes_cim = LigneReclamation.objects.filter(
+        reclamation__imputation='CIM'
+    ).count()
+    
+    resultats = []
+    for desc in descriptions:
+        description = desc['description_non_conformite']
+        
+        # Produits concernés (uniquement pour les CIM)
+        produits_concernes = Produit.objects.filter(
+            lignes_reclamation__description_non_conformite=description,
+            lignes_reclamation__reclamation__imputation='CIM'
+        ).distinct().values_list('product_number', flat=True)[:10]
+        
+        # Taux basé sur les CIM uniquement
+        taux = (desc['nb_occurences'] / total_lignes_cim * 100) if total_lignes_cim > 0 else 0
+        
+        resultats.append({
+            'description': description,
+            'nb_occurences': desc['nb_occurences'],
+            'quantite_totale': desc['quantite_totale'] or 0,
+            'nb_produits': desc['nb_produits'],
+            'nb_reclamations': desc['nb_reclamations'],
+            'taux_recurrence': round(taux, 2),
+            'produits_concernes': list(produits_concernes)
+        })
+    
+    context = {
+        'descriptions': resultats,
+        'total_lignes_cim': total_lignes_cim,
+        'date_analyse': timezone.now(),
+        'filtre_imputation': 'CIM'
+    }
+    
+    return render(request, 'reclamations/produit/recurrence_nc.html', context)
+
+
+@login_required
+def detail_recurrence_nc(request, description):
+    """
+    Détail de la récurrence pour une description de non-conformité spécifique
+    UNIQUEMENT pour les réclamations avec imputation CIM
+    """
+    from urllib.parse import unquote
+    
+    description = unquote(description)
+    
+    # Récupérer tous les produits concernés (CIM uniquement)
+    produits = Produit.objects.filter(
+        lignes_reclamation__description_non_conformite=description,
+        lignes_reclamation__reclamation__imputation='CIM'
+    ).distinct().annotate(
+        nb_occurences=Count('lignes_reclamation'),
+        quantite_totale=Sum('lignes_reclamation__quantite')
+    ).order_by('-nb_occurences')
+    
+    # Récupérer toutes les lignes (CIM uniquement)
+    lignes = LigneReclamation.objects.filter(
+        description_non_conformite=description,
+        reclamation__imputation='CIM'
+    ).select_related(
+        'reclamation', 'reclamation__client', 'produit', 'uap_concernee'
+    ).order_by('-reclamation__date_reclamation')
+    
+    nb_reclamations = lignes.values('reclamation').distinct().count()
+    
+    # Produits data
+    produits_data = []
+    for produit in produits:
+        produits_data.append({
+            'produit': produit,
+            'nb_occurences': produit.nb_occurences,
+            'quantite_totale': produit.quantite_totale or 0,
+            'taux': round(produit.nb_occurences / lignes.count() * 100, 1) if lignes.count() > 0 else 0
+        })
+    
+    # Clients data (CIM uniquement)
+    clients_data = lignes.values('reclamation__client__nom').annotate(
+        nb_occurences=Count('id'),
+        quantite_totale=Sum('quantite')
+    ).order_by('-nb_occurences')[:10]
+    
+    # Évolution (CIM uniquement)
+    evolution = lignes.annotate(
+        mois=TruncMonth('reclamation__date_reclamation')
+    ).values('mois').annotate(
+        nb_occurences=Count('id')
+    ).order_by('mois')
+    
+    evolution_data = []
+    for item in evolution:
+        if item['mois']:
+            evolution_data.append({
+                'mois': item['mois'].strftime('%B %Y').capitalize(),
+                'nb_occurences': item['nb_occurences']
+            })
+    
+    context = {
+        'description': description,
+        'nb_reclamations': nb_reclamations,
+        'total_occurences': lignes.count(),
+        'quantite_totale': lignes.aggregate(Sum('quantite'))['quantite__sum'] or 0,
+        'produits': produits_data,
+        'clients': list(clients_data),
+        'evolution': evolution_data,
+        'lignes': lignes[:50],
+        'filtre_imputation': 'CIM'
+    }
+    
+    return render(request, 'reclamations/produit/detail_recurrence_nc.html', context)
 
 def calculer_duree_moyenne_sql():
     with connection.cursor() as cursor:
@@ -3554,3 +3693,31 @@ def enregistrer_inspection_fai(request, pk):
         'today': timezone.now().date()
     }
     return render(request, 'reclamations/fai/enregistrer_inspection.html', context)
+
+@login_required
+def envoyer_notifications(request):
+    """Envoyer les notifications groupées"""
+    if request.method == 'POST':
+        service = NotificationService()
+        resultats = service.envoyer_notifications_groupes()
+        
+        messages.success(
+            request, 
+            f"{resultats['emails_envoyes']} email(s) envoyé(s) - "
+            f"{resultats['notifications_envoyees']} notification(s) de retard, "
+            f"{resultats['alertes_envoyees']} alerte(s)"
+        )
+        return redirect('reclamations:dashboard')
+    
+    # GET: afficher la confirmation
+    notifications_grouped = NotificationService.get_notifications_grouped()
+    total_retard = sum(len(data['retard']) for data in notifications_grouped.values())
+    total_alerte = sum(len(data['alerte']) for data in notifications_grouped.values())
+    
+    context = {
+        'total_retard': total_retard,
+        'total_alerte': total_alerte,
+        'destinataires': len(notifications_grouped),
+        'notifications_grouped': notifications_grouped
+    }
+    return render(request, 'reclamations/notifications/confirmation_envoi.html', context)
