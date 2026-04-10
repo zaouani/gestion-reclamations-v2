@@ -23,6 +23,14 @@
     .is-invalid {
         border-color: #dc3545;
     }
+    .invalid-feedback {
+        display: none;
+        color: #dc3545;
+        font-size: 0.875em;
+    }
+    .is-invalid + .invalid-feedback {
+        display: block;
+    }
     .select2-container--default .select2-selection--single {
         height: 38px;
         border: 1px solid #ced4da;
@@ -30,6 +38,19 @@
     }
     .select2-container--default .select2-selection--single .select2-selection__rendered {
         line-height: 38px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+    .nc-item {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 10px;
+        margin-top: 10px;
+    }
+    .btn-add-nc {
+        margin-top: 10px;
     }
 </style>
 {% endblock %}
@@ -94,8 +115,8 @@
                         </select>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <label for="site" class="form-label">Site usine *</label>
-                        <select class="form-control" id="site" name="site" required>
+                        <label for="site_usine" class="form-label">Site usine *</label>
+                        <select class="form-control" id="site_usine" name="site_usine" required>
                             <option value="">Sélectionnez un site usine</option>
                             {% for site in sites_usine %}
                             <option value="{{ site.id }}" {% if reclamation.site.id == site.id %}selected{% endif %}>
@@ -211,7 +232,7 @@
             <div class="card-body">
                 <div id="lignes-container">
                     {% for ligne in reclamation.lignes.all %}
-                    <div class="ligne-reclamation" id="ligne-{{ ligne.id }}">
+                    <div class="ligne-reclamation" id="ligne-{{ ligne.id }}" data-ligne-id="{{ ligne.id }}">
                         <input type="hidden" name="ligne_id[]" value="{{ ligne.id }}">
                         <div class="row">
                             <div class="col-md-4 mb-2">
@@ -229,11 +250,7 @@
                                 <label class="form-label">Quantité *</label>
                                 <input type="number" class="form-control" name="quantite[]" min="1" value="{{ ligne.quantite }}" required>
                             </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label">Description non-conformité</label>
-                                <textarea class="form-control" name="description[]" rows="2">{{ ligne.description_non_conformite }}</textarea>
-                            </div>
-                            <div class="col-md-1 mb-2">
+                            <div class="col-md-2 mb-2">
                                 <label class="form-label">UAP</label>
                                 <select class="form-control" name="uap_concernee[]">
                                     <option value="">Sélectionnez</option>
@@ -244,6 +261,10 @@
                                     {% endfor %}
                                 </select>
                             </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label">Commentaire</label>
+                                <textarea class="form-control" name="commentaire[]" rows="2">{{ ligne.commentaire }}</textarea>
+                            </div>
                             <div class="col-md-1 mb-2 text-end">
                                 <label class="form-label">&nbsp;</label>
                                 <div>
@@ -251,17 +272,44 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-12">
-                                <textarea class="form-control" name="commentaire[]" placeholder="Commentaire..." rows="2">{{ ligne.commentaire }}</textarea>
+                        
+                        <!-- Container pour les non-conformités -->
+                        <div id="nc-container-{{ ligne.id }}" class="mt-3">
+                            {% for nc in ligne.non_conformites.all %}
+                            <div class="nc-item">
+                                <input type="hidden" name="nc_id[]" value="{{ nc.id }}">
+                                <input type="hidden" name="nc_ligne_ref[]" value="{{ ligne.id }}">
+                                <div class="row">
+                                    <div class="col-md-7 mb-2">
+                                        <label class="form-label">Description NC</label>
+                                        <textarea class="form-control" name="nc_description[]" rows="2">{{ nc.description }}</textarea>
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <label class="form-label">Qté concernée</label>
+                                        <input type="number" class="form-control" name="nc_quantite[]" min="1" value="{{ nc.quantite }}">
+                                    </div>
+                                    <div class="col-md-2 mb-2"></div>
+                                    <div class="col-md-1 mb-2 text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-danger remove-nc" onclick="removeNC(this, {{ ligne.id }})">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="text-end mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-success btn-add-nc" onclick="addNC({{ ligne.id }})">
+                                <i class="fas fa-plus"></i> Ajouter une non-conformité
+                            </button>
                         </div>
                     </div>
+                    {% empty %}
+                    <div id="no-lignes-message" class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Cliquez sur "Ajouter un produit" pour commencer.
+                    </div>
                     {% endfor %}
-                </div>
-                
-                <div class="alert alert-info" id="no-lignes-message" {% if reclamation.lignes.exists %}style="display: none;"{% endif %}>
-                    <i class="fas fa-info-circle"></i> Cliquez sur "Ajouter un produit" pour ajouter un produit.
                 </div>
             </div>
         </div>
@@ -279,7 +327,7 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label for="nqc" class="form-label">Coût NQC (MAD)</label>
-                        <input type="number" step="0.01" class="form-control" id="nqc" name="nqc" value="{{ reclamation.nqc }}">
+                        <input type="number" step="0.01" class="form-control" id="nqc" name="nqc" value="{{ reclamation.nqc|floatformat:2 }}">
                     </div>
                     <div class="col-md-6 mb-3">
                         <div class="form-check mt-4">
@@ -320,15 +368,61 @@
 <script>
 let ligneCounter = {{ reclamation.lignes.count }};
 
+// Fonction pour ajouter une NC à une ligne
+function addNC(ligneId) {
+    const container = document.getElementById(`nc-container-${ligneId}`);
+    
+    const template = `
+        <div class="nc-item">
+            <input type="hidden" name="nc_id[]" value="new_${Date.now()}">
+            <input type="hidden" name="nc_ligne_ref[]" value="${ligneId}">
+            <div class="row">
+                <div class="col-md-7 mb-2">
+                    <label class="form-label">Description NC</label>
+                    <input type="text" class="form-control" 
+                        name="nc_description[]" 
+                        list="nc-suggestions-{{ ligne.id }}"
+                        placeholder="Tapez pour voir les suggestions..."
+                        value="{{ nc.description }}">
+                    <datalist id="nc-suggestions-{{ ligne.id }}">
+                        <!-- Les suggestions seront chargées dynamiquement -->
+                    </datalist>
+                    <small class="text-muted">Les descriptions déjà utilisées apparaîtront automatiquement</small>
+                </div>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label">Qté concernée</label>
+                    <input type="number" class="form-control" name="nc_quantite[]" min="1" value="1">
+                </div>
+                <div class="col-md-2 mb-2"></div>
+                <div class="col-md-1 mb-2 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-nc" onclick="removeNC(this, ${ligneId})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', template);
+}
+
+// Fonction pour supprimer une NC
+function removeNC(button, ligneId) {
+    const ncItem = button.closest('.nc-item');
+    if (ncItem) {
+        ncItem.remove();
+    }
+}
+
 $(document).ready(function() {
-    // Initialiser Select2
+    // Initialiser Select2 pour tous les produits
     $('.select2-produit').select2({
         width: '100%',
         placeholder: 'Rechercher un produit...'
     });
 });
 
-document.getElementById('addLigne').addEventListener('click', function() {
+document.getElementById('addLigne')?.addEventListener('click', function() {
     addLigneReclamation();
 });
 
@@ -363,6 +457,12 @@ function addLigneReclamation(data = {}) {
     const container = document.getElementById('lignes-container');
     const newId = 'new_' + (ligneCounter++);
     
+    // Supprimer le message "aucune ligne" s'il existe
+    const noLignesMessage = document.getElementById('no-lignes-message');
+    if (noLignesMessage) {
+        noLignesMessage.style.display = 'none';
+    }
+    
     const template = `
         <div class="ligne-reclamation" id="ligne-${newId}">
             <input type="hidden" name="ligne_id[]" value="${newId}">
@@ -378,13 +478,9 @@ function addLigneReclamation(data = {}) {
                 </div>
                 <div class="col-md-2 mb-2">
                     <label class="form-label">Quantité *</label>
-                    <input type="number" class="form-control" name="quantite[]" min="1" value="${data.quantite || '1'}" required>
+                    <input type="number" class="form-control" name="quantite[]" min="1" value="1" required>
                 </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">Description non-conformité</label>
-                    <textarea class="form-control" name="description[]" rows="2">${data.description || ''}</textarea>
-                </div>
-                <div class="col-md-1 mb-2">
+                <div class="col-md-2 mb-2">
                     <label class="form-label">UAP</label>
                     <select class="form-control" name="uap_concernee[]">
                         <option value="">Sélectionnez</option>
@@ -393,6 +489,10 @@ function addLigneReclamation(data = {}) {
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-md-3 mb-2">
+                    <label class="form-label">Commentaire</label>
+                    <textarea class="form-control" name="commentaire[]" rows="2"></textarea>
+                </div>
                 <div class="col-md-1 mb-2 text-end">
                     <label class="form-label">&nbsp;</label>
                     <div>
@@ -400,10 +500,43 @@ function addLigneReclamation(data = {}) {
                     </div>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-12">
-                    <textarea class="form-control" name="commentaire[]" placeholder="Commentaire..." rows="2">${data.commentaire || ''}</textarea>
+            
+            <!-- Container pour les non-conformités -->
+            <div id="nc-container-${newId}" class="mt-3">
+                <div class="nc-item">
+                    <input type="hidden" name="nc_id[]" value="new_${Date.now()}">
+                    <input type="hidden" name="nc_ligne_ref[]" value="${newId}">
+                    <div class="row">
+                        <div class="col-md-7 mb-2">
+                            <label class="form-label">Description NC</label>
+                            <input type="text" class="form-control" 
+                                name="nc_description[]" 
+                                list="nc-suggestions-{{ ligne.id }}"
+                                placeholder="Tapez pour voir les suggestions..."
+                                value="{{ nc.description }}">
+                            <datalist id="nc-suggestions-{{ ligne.id }}">
+                                <!-- Les suggestions seront chargées dynamiquement -->
+                            </datalist>
+                            <small class="text-muted">Les descriptions déjà utilisées apparaîtront automatiquement</small>
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label">Qté concernée</label>
+                            <input type="number" class="form-control" name="nc_quantite[]" min="1" value="1">
+                        </div>
+                        <div class="col-md-2 mb-2"></div>
+                        <div class="col-md-1 mb-2 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-nc" onclick="removeNC(this, '${newId}')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
+            </div>
+            
+            <div class="text-end mt-2">
+                <button type="button" class="btn btn-sm btn-outline-success btn-add-nc" onclick="addNC('${newId}')">
+                    <i class="fas fa-plus"></i> Ajouter une non-conformité
+                </button>
             </div>
         </div>
     `;
@@ -415,8 +548,6 @@ function addLigneReclamation(data = {}) {
         width: '100%',
         placeholder: 'Rechercher un produit...'
     });
-    
-    document.getElementById('no-lignes-message').style.display = 'none';
 }
 
 function removeLigne(id) {
@@ -425,9 +556,109 @@ function removeLigne(id) {
         ligne.remove();
     }
     
+    // Afficher le message si plus de lignes
     if (document.querySelectorAll('.ligne-reclamation').length === 0) {
-        document.getElementById('no-lignes-message').style.display = 'block';
+        const noLignesMessage = document.getElementById('no-lignes-message');
+        if (noLignesMessage) {
+            noLignesMessage.style.display = 'block';
+        }
     }
 }
+// Version améliorée avec debounce et gestion des erreurs
+// Version jQuery pour plus de compatibilité
+$(document).ready(function() {
+    let timeout = null;
+    
+    // Pour les champs existants
+    $('input[name="nc_description[]"]').each(function(index) {
+        const $input = $(this);
+        const datalistId = `nc-suggestions-${index}`;
+        
+        // Créer le datalist
+        $('<datalist>')
+            .attr('id', datalistId)
+            .insertAfter($input);
+        $input.attr('list', datalistId);
+        
+        // Événement de saisie
+        $input.on('input', function() {
+            const term = $(this).val().trim();
+            
+            clearTimeout(timeout);
+            
+            if (term.length < 2) {
+                $(`#${datalistId}`).empty();
+                return;
+            }
+            
+            timeout = setTimeout(() => {
+                $.ajax({
+                    url: `/api/rechercher-descriptions-nc/?term=${encodeURIComponent(term)}`,
+                    method: 'GET',
+                    dataType: 'json',
+                    success: function(data) {
+                        const $datalist = $(`#${datalistId}`);
+                        $datalist.empty();
+                        data.forEach(item => {
+                            $datalist.append(`<option value="${item.value}">${item.value} (${item.count} fois)</option>`);
+                        });
+                    },
+                    error: function(xhr) {
+                        console.error('Erreur:', xhr);
+                    }
+                });
+            }, 300);
+        });
+    });
+    
+    // Observer pour les nouveaux champs ajoutés dynamiquement
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            mutation.addedNodes.forEach(function(node) {
+                if ($(node).find('input[name="nc_description[]"]').length) {
+                    $(node).find('input[name="nc_description[]"]').each(function(index) {
+                        const $input = $(this);
+                        const datalistId = `nc-suggestions-${Date.now()}-${index}`;
+                        
+                        $('<datalist>')
+                            .attr('id', datalistId)
+                            .insertAfter($input);
+                        $input.attr('list', datalistId);
+                        
+                        $input.off('input').on('input', function() {
+                            const term = $(this).val().trim();
+                            clearTimeout(timeout);
+                            
+                            if (term.length < 2) {
+                                $(`#${datalistId}`).empty();
+                                return;
+                            }
+                            
+                            timeout = setTimeout(() => {
+                                $.ajax({
+                                    url: `/api/rechercher-descriptions-nc/?term=${encodeURIComponent(term)}`,
+                                    success: function(data) {
+                                        const $datalist = $(`#${datalistId}`);
+                                        $datalist.empty();
+                                        data.forEach(item => {
+                                            $datalist.append(`<option value="${item.value}">${item.value} (${item.count} fois)</option>`);
+                                        });
+                                    }
+                                });
+                            }, 300);
+                        });
+                    });
+                }
+            });
+        });
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+});
+
+// Initialiser
+document.addEventListener('DOMContentLoaded', () => {
+    window.ncAutocomplete = new NCAutocomplete();
+});
 </script>
 {% endblock %}

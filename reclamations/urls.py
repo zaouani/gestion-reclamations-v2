@@ -21,7 +21,8 @@ urlpatterns = [
     path('<int:pk>/ajouter-ligne/', views.ajouter_ligne, name='ajouter_ligne'),
     path('<int:pk>/supprimer/', views.supprimer_reclamation, name='supprimer_reclamation'),
     path('<int:pk>/modifier/', views.modifier_reclamation, name='modifier_reclamation'),
-    
+    path('api/rechercher-descriptions-nc/', views.rechercher_descriptions_nc, name='rechercher_descriptions_nc'),
+
     # Gestion des UAP
     path('uap/', views.liste_uap, name='liste_uap'),
     path('uap/creer/', views.creer_uap, name='creer_uap'),
@@ -103,7 +104,6 @@ urlpatterns = [
     path('reclamation/8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
 
         # ================ GESTION FAI ================
-    # Vérification et alertes
     path('fai/verifier/', views.verifier_alertes_fai, name='verifier_alertes_fai'),
     path('fai/alertes/', views.liste_alertes_fai, name='liste_alertes_fai'),
     path('fai/alertes/<int:pk>/traiter/', views.traiter_alerte_fai, name='traiter_alerte_fai'),

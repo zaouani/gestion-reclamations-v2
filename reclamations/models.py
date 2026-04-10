@@ -206,7 +206,33 @@ class LigneReclamation(models.Model):
     
     def __str__(self):
         return f"{self.reclamation.numero_reclamation} - {self.produit.product_number}"
+        
+class NonConformite(models.Model):
+    """Non-conformité individuelle liée à une ligne de réclamation"""
+    ligne_reclamation = models.ForeignKey(
+        'LigneReclamation', 
+        on_delete=models.CASCADE, 
+        related_name='non_conformites'
+    )
+    description = models.TextField("Description de la non-conformité")
+    quantite = models.IntegerField(
+        "Quantité concernée",
+        validators=[MinValueValidator(1)],
+        default=1
+    )
     
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Non-conformité"
+        verbose_name_plural = "Non-conformités"
+        ordering = ['-date_creation']
+    
+    def __str__(self):
+        return f"{self.description[:50]} - {self.quantite} pcs"
+        
+
 class ObjectifsAnnuel(models.Model):
     """Objectifs par année et par site"""
     annee = models.IntegerField("Année", default=timezone.now().year)
@@ -243,7 +269,6 @@ class ObjectifsAnnuel(models.Model):
         if self.site:
             return f"Objectifs {self.annee} - {self.site.nom}"
         return f"Objectifs {self.annee}"
-
 
 class Livraison(models.Model):
     """Livraisons clients pour le calcul PPM"""

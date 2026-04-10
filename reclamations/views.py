@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 import logging
 from django.utils import timezone
-from .models import (Reclamation, Client, Produit, LigneReclamation, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison, HuitD, OrdreFabrication, LigneOF, AlerteFAI)
+from .models import (Reclamation, Client, Produit, LigneReclamation, NonConformite, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison, HuitD, OrdreFabrication, LigneOF, AlerteFAI)
 from django.http import JsonResponse
 from django.db.models import Count, Q, F, Avg, Sum, Prefetch
 from django.db.models.functions import TruncMonth, ExtractMonth
@@ -631,39 +631,38 @@ def taux_recurrence_nc(request):
     Calcule le taux de récurrence des descriptions de non-conformité (NC)
     UNIQUEMENT pour les réclamations avec imputation CIM
     """
-    from django.db.models import Count, Sum
     
-    # Récupérer toutes les descriptions de non-conformité pour les CIM uniquement
-    descriptions = LigneReclamation.objects.filter(
-        reclamation__imputation='CIM'  # ← Filtre CIM
-    ).values('description_non_conformite').annotate(
+    # Récupérer toutes les non-conformités pour les CIM uniquement
+    descriptions = NonConformite.objects.filter(
+        ligne_reclamation__reclamation__imputation='CIM'
+    ).values('description').annotate(
         nb_occurences=Count('id'),
         quantite_totale=Sum('quantite'),
-        nb_produits=Count('produit', distinct=True),
-        nb_reclamations=Count('reclamation', distinct=True)
+        nb_produits=Count('ligne_reclamation__produit', distinct=True),
+        nb_reclamations=Count('ligne_reclamation__reclamation', distinct=True)
     ).filter(
-        description_non_conformite__isnull=False
+        description__isnull=False
     ).exclude(
-        description_non_conformite=''
+        description=''
     ).order_by('-nb_occurences')
     
-    # Total des lignes pour les CIM uniquement
-    total_lignes_cim = LigneReclamation.objects.filter(
-        reclamation__imputation='CIM'
+    # Total des non-conformités pour les CIM uniquement
+    total_nc_cim = NonConformite.objects.filter(
+        ligne_reclamation__reclamation__imputation='CIM'
     ).count()
     
     resultats = []
     for desc in descriptions:
-        description = desc['description_non_conformite']
+        description = desc['description']
         
         # Produits concernés (uniquement pour les CIM)
         produits_concernes = Produit.objects.filter(
-            lignes_reclamation__description_non_conformite=description,
+            lignes_reclamation__non_conformites__description=description,
             lignes_reclamation__reclamation__imputation='CIM'
         ).distinct().values_list('product_number', flat=True)[:10]
         
         # Taux basé sur les CIM uniquement
-        taux = (desc['nb_occurences'] / total_lignes_cim * 100) if total_lignes_cim > 0 else 0
+        taux = (desc['nb_occurences'] / total_nc_cim * 100) if total_nc_cim > 0 else 0
         
         resultats.append({
             'description': description,
@@ -677,13 +676,12 @@ def taux_recurrence_nc(request):
     
     context = {
         'descriptions': resultats,
-        'total_lignes_cim': total_lignes_cim,
+        'total_nc_cim': total_nc_cim,
         'date_analyse': timezone.now(),
         'filtre_imputation': 'CIM'
     }
     
     return render(request, 'reclamations/produit/recurrence_nc.html', context)
-
 
 @login_required
 def detail_recurrence_nc(request, description):
@@ -691,28 +689,30 @@ def detail_recurrence_nc(request, description):
     Détail de la récurrence pour une description de non-conformité spécifique
     UNIQUEMENT pour les réclamations avec imputation CIM
     """
-    from urllib.parse import unquote
     
     description = unquote(description)
     
     # Récupérer tous les produits concernés (CIM uniquement)
     produits = Produit.objects.filter(
-        lignes_reclamation__description_non_conformite=description,
+        lignes_reclamation__non_conformites__description=description,
         lignes_reclamation__reclamation__imputation='CIM'
     ).distinct().annotate(
-        nb_occurences=Count('lignes_reclamation'),
-        quantite_totale=Sum('lignes_reclamation__quantite')
+        nb_occurences=Count('lignes_reclamation__non_conformites'),
+        quantite_totale=Sum('lignes_reclamation__non_conformites__quantite')
     ).order_by('-nb_occurences')
     
-    # Récupérer toutes les lignes (CIM uniquement)
-    lignes = LigneReclamation.objects.filter(
-        description_non_conformite=description,
-        reclamation__imputation='CIM'
+    # Récupérer toutes les non-conformités (CIM uniquement)
+    non_conformites = NonConformite.objects.filter(
+        description=description,
+        ligne_reclamation__reclamation__imputation='CIM'
     ).select_related(
-        'reclamation', 'reclamation__client', 'produit', 'uap_concernee'
-    ).order_by('-reclamation__date_reclamation')
+        'ligne_reclamation__reclamation',
+        'ligne_reclamation__reclamation__client',
+        'ligne_reclamation__produit',
+        'ligne_reclamation__uap_concernee'
+    ).order_by('-ligne_reclamation__reclamation__date_reclamation')
     
-    nb_reclamations = lignes.values('reclamation').distinct().count()
+    nb_reclamations = non_conformites.values('ligne_reclamation__reclamation').distinct().count()
     
     # Produits data
     produits_data = []
@@ -721,18 +721,18 @@ def detail_recurrence_nc(request, description):
             'produit': produit,
             'nb_occurences': produit.nb_occurences,
             'quantite_totale': produit.quantite_totale or 0,
-            'taux': round(produit.nb_occurences / lignes.count() * 100, 1) if lignes.count() > 0 else 0
+            'taux': round(produit.nb_occurences / non_conformites.count() * 100, 1) if non_conformites.count() > 0 else 0
         })
     
     # Clients data (CIM uniquement)
-    clients_data = lignes.values('reclamation__client__nom').annotate(
+    clients_data = non_conformites.values('ligne_reclamation__reclamation__client__nom').annotate(
         nb_occurences=Count('id'),
         quantite_totale=Sum('quantite')
     ).order_by('-nb_occurences')[:10]
     
     # Évolution (CIM uniquement)
-    evolution = lignes.annotate(
-        mois=TruncMonth('reclamation__date_reclamation')
+    evolution = non_conformites.annotate(
+        mois=TruncMonth('ligne_reclamation__reclamation__date_reclamation')
     ).values('mois').annotate(
         nb_occurences=Count('id')
     ).order_by('mois')
@@ -745,15 +745,28 @@ def detail_recurrence_nc(request, description):
                 'nb_occurences': item['nb_occurences']
             })
     
+    # Formater les lignes pour l'affichage
+    lignes_data = []
+    for nc in non_conformites[:50]:
+        reclamation = nc.ligne_reclamation.reclamation
+        lignes_data.append({
+            'reclamation': reclamation,
+            'produit': nc.ligne_reclamation.produit,
+            'quantite': nc.quantite,
+            'description_nc': nc.description,
+            'uap_concernee': nc.ligne_reclamation.uap_concernee,
+            'commentaire': nc.ligne_reclamation.commentaire
+        })
+    
     context = {
         'description': description,
         'nb_reclamations': nb_reclamations,
-        'total_occurences': lignes.count(),
-        'quantite_totale': lignes.aggregate(Sum('quantite'))['quantite__sum'] or 0,
+        'total_occurences': non_conformites.count(),
+        'quantite_totale': non_conformites.aggregate(Sum('quantite'))['quantite__sum'] or 0,
         'produits': produits_data,
         'clients': list(clients_data),
         'evolution': evolution_data,
-        'lignes': lignes[:50],
+        'lignes': lignes_data,
         'filtre_imputation': 'CIM'
     }
     
@@ -872,13 +885,13 @@ def liste_reclamations(request):
 
 @login_required
 def creer_reclamation(request):
-    """Créer une nouvelle réclamation"""
+    """Créer une nouvelle réclamation avec gestion des multiples NC par ligne"""
     if request.method == 'POST':
         try:
             # Récupérer les données du formulaire
             client_id = request.POST.get('client')
-            site_usine_id = request.POST.get('site_usine')  # Site de l'usine
-            site_client_id = request.POST.get('site_client')  # Site du client (NOUVEAU)
+            site_usine_id = request.POST.get('site_usine')
+            site_client_id = request.POST.get('site_client')
             programme_id = request.POST.get('programme')
             numero_reclamation = request.POST.get('numero_reclamation', '').strip()
             date_reclamation = request.POST.get('date_reclamation')
@@ -904,7 +917,6 @@ def creer_reclamation(request):
             if erreurs:
                 for erreur in erreurs:
                     messages.error(request, erreur)
-                # Re-afficher le formulaire avec les données saisies
                 return render(request, 'reclamations/creer.html', {
                     'clients': Client.objects.filter(actif=True).order_by('nom'),
                     'produits': Produit.objects.filter(actif=True).order_by('product_number'),
@@ -918,67 +930,57 @@ def creer_reclamation(request):
                 })
             
             # Créer la réclamation principale
-            reclamation = Reclamation.objects.create(
-                numero_reclamation=numero_reclamation,
-                date_reclamation=date_reclamation or timezone.now().date(),
-                client_id=client_id,
-                site_id=site_usine_id,  # Site usine
-                site_client_id=site_client_id if site_client_id else None,  # Site client (peut être null)
-                programme_id=programme_id if programme_id else None,
-                imputation=imputation,
-                type_nc=type_nc,
-                etat_4d='OUVERT',
-                etat_8d='OUVERT',
-                cloture=False,
-                createur=request.user
-            )
+            # Créer la réclamation principale
+            reclamation = Reclamation.objects.create(...)
             
-            # Ajouter les lignes de réclamation
+            # Traiter les lignes de réclamation
             produits = request.POST.getlist('produit[]')
-            quantites = request.POST.getlist('quantite[]')
-            descriptions = request.POST.getlist('description[]')
+            quantites = request.POST.getlist('quantite[]')  # Quantité totale du produit
             commentaires = request.POST.getlist('commentaire[]')
             uaps_concernees = request.POST.getlist('uap_concernee[]')
             
-            lignes_crees = 0
+            # Récupérer les données des NC
+            nc_descriptions = request.POST.getlist('nc_description[]')
+            nc_quantites = request.POST.getlist('nc_quantite[]')
+            
+            # Index pour les NC
+            nc_index = 0
+            
             for i in range(len(produits)):
-                if i >= len(produits) or i >= len(quantites):
+                if not produits[i]:
                     continue
-                    
-                produit_id = produits[i]
-                quantite = quantites[i]
                 
-                if produit_id and quantite and int(quantite) > 0:
-                    # Vérifier que le produit existe
-                    try:
-                        produit = Produit.objects.get(id=produit_id)
-                    except Produit.DoesNotExist:
-                        continue
-                    
-                    # Préparer les données de la ligne
-                    ligne_data = {
-                        'reclamation': reclamation,
-                        'produit_id': produit_id,
-                        'quantite': quantite,
-                        'description_non_conformite': descriptions[i] if i < len(descriptions) else '',
-                        'commentaire': commentaires[i] if i < len(commentaires) else '',
-                    }
-                    
-                    # Ajouter l'UAP si fournie et valide
-                    if i < len(uaps_concernees) and uaps_concernees[i]:
-                        try:
-                            uap = UAP.objects.get(id=uaps_concernees[i])
-                            ligne_data['uap_concernee_id'] = uap.id
-                        except UAP.DoesNotExist:
-                            pass
-                    
-                    LigneReclamation.objects.create(**ligne_data)
+                # Quantité totale
+                quantite_totale = int(quantites[i]) if quantites[i] else 1
+                
+                # Créer la ligne de réclamation
+                ligne = LigneReclamation.objects.create(
+                    reclamation=reclamation,
+                    produit_id=produits[i],
+                    quantite=quantite_totale,
+                    uap_concernee_id=uaps_concernees[i] if i < len(uaps_concernees) else None,
+                    commentaire=commentaires[i] if i < len(commentaires) else ''
+                )
+                
+                # Ajouter les non-conformités pour cette ligne
+                while nc_index < len(nc_descriptions) and nc_descriptions[nc_index]:
+                    NonConformite.objects.create(
+                        ligne_reclamation=ligne,
+                        description=nc_descriptions[nc_index],
+                        quantite=int(nc_quantites[nc_index]) if nc_quantites[nc_index] else 1
+                    )
+                    nc_index += 1
+                
+                # Si aucune NC n'a été ajoutée pour cette ligne, la supprimer
+                if nc_ajoutees == 0:
+                    ligne.delete()
+                else:
                     lignes_crees += 1
             
             if lignes_crees == 0:
                 # Si aucune ligne n'a été créée, supprimer la réclamation
                 reclamation.delete()
-                messages.error(request, "Vous devez ajouter au moins un produit avec une quantité valide.")
+                messages.error(request, "Vous devez ajouter au moins un produit avec une non-conformité valide.")
                 return redirect('reclamations:creer')
             
             messages.success(
@@ -1017,6 +1019,25 @@ def creer_reclamation(request):
         'today': timezone.now().date(),
     }
     return render(request, 'reclamations/creer.html', context)
+
+@login_required
+def rechercher_descriptions_nc(request):
+    """Recherche les descriptions de NC existantes pour autocomplétion"""
+    term = request.GET.get('term', '')
+    
+    if len(term) < 2:
+        return JsonResponse([], safe=False)
+    
+    # Chercher les descriptions similaires
+    descriptions = NonConformite.objects.filter(
+        description__icontains=term
+    ).values('description').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    results = [{'value': d['description'], 'count': d['count']} for d in descriptions]
+    
+    return JsonResponse(results, safe=False)
 
 @login_required
 def programmes_par_client(request):
@@ -1137,9 +1158,13 @@ def ajouter_ligne(request, pk):
 
 @login_required
 def modifier_reclamation(request, pk):
-    """Modifier une réclamation complète"""
+    """Modifier une réclamation complète avec gestion des multiples NC"""
     reclamation = get_object_or_404(
-        Reclamation.objects.prefetch_related('lignes__produit', 'lignes__uap_concernee'),
+        Reclamation.objects.prefetch_related(
+            'lignes__produit', 
+            'lignes__uap_concernee',
+            'lignes__non_conformites'
+        ),
         pk=pk
     )
     
@@ -1149,9 +1174,9 @@ def modifier_reclamation(request, pk):
                 # Mettre à jour les champs de la réclamation
                 reclamation.numero_reclamation = request.POST.get('numero_reclamation')
                 
-                # Gestion de la date - nettoyer les caractères invisibles
+                # Gestion de la date
                 date_raw = request.POST.get('date_reclamation', '').strip()
-                if date_raw and date_raw != '  ':  # Ignorer les espaces invisibles
+                if date_raw and date_raw != '  ':
                     try:
                         reclamation.date_reclamation = date_raw
                     except:
@@ -1176,9 +1201,7 @@ def modifier_reclamation(request, pk):
                 nqc_value = request.POST.get('nqc', '0')
                 if nqc_value == '' or nqc_value is None:
                     nqc_value = '0'
-                # Nettoyer la valeur
                 nqc_value = str(nqc_value).strip().replace(',', '.')
-                # Supprimer les caractères non numériques (sauf point et moins)
                 import re
                 nqc_value = re.sub(r'[^0-9.-]', '', nqc_value)
                 if nqc_value == '' or nqc_value == '-':
@@ -1192,47 +1215,99 @@ def modifier_reclamation(request, pk):
                 
                 reclamation.save()
                 
-                # Traiter les lignes de réclamation
+                # ========== TRAITEMENT DES LIGNES AVEC NC MULTIPLES ==========
+                # Récupérer les IDs des lignes existantes
                 lignes_ids = request.POST.getlist('ligne_id[]')
                 produits = request.POST.getlist('produit[]')
-                quantites = request.POST.getlist('quantite[]')
-                descriptions = request.POST.getlist('description[]')
+                quantites = request.POST.getlist('quantite[]')  # Quantité totale
                 commentaires = request.POST.getlist('commentaire[]')
                 uaps = request.POST.getlist('uap_concernee[]')
                 
-                # IDs des lignes à conserver
+                # Récupérer les données des NC
+                nc_ids = request.POST.getlist('nc_id[]')
+                nc_descriptions = request.POST.getlist('nc_description[]')
+                nc_quantites = request.POST.getlist('nc_quantite[]')
+                nc_ligne_refs = request.POST.getlist('nc_ligne_ref[]')
+                
+                # Regrouper les NC par ligne
+                nc_par_ligne = {}
+                for idx in range(len(nc_ids)):
+                    ligne_ref = nc_ligne_refs[idx] if idx < len(nc_ligne_refs) else ''
+                    if ligne_ref not in nc_par_ligne:
+                        nc_par_ligne[ligne_ref] = []
+                    nc_par_ligne[ligne_ref].append({
+                        'id': nc_ids[idx],
+                        'description': nc_descriptions[idx] if idx < len(nc_descriptions) else '',
+                        'quantite': nc_quantites[idx] if idx < len(nc_quantites) else '1'
+                    })
+                
                 lignes_a_conserver = []
                 
                 for i in range(len(produits)):
-                    if produits[i] and quantites[i] and int(quantites[i]) > 0:
-                        ligne_id = lignes_ids[i] if i < len(lignes_ids) else None
+                    if not produits[i]:
+                        continue
+                    
+                    quantite_totale = int(quantites[i]) if quantites[i] else 1
+                    ligne_id = lignes_ids[i] if i < len(lignes_ids) else None
+                    
+                    if ligne_id and ligne_id.startswith('new_'):
+                        # Créer nouvelle ligne
+                        ligne = LigneReclamation.objects.create(
+                            reclamation=reclamation,
+                            produit_id=produits[i],
+                            quantite=quantite_totale,
+                            uap_concernee_id=uaps[i] if i < len(uaps) else None,
+                            commentaire=commentaires[i] if i < len(commentaires) else ''
+                        )
+                        lignes_a_conserver.append(ligne.id)
+                        ligne_ref = str(ligne.id)
                         
-                        if ligne_id and ligne_id.startswith('new_'):
-                            # Créer une nouvelle ligne
-                            LigneReclamation.objects.create(
-                                reclamation=reclamation,
-                                produit_id=produits[i],
-                                quantite=quantites[i],
-                                description_non_conformite=descriptions[i] if i < len(descriptions) else '',
-                                commentaire=commentaires[i] if i < len(commentaires) else '',
-                                uap_concernee_id=uaps[i] if i < len(uaps) and uaps[i] else None
+                    elif ligne_id and ligne_id.isdigit():
+                        # Modifier ligne existante
+                        ligne = LigneReclamation.objects.get(id=ligne_id, reclamation=reclamation)
+                        ligne.produit_id = produits[i]
+                        ligne.quantite = quantite_totale
+                        ligne.uap_concernee_id = uaps[i] if i < len(uaps) else None
+                        ligne.commentaire = commentaires[i] if i < len(commentaires) else ''
+                        ligne.save()
+                        lignes_a_conserver.append(ligne.id)
+                        ligne_ref = ligne_id
+                    else:
+                        continue
+                    
+                    # Traiter les NC pour cette ligne
+                    ncs_a_conserver = []
+                    for nc_data in nc_par_ligne.get(ligne_ref, []):
+                        description = nc_data['description']
+                        quantite_nc = int(nc_data['quantite']) if nc_data['quantite'] else 1
+                        
+                        if not description:
+                            continue
+                        
+                        if nc_data['id'].startswith('new_'):
+                            NonConformite.objects.create(
+                                ligne_reclamation=ligne,
+                                description=description,
+                                quantite=quantite_nc
                             )
-                        elif ligne_id and ligne_id.isdigit():
-                            # Mettre à jour une ligne existante
-                            ligne = LigneReclamation.objects.get(id=ligne_id, reclamation=reclamation)
-                            ligne.produit_id = produits[i]
-                            ligne.quantite = quantites[i]
-                            ligne.description_non_conformite = descriptions[i] if i < len(descriptions) else ''
-                            ligne.commentaire = commentaires[i] if i < len(commentaires) else ''
-                            ligne.uap_concernee_id = uaps[i] if i < len(uaps) and uaps[i] else None
-                            ligne.save()
-                            lignes_a_conserver.append(ligne.id)
+                        elif nc_data['id'].isdigit():
+                            nc = NonConformite.objects.get(id=nc_data['id'], ligne_reclamation=ligne)
+                            nc.description = description
+                            nc.quantite = quantite_nc
+                            nc.save()
+                            ncs_a_conserver.append(nc.id)
+                    
+                    # Supprimer les NC orphelines
+                    ligne.non_conformites.exclude(id__in=ncs_a_conserver).delete()
                 
-                # Supprimer les lignes qui ne sont plus dans la liste
+                # Supprimer les lignes orphelines
                 reclamation.lignes.exclude(id__in=lignes_a_conserver).delete()
                 
                 messages.success(request, f"Réclamation {reclamation.numero_reclamation} modifiée avec succès!")
                 return redirect('reclamations:detail_reclamation', pk=reclamation.id)
+                
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la modification: {str(e)}")
                 
         except Exception as e:
             messages.error(request, f"Erreur lors de la modification: {str(e)}")
@@ -2774,25 +2849,7 @@ def api_reclamations_client_mois(request):
     
     return JsonResponse(data)
 
-   
-"""@login_required
-def api_chatbot(request):
-    ""API pour le chatbot""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
-    
-    try:
-        data = json.loads(request.body)
-        message = data.get('message', '')
-        historique = data.get('historique', [])
-        
-        response = chatbot.get_response(message, historique)
-        
-        return JsonResponse(response)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)"""
-
+#============AMDEC==========
 @login_required
 def amdec_produit(request, produit_id=None):
     """Génère une AMDEC pour un produit spécifique ou pour les produits les plus critiques"""
@@ -3048,6 +3105,7 @@ def amdec_export_excel(request, produit_id=None):
     
     return response
 
+#=============8D=============================================
 @login_required
 def huitd_detail(request, pk):
     """Affiche la fiche 8D d'une réclamation"""
