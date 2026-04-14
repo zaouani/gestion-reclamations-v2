@@ -630,18 +630,20 @@ class DashboardStats:
     def get_taux_recurrence_globale(self, imputation='CIM'):
         """
         Calcule le taux de récurrence globale des défauts
-        = (Nombre de défauts qui apparaissent plus d'une fois) / (Nombre total de défauts distincts) × 100
+        Taux = Nombre de défauts qui apparaissent dans PLUSIEURS RÉCLAMATIONS / Nombre total de défauts distincts × 100
+        Un défaut est considéré comme récurrent s'il apparaît dans au moins 2 réclamations différentes
         """
         
-        # Construire le filtre
+        # Construire le filtre de base
         queryset = NonConformite.objects.all()
         
         if imputation:
             queryset = queryset.filter(ligne_reclamation__reclamation__imputation=imputation)
         
-        # Compter les défauts par description
-        defauts = queryset.values('description').annotate(
-            nb_occurences=Count('id')
+        # Compter les défauts par description avec le nombre de RÉCLAMATIONS distinctes
+        defauts_stats = queryset.values('description').annotate(
+            nb_occurences=Count('id'),  # Nombre total d'occurrences du défaut
+            nb_reclamations=Count('ligne_reclamation__reclamation', distinct=True)  # Nombre de réclamations distinctes
         ).filter(
             description__isnull=False
         ).exclude(
@@ -649,22 +651,51 @@ class DashboardStats:
         )
         
         # Nombre total de défauts distincts
-        total_defauts = defauts.count()
+        total_defauts = defauts_stats.count()
         
-        # Nombre de défauts récurrents (apparaissent plus d'une fois)
-        defauts_recurrents = defauts.filter(nb_occurences__gt=1).count()
+        # Nombre de défauts récurrents (apparaissent dans PLUSIEURS réclamations différentes)
+        defauts_recurrents = defauts_stats.filter(nb_reclamations__gte=2).count()
         
-        # Calcul du taux
+        # Calcul du taux de récurrence selon la nouvelle définition
         if total_defauts > 0:
             taux_recurrence = (defauts_recurrents / total_defauts) * 100
         else:
             taux_recurrence = 0
         
+        # Statistiques supplémentaires
+        total_reclamations = Reclamation.objects.all()
+        if imputation:
+            total_reclamations = total_reclamations.filter(imputation=imputation)
+        total_reclamations_count = total_reclamations.count()
+        
+        # Défauts par niveau de récurrence
+        defauts_faible = defauts_stats.filter(nb_reclamations=1).count()
+        defauts_moyen = defauts_stats.filter(nb_reclamations__gte=2, nb_reclamations__lte=5).count()
+        defauts_eleve = defauts_stats.filter(nb_reclamations__gt=5).count()
+        
+        # Top 5 des défauts les plus récurrents
+        top_defauts_recurrents = list(defauts_stats.filter(
+            nb_reclamations__gte=2
+        ).order_by('-nb_reclamations')[:5].values('description', 'nb_reclamations', 'nb_occurences'))
+        
         return {
             'taux': round(taux_recurrence, 1),
+            'taux_formatted': f"{round(taux_recurrence, 1)}%",
             'defauts_recurrents': defauts_recurrents,
             'total_defauts': total_defauts,
-            'imputation': imputation
+            'total_reclamations': total_reclamations_count,
+            'total_occurences': queryset.count(),
+            'imputation': imputation,
+            'imputation_display': dict(Reclamation.IMPUTATION_CHOICES).get(imputation, imputation) if imputation else 'Toutes',
+            # Répartition par niveau de récurrence
+            'repartition': {
+                'faible': defauts_faible,      # 1 réclamation
+                'moyen': defauts_moyen,         # 2-5 réclamations
+                'eleve': defauts_eleve          # >5 réclamations
+            },
+            'top_defauts_recurrents': top_defauts_recurrents,
+            # Pourcentage de défauts récurrents
+            'pourcentage_recurrents': round((defauts_recurrents / total_defauts * 100), 1) if total_defauts > 0 else 0
         }
 
     def get_all_stats(self):

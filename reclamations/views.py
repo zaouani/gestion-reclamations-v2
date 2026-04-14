@@ -838,7 +838,7 @@ def taux_recurrence_nc(request):
         
         resultats.append({
             'description': description,
-            'nb_occurences': desc['nb_occurences'],  # Nombre total d'occurrences
+            'nb_occurences': nb_reclamations_concernees,  # Nombre total d'occurrences
             'quantite_totale': desc['quantite_totale'] or 0,
             'nb_produits': desc['nb_produits'],
             'nb_reclamations': nb_reclamations_concernees,  # Nombre de réclamations distinctes
@@ -939,7 +939,7 @@ def detail_recurrence_nc(request, description):
     context = {
         'description': description,
         'nb_reclamations': nb_reclamations,
-        'total_occurences': non_conformites.count(),
+        'total_occurences': nb_reclamations,
         'quantite_totale': non_conformites.aggregate(Sum('quantite'))['quantite__sum'] or 0,
         'produits': produits_data,
         'clients': list(clients_data),
