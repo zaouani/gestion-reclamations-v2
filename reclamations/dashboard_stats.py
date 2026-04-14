@@ -385,8 +385,6 @@ class DashboardStats:
             'uap_concernee__nom'
         )
         
-        print(f"Nombre de lignes trouvées: {len(lignes)}")
-        
         # Structure
         stats = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {
             'total_reclamations': 0,
@@ -422,6 +420,9 @@ class DashboardStats:
                         stats[annee][mois][uap]['cloture_4d_delai'] += 1
                         stats[annee][mois][uap]['total_reclamations'] += 1
                         est_reactif_4d = True
+                    else:
+                        stats[annee][mois][uap]['total_reclamations'] += 1
+                        
                 else: 
                     date_limite = self._calculer_date_limite(rec_date, 2)
                     date_actuelle = timezone.now().date()
@@ -437,11 +438,13 @@ class DashboardStats:
                         stats[annee][mois][uap]['cloture_8d_delai'] += 1
                         stats[annee][mois][uap]['total_reclamations'] += 1
                         est_reactif_8d = True
-                    else: 
-                        date_limite = self._calculer_date_limite(rec_date, 2)
-                        date_actuelle = timezone.now().date()
-                        if date_limite<date_actuelle:
-                            stats[annee][mois][uap]['total_reclamations'] += 1
+                    else:
+                        stats[annee][mois][uap]['total_reclamations'] += 1
+                else: 
+                    date_limite = self._calculer_date_limite(rec_date, 2)
+                    date_actuelle = timezone.now().date()
+                    if date_limite<date_actuelle:
+                        stats[annee][mois][uap]['total_reclamations'] += 1
                 
                        
         # Construire le résultat final
@@ -547,53 +550,79 @@ class DashboardStats:
     def get_top_defauts_recurrents(self, top_n=5, imputation='CIM'):
         """
         Récupère les défauts (descriptions de non-conformité) les plus récurrents
+        Taux de récurrence = Nombre de réclamations contenant le défaut / Nombre total de réclamations
         imputation: 'CIM', 'CIB', 'CLIENT', 'ALERTE' ou None pour tous
         """
         
-        # Construire le filtre de base
-        queryset = NonConformite.objects.all()
+        # Construire le filtre de base pour les réclamations
+        reclamations_queryset = Reclamation.objects.all()
+        if imputation:
+            reclamations_queryset = reclamations_queryset.filter(imputation=imputation)
         
+        # Total des réclamations (dénominateur pour le taux)
+        total_reclamations = reclamations_queryset.count()
+        
+        # Si aucune réclamation, retourner liste vide
+        if total_reclamations == 0:
+            return []
+        
+        # Construire le filtre de base pour les non-conformités
+        queryset = NonConformite.objects.all()
         if imputation:
             queryset = queryset.filter(ligne_reclamation__reclamation__imputation=imputation)
         
-        # Compter les occurrences
+        # Compter les occurrences et les réclamations concernées
         defauts = queryset.values('description').annotate(
-            nb_occurences=Count('id'),
-            quantite_totale=Sum('quantite'),
-            nb_reclamations=Count('ligne_reclamation__reclamation', distinct=True)
+            nb_occurences=Count('id'),  # Nombre total d'occurrences
+            quantite_totale=Sum('quantite'),  # Quantité totale
+            nb_reclamations=Count('ligne_reclamation__reclamation', distinct=True)  # Réclamations distinctes
         ).filter(
             description__isnull=False
         ).exclude(
             description=''
-        ).order_by('-nb_occurences')[:top_n]
+        ).order_by('-nb_reclamations')[:top_n]  # Tri par nombre de réclamations concernées
         
-        # Total des non-conformités pour le même filtre
+        # Total des non-conformités pour le même filtre (pour information)
         total_nc = queryset.count()
         
         resultats = []
         for defaut in defauts:
             description = defaut['description']
+            nb_reclamations_concernees = defaut['nb_reclamations']
             
-            # Calculer le taux
-            taux = (defaut['nb_occurences'] / total_nc * 100) if total_nc > 0 else 0
+            # Nouveau calcul du taux de récurrence
+            # Taux = (réclamations avec le défaut / total réclamations) * 100
+            taux = (nb_reclamations_concernees / total_reclamations * 100) if total_reclamations > 0 else 0
             
             # Récupérer les produits concernés
             produits_queryset = Produit.objects.filter(
-                lignes_reclamation__non_conformites__description=description
+            lignes_reclamation__non_conformites__description=description,
+            lignes_reclamation__reclamation__imputation='CIM'
+            ).distinct().values_list('product_number', flat=True)[:10]
+            produits_concernes = produits_queryset.count()
+            
+            # Récupérer les IDs des réclamations concernées (pour référence)
+            reclamations_ids = NonConformite.objects.filter(
+                description=description
             )
             if imputation:
-                produits_queryset = produits_queryset.filter(
-                    lignes_reclamation__reclamation__imputation=imputation
+                reclamations_ids = reclamations_ids.filter(
+                    ligne_reclamation__reclamation__imputation=imputation
                 )
-            produits_concernes = produits_queryset.distinct().count()
+            reclamations_ids = list(reclamations_ids.values_list(
+                'ligne_reclamation__reclamation_id', flat=True
+            ).distinct())
             
             resultats.append({
                 'description': description,
                 'nb_occurences': defaut['nb_occurences'],
                 'quantite_totale': defaut['quantite_totale'] or 0,
-                'nb_reclamations': defaut['nb_reclamations'],
+                'nb_reclamations': nb_reclamations_concernees,
                 'nb_produits': produits_concernes,
-                'taux_recurrence': round(taux, 2)
+                'taux_recurrence': round(taux, 2),
+                'taux_recurrence_formatted': f"{round(taux, 2)}%",
+                'total_reclamations_reference': total_reclamations,  # Pour information
+                'reclamations_ids': reclamations_ids  # Pour des liens éventuels
             })
         
         return resultats

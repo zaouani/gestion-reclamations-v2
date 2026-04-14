@@ -34,7 +34,7 @@ from .services.ollama_service import OllamaService
 from .services.fai_alert_service import FAIAlertService
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-
+from urllib.parse import unquote
 
 
 # CONFIGURATION LOGGER
@@ -176,7 +176,7 @@ def export_dashboard_pdf(request):
 # ================ EXPORT EXCEL ================
 @login_required
 def export_reclamations_excel(request):
-    """Exporte toutes les réclamations en Excel"""
+    """Exporte toutes les réclamations en Excel avec les non-conformités"""
     
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
@@ -188,12 +188,40 @@ def export_reclamations_excel(request):
         'font_color': 'white',
         'border': 1,
         'align': 'center',
-        'valign': 'vcenter'
+        'valign': 'vcenter',
+        'text_wrap': True
+    })
+    
+    header_blue_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#2196F3',
+        'font_color': 'white',
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter',
+        'text_wrap': True
+    })
+    
+    header_orange_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#FF9800',
+        'font_color': 'white',
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter',
+        'text_wrap': True
     })
     
     cell_format = workbook.add_format({
         'border': 1,
         'align': 'left',
+        'valign': 'vcenter',
+        'text_wrap': True
+    })
+    
+    cell_center_format = workbook.add_format({
+        'border': 1,
+        'align': 'center',
         'valign': 'vcenter'
     })
     
@@ -210,73 +238,208 @@ def export_reclamations_excel(request):
         'num_format': 'dd/mm/yyyy'
     })
     
-    # Feuille 1: Liste des réclamations
+    datetime_format = workbook.add_format({
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter',
+        'num_format': 'dd/mm/yyyy hh:mm'
+    })
+    
+    # Récupérer toutes les réclamations avec les relations nécessaires
+    reclamations = Reclamation.objects.select_related(
+        'client', 
+        'site_client', 
+        'programme', 
+        'createur'
+    ).prefetch_related(
+        Prefetch('lignes', queryset=LigneReclamation.objects.select_related(
+            'produit', 'site', 'site__uap', 'uap_concernee'
+        ).prefetch_related('non_conformites'))
+    ).order_by('-date_reclamation')
+    
+    # ==================== FEUILLE 1: RÉCLAMATIONS ====================
     worksheet_reclamations = workbook.add_worksheet('Réclamations')
     
     headers = [
-        'N° Réclamation', 'Date', 'Client', 'Site usine', 'Programme',
-        'Type NC', 'Imputation', 'État 4D', 'État 8D', 'Clôturé',
-        'Date clôture', 'Décision', 'NQC', 'Créateur', 'Date création'
+        'N° Réclamation', 'Date réclamation', 'Client', 'Site client', 'Programme',
+        'Type NC', 'Imputation', 'N° 4D', 'N° 8D', 'État 4D', 'État 8D', 
+        'Clôturé', 'Date clôture', 'Date clôture 4D', 'Date clôture 8D',
+        'Evidence', 'ME', 'Décision', 'NQC (MAD)', 'Créateur', 'Date création'
     ]
     
     for col, header in enumerate(headers):
         worksheet_reclamations.write(0, col, header, header_format)
     
-    reclamations = Reclamation.objects.select_related(
-        'client', 'site', 'programme', 'createur'
-    ).prefetch_related('lignes')
-    
     row = 1
     for rec in reclamations:
-        worksheet_reclamations.write(row, 0, rec.numero_reclamation, cell_format)
-        worksheet_reclamations.write(row, 1, rec.date_reclamation.strftime('%d/%m/%Y'), date_format)
-        worksheet_reclamations.write(row, 2, rec.client.nom, cell_format)
-        worksheet_reclamations.write(row, 3, rec.site.nom if rec.site else '-', cell_format)
-        worksheet_reclamations.write(row, 4, rec.programme.nom if rec.programme else '-', cell_format)
-        worksheet_reclamations.write(row, 5, rec.get_type_nc_display(), cell_format)
-        worksheet_reclamations.write(row, 6, rec.get_imputation_display(), cell_format)
-        worksheet_reclamations.write(row, 7, rec.get_etat_4d_display(), cell_format)
-        worksheet_reclamations.write(row, 8, rec.get_etat_8d_display(), cell_format)
-        worksheet_reclamations.write(row, 9, 'Oui' if rec.cloture else 'Non', cell_format)
-        worksheet_reclamations.write(row, 10, rec.date_cloture.strftime('%d/%m/%Y') if rec.date_cloture else '-', date_format)
-        worksheet_reclamations.write(row, 11, rec.decision or '-', cell_format)
-        worksheet_reclamations.write(row, 12, float(rec.nqc) if rec.nqc else 0, number_format)
-        worksheet_reclamations.write(row, 13, rec.createur.username if rec.createur else '-', cell_format)
-        worksheet_reclamations.write(row, 14, rec.date_creation.strftime('%d/%m/%Y %H:%M'), date_format)
+        col = 0
+        worksheet_reclamations.write(row, col, rec.numero_reclamation, cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.date_reclamation.strftime('%d/%m/%Y') if rec.date_reclamation else '-', date_format); col += 1
+        worksheet_reclamations.write(row, col, rec.client.nom, cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.site_client.nom if rec.site_client else '-', cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.programme.nom if rec.programme else '-', cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.get_type_nc_display(), cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.get_imputation_display(), cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.numero_4d or '-', cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.numero_8d or '-', cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.get_etat_4d_display(), cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.get_etat_8d_display(), cell_format); col += 1
+        worksheet_reclamations.write(row, col, 'Oui' if rec.cloture else 'Non', cell_center_format); col += 1
+        worksheet_reclamations.write(row, col, rec.date_cloture.strftime('%d/%m/%Y') if rec.date_cloture else '-', date_format); col += 1
+        worksheet_reclamations.write(row, col, rec.date_cloture_4d.strftime('%d/%m/%Y') if rec.date_cloture_4d else '-', date_format); col += 1
+        worksheet_reclamations.write(row, col, rec.date_cloture_8d.strftime('%d/%m/%Y') if rec.date_cloture_8d else '-', date_format); col += 1
+        worksheet_reclamations.write(row, col, rec.evidence or '-', cell_format); col += 1
+        worksheet_reclamations.write(row, col, 'Oui' if rec.me else 'Non', cell_center_format); col += 1
+        worksheet_reclamations.write(row, col, rec.decision or '-', cell_format); col += 1
+        worksheet_reclamations.write(row, col, float(rec.nqc) if rec.nqc else 0, number_format); col += 1
+        worksheet_reclamations.write(row, col, rec.createur.get_full_name() or rec.createur.username if rec.createur else '-', cell_format); col += 1
+        worksheet_reclamations.write(row, col, rec.date_creation.strftime('%d/%m/%Y %H:%M'), datetime_format); col += 1
         row += 1
     
     # Ajuster les colonnes
-    column_widths = [15, 12, 20, 15, 15, 15, 12, 12, 12, 10, 12, 30, 10, 15, 18]
+    column_widths = [18, 14, 22, 18, 18, 14, 12, 15, 15, 12, 12, 10, 14, 14, 14, 30, 8, 30, 12, 20, 18]
     for col, width in enumerate(column_widths):
         worksheet_reclamations.set_column(col, col, width)
     
-    # Feuille 2: Produits
-    worksheet_produits = workbook.add_worksheet('Produits par réclamation')
+    # Ajouter un filtre
+    worksheet_reclamations.autofilter(0, 0, row - 1, len(headers) - 1)
     
-    headers_produits = [
-        'N° Réclamation', 'Client', 'Produit', 'Désignation', 'Quantité',
-        'Description', 'Commentaire', 'UAP'
+    # ==================== FEUILLE 2: LIGNES DE RÉCLAMATION ====================
+    worksheet_lignes = workbook.add_worksheet('Lignes de réclamation')
+    
+    headers_lignes = [
+        'N° Réclamation', 'Date', 'Client', 'Site production', 'UAP', 
+        'Produit', 'Désignation', 'Quantité', 'Description NC', 'Commentaire'
     ]
     
-    for col, header in enumerate(headers_produits):
-        worksheet_produits.write(0, col, header, header_format)
+    for col, header in enumerate(headers_lignes):
+        worksheet_lignes.write(0, col, header, header_blue_format)
     
     row = 1
     for rec in reclamations:
         for ligne in rec.lignes.all():
-            worksheet_produits.write(row, 0, rec.numero_reclamation, cell_format)
-            worksheet_produits.write(row, 1, rec.client.nom, cell_format)
-            worksheet_produits.write(row, 2, ligne.produit.product_number, cell_format)
-            worksheet_produits.write(row, 3, ligne.produit.designation or '-', cell_format)
-            worksheet_produits.write(row, 4, ligne.quantite, number_format)
-            worksheet_produits.write(row, 5, ligne.description_non_conformite or '-', cell_format)
-            worksheet_produits.write(row, 6, ligne.commentaire or '-', cell_format)
-            worksheet_produits.write(row, 7, ligne.uap_concernee.nom if ligne.uap_concernee else '-', cell_format)
+            col = 0
+            worksheet_lignes.write(row, col, rec.numero_reclamation, cell_format); col += 1
+            worksheet_lignes.write(row, col, rec.date_reclamation.strftime('%d/%m/%Y') if rec.date_reclamation else '-', date_format); col += 1
+            worksheet_lignes.write(row, col, rec.client.nom, cell_format); col += 1
+            worksheet_lignes.write(row, col, ligne.site.nom if ligne.site else '-', cell_format); col += 1
+            worksheet_lignes.write(row, col, ligne.uap_concernee.nom if ligne.uap_concernee else (ligne.site.uap.nom if ligne.site and ligne.site.uap else '-'), cell_format); col += 1
+            worksheet_lignes.write(row, col, ligne.produit.product_number, cell_format); col += 1
+            worksheet_lignes.write(row, col, ligne.produit.designation or '-', cell_format); col += 1
+            worksheet_lignes.write(row, col, ligne.quantite, number_format); col += 1
+            worksheet_lignes.write(row, col, ligne.description_non_conformite or '-', cell_format); col += 1
+            worksheet_lignes.write(row, col, ligne.commentaire or '-', cell_format); col += 1
             row += 1
     
-    for col, width in enumerate([15, 20, 15, 30, 10, 40, 40, 15]):
-        worksheet_produits.set_column(col, col, width)
+    column_widths_lignes = [18, 12, 22, 18, 15, 15, 30, 10, 40, 30]
+    for col, width in enumerate(column_widths_lignes):
+        worksheet_lignes.set_column(col, col, width)
     
+    if row > 1:
+        worksheet_lignes.autofilter(0, 0, row - 1, len(headers_lignes) - 1)
+    
+    # ==================== FEUILLE 3: NON-CONFORMITÉS ====================
+    worksheet_nc = workbook.add_worksheet('Non-conformités')
+    
+    headers_nc = [
+        'N° Réclamation', 'Date', 'Client', 'Site', 'Produit', 
+        'Quantité ligne', 'Description NC', 'Quantité NC', 'Date création NC'
+    ]
+    
+    for col, header in enumerate(headers_nc):
+        worksheet_nc.write(0, col, header, header_orange_format)
+    
+    row = 1
+    for rec in reclamations:
+        for ligne in rec.lignes.all():
+            for nc in ligne.non_conformites.all():
+                col = 0
+                worksheet_nc.write(row, col, rec.numero_reclamation, cell_format); col += 1
+                worksheet_nc.write(row, col, rec.date_reclamation.strftime('%d/%m/%Y') if rec.date_reclamation else '-', date_format); col += 1
+                worksheet_nc.write(row, col, rec.client.nom, cell_format); col += 1
+                worksheet_nc.write(row, col, ligne.site.nom if ligne.site else '-', cell_format); col += 1
+                worksheet_nc.write(row, col, ligne.produit.product_number, cell_format); col += 1
+                worksheet_nc.write(row, col, ligne.quantite, number_format); col += 1
+                worksheet_nc.write(row, col, nc.description, cell_format); col += 1
+                worksheet_nc.write(row, col, nc.quantite, number_format); col += 1
+                worksheet_nc.write(row, col, nc.date_creation.strftime('%d/%m/%Y %H:%M'), datetime_format); col += 1
+                row += 1
+    
+    column_widths_nc = [18, 12, 22, 18, 15, 12, 45, 12, 18]
+    for col, width in enumerate(column_widths_nc):
+        worksheet_nc.set_column(col, col, width)
+    
+    if row > 1:
+        worksheet_nc.autofilter(0, 0, row - 1, len(headers_nc) - 1)
+    
+    # ==================== FEUILLE 4: RÉSUMÉ STATISTIQUE ====================
+    worksheet_stats = workbook.add_worksheet('Statistiques')
+    
+    # Titre
+    title_format = workbook.add_format({
+        'bold': True,
+        'font_size': 16,
+        'font_color': '#2196F3'
+    })
+    
+    stat_label_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#E3F2FD',
+        'border': 1,
+        'align': 'left',
+        'valign': 'vcenter'
+    })
+    
+    stat_value_format = workbook.add_format({
+        'border': 1,
+        'align': 'right',
+        'valign': 'vcenter'
+    })
+    
+    worksheet_stats.write(0, 0, 'RÉSUMÉ DES RÉCLAMATIONS', title_format)
+    worksheet_stats.write(1, 0, f'Export réalisé le {timezone.now().strftime("%d/%m/%Y à %H:%M")}', cell_format)
+    
+    # Statistiques générales
+    row = 3
+    stats = [
+        ('Total réclamations', reclamations.count()),
+        ('Réclamations ouvertes', reclamations.filter(cloture=False).count()),
+        ('Réclamations clôturées', reclamations.filter(cloture=True).count()),
+        ('', ''),
+        ('Par type de NC', ''),
+    ]
+    
+    for label, value in stats:
+        worksheet_stats.write(row, 0, label, stat_label_format)
+        worksheet_stats.write(row, 1, value, stat_value_format)
+        row += 1
+    
+    # Statistiques par type de NC
+    from django.db.models import Count
+    type_stats = reclamations.values('type_nc').annotate(count=Count('id'))
+    
+    for stat in type_stats:
+        type_display = dict(Reclamation.TYPE_NC_CHOICES).get(stat['type_nc'], stat['type_nc'])
+        worksheet_stats.write(row, 0, f"  - {type_display}", stat_label_format)
+        worksheet_stats.write(row, 1, stat['count'], stat_value_format)
+        row += 1
+    
+    row += 1
+    worksheet_stats.write(row, 0, 'Par imputation', stat_label_format)
+    row += 1
+    
+    # Statistiques par imputation
+    imp_stats = reclamations.values('imputation').annotate(count=Count('id'))
+    for stat in imp_stats:
+        imp_display = dict(Reclamation.IMPUTATION_CHOICES).get(stat['imputation'], stat['imputation'])
+        worksheet_stats.write(row, 0, f"  - {imp_display}", stat_label_format)
+        worksheet_stats.write(row, 1, stat['count'], stat_value_format)
+        row += 1
+    
+    worksheet_stats.set_column(0, 0, 30)
+    worksheet_stats.set_column(1, 1, 15)
+    
+    # ==================== FINALISATION ====================
     workbook.close()
     
     output.seek(0)
@@ -284,10 +447,9 @@ def export_reclamations_excel(request):
         output.read(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = f'attachment; filename="reclamations_{timezone.now().date()}.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="reclamations_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
     
     return response
-
 @login_required
 def export_dashboard_excel(request):
     """Exporte les données du dashboard en Excel"""
@@ -629,31 +791,38 @@ def detail_recurrence_produit(request, product_id):
 def taux_recurrence_nc(request):
     """
     Calcule le taux de récurrence des descriptions de non-conformité (NC)
+    Taux de récurrence = Nombre de réclamations contenant au moins un produit avec le défaut / Nombre total de réclamations
     UNIQUEMENT pour les réclamations avec imputation CIM
     """
     
-    # Récupérer toutes les non-conformités pour les CIM uniquement
+    # Total des réclamations CIM (dénominateur)
+    total_reclamations_cim = Reclamation.objects.filter(
+        imputation='CIM'
+    ).count()
+    
+    # Récupérer toutes les descriptions de NC distinctes pour les CIM
     descriptions = NonConformite.objects.filter(
         ligne_reclamation__reclamation__imputation='CIM'
     ).values('description').annotate(
-        nb_occurences=Count('id'),
-        quantite_totale=Sum('quantite'),
-        nb_produits=Count('ligne_reclamation__produit', distinct=True),
-        nb_reclamations=Count('ligne_reclamation__reclamation', distinct=True)
+        nb_occurences=Count('id'),  # Nombre total d'occurrences de la NC
+        quantite_totale=Sum('quantite'),  # Quantité totale concernée
+        nb_produits=Count('ligne_reclamation__produit', distinct=True),  # Nombre de produits différents
+        # Nouveau : nombre de réclamations DISTINCTES contenant cette NC
+        nb_reclamations_concernees=Count('ligne_reclamation__reclamation', distinct=True)
     ).filter(
         description__isnull=False
     ).exclude(
         description=''
-    ).order_by('-nb_occurences')
-    
-    # Total des non-conformités pour les CIM uniquement
-    total_nc_cim = NonConformite.objects.filter(
-        ligne_reclamation__reclamation__imputation='CIM'
-    ).count()
+    ).order_by('-nb_reclamations_concernees')  # Tri par nombre de réclamations concernées
     
     resultats = []
     for desc in descriptions:
         description = desc['description']
+        nb_reclamations_concernees = desc['nb_reclamations_concernees']
+        
+        # Calcul du taux de récurrence selon la nouvelle définition
+        # Taux = (réclamations avec le défaut / total réclamations) * 100
+        taux = (nb_reclamations_concernees / total_reclamations_cim * 100) if total_reclamations_cim > 0 else 0
         
         # Produits concernés (uniquement pour les CIM)
         produits_concernes = Produit.objects.filter(
@@ -661,22 +830,32 @@ def taux_recurrence_nc(request):
             lignes_reclamation__reclamation__imputation='CIM'
         ).distinct().values_list('product_number', flat=True)[:10]
         
-        # Taux basé sur les CIM uniquement
-        taux = (desc['nb_occurences'] / total_nc_cim * 100) if total_nc_cim > 0 else 0
+        # Récupérer les IDs des réclamations concernées (pour référence)
+        reclamations_ids = NonConformite.objects.filter(
+            description=description,
+            ligne_reclamation__reclamation__imputation='CIM'
+        ).values_list('ligne_reclamation__reclamation_id', flat=True).distinct()
         
         resultats.append({
             'description': description,
-            'nb_occurences': desc['nb_occurences'],
+            'nb_occurences': desc['nb_occurences'],  # Nombre total d'occurrences
             'quantite_totale': desc['quantite_totale'] or 0,
             'nb_produits': desc['nb_produits'],
-            'nb_reclamations': desc['nb_reclamations'],
+            'nb_reclamations': nb_reclamations_concernees,  # Nombre de réclamations distinctes
             'taux_recurrence': round(taux, 2),
-            'produits_concernes': list(produits_concernes)
+            'produits_concernes': list(produits_concernes),
+            'reclamations_ids': list(reclamations_ids)  # Pour des liens éventuels
         })
+    
+    # Statistiques globales
+    total_nc_distinctes = len(resultats)
+    total_occurences_nc = sum(r['nb_occurences'] for r in resultats)
     
     context = {
         'descriptions': resultats,
-        'total_nc_cim': total_nc_cim,
+        'total_reclamations_cim': total_reclamations_cim,
+        'total_nc_distinctes': total_nc_distinctes,
+        'total_occurences_nc': total_occurences_nc,
         'date_analyse': timezone.now(),
         'filtre_imputation': 'CIM'
     }
@@ -757,7 +936,6 @@ def detail_recurrence_nc(request, description):
             'uap_concernee': nc.ligne_reclamation.uap_concernee,
             'commentaire': nc.ligne_reclamation.commentaire
         })
-    
     context = {
         'description': description,
         'nb_reclamations': nb_reclamations,
@@ -814,23 +992,28 @@ def liste_reclamations(request):
     search = request.GET.get('search', '')
     statut = request.GET.get('statut', '')
     client_id = request.GET.get('client', '')
-    type_nc = request.GET.get('type_nc', '')
+    mois = request.GET.get('mois', '')
+    annee = request.GET.get('annee', '')
     imputation = request.GET.get('imputation', '')
     
     # Requête de base avec sélection des relations et des produits
     reclamations = Reclamation.objects.select_related(
-        'client', 'site', 'programme'
+        'client', 'programme', 'site_client', 'createur'
     ).prefetch_related(
-        Prefetch('lignes', queryset=LigneReclamation.objects.select_related('produit'))
+        Prefetch('lignes', queryset=LigneReclamation.objects.select_related(
+            'produit', 'site', 'site__uap', 'uap_concernee'
+        ).prefetch_related('non_conformites'))
     ).order_by('-date_reclamation')
     
-    # Filtre par recherche (numéro réclamation ou client)
+    # Filtre par recherche (numéro réclamation, client, programme ou produit)
     if search:
         reclamations = reclamations.filter(
             Q(numero_reclamation__icontains=search) |
             Q(client__nom__icontains=search) |
-            Q(programme__nom__icontains=search)
-        )
+            Q(programme__nom__icontains=search) |
+            Q(lignes__produit__product_number__icontains=search) |
+            Q(lignes__non_conformites__description__icontains=search)
+        ).distinct()
     
     # Filtre par statut
     if statut:
@@ -843,9 +1026,29 @@ def liste_reclamations(request):
     if client_id:
         reclamations = reclamations.filter(client_id=client_id)
     
-    # Filtre par type de NC
-    if type_nc:
-        reclamations = reclamations.filter(type_nc=type_nc)
+    # Filtre par mois et année
+    if mois and annee:
+        try:
+            mois_int = int(mois)
+            annee_int = int(annee)
+            reclamations = reclamations.filter(
+                date_reclamation__month=mois_int,
+                date_reclamation__year=annee_int
+            )
+        except ValueError:
+            pass
+    elif annee:  # Si seulement l'année est spécifiée
+        try:
+            annee_int = int(annee)
+            reclamations = reclamations.filter(date_reclamation__year=annee_int)
+        except ValueError:
+            pass
+    elif mois:  # Si seulement le mois est spécifié (toutes les années)
+        try:
+            mois_int = int(mois)
+            reclamations = reclamations.filter(date_reclamation__month=mois_int)
+        except ValueError:
+            pass
     
     # Filtre par imputation
     if imputation:
@@ -864,18 +1067,44 @@ def liste_reclamations(request):
     
     # Récupérer les données pour les filtres
     clients = Client.objects.filter(actif=True).order_by('nom')
-    type_nc_choices = Reclamation.TYPE_NC_CHOICES
     imputation_choices = Reclamation.IMPUTATION_CHOICES
+    
+    # Générer la liste des mois pour le filtre
+    mois_choices = [
+        (1, 'Janvier'),
+        (2, 'Février'),
+        (3, 'Mars'),
+        (4, 'Avril'),
+        (5, 'Mai'),
+        (6, 'Juin'),
+        (7, 'Juillet'),
+        (8, 'Août'),
+        (9, 'Septembre'),
+        (10, 'Octobre'),
+        (11, 'Novembre'),
+        (12, 'Décembre'),
+    ]
+    
+    # Générer la liste des années disponibles (années où il y a des réclamations)
+    annees_disponibles = Reclamation.objects.dates('date_reclamation', 'year')
+    annees_choices = [(annee.year, annee.year) for annee in annees_disponibles]
+    
+    # Si aucune année n'est trouvée, mettre l'année courante
+    if not annees_choices:
+        annee_courante = datetime.now().year
+        annees_choices = [(annee_courante, annee_courante)]
     
     context = {
         'reclamations': reclamations_page,
         'clients': clients,
-        'type_nc_choices': type_nc_choices,
+        'mois_choices': mois_choices,
+        'annees_choices': annees_choices,
         'imputation_choices': imputation_choices,
         'search': search,
         'statut_filter': statut,
         'client_filter': client_id,
-        'type_nc_filter': type_nc,
+        'mois_filter': mois,
+        'annee_filter': annee,
         'imputation_filter': imputation,
         'total_reclamations': paginator.count,
         'page_obj': reclamations_page,
@@ -890,7 +1119,6 @@ def creer_reclamation(request):
         try:
             # Récupérer les données du formulaire
             client_id = request.POST.get('client')
-            site_usine_id = request.POST.get('site_usine')
             site_client_id = request.POST.get('site_client')
             programme_id = request.POST.get('programme')
             numero_reclamation = request.POST.get('numero_reclamation', '').strip()
@@ -907,9 +1135,6 @@ def creer_reclamation(request):
             if not client_id:
                 erreurs.append("Le client est requis.")
             
-            if not site_usine_id:
-                erreurs.append("Le site usine est requis.")
-            
             # Vérifier si le numéro de réclamation existe déjà
             if numero_reclamation and Reclamation.objects.filter(numero_reclamation=numero_reclamation).exists():
                 erreurs.append(f"Le numéro de réclamation '{numero_reclamation}' existe déjà.")
@@ -920,7 +1145,6 @@ def creer_reclamation(request):
                 return render(request, 'reclamations/creer.html', {
                     'clients': Client.objects.filter(actif=True).order_by('nom'),
                     'produits': Produit.objects.filter(actif=True).order_by('product_number'),
-                    'uaps': UAP.objects.all().order_by('nom'),
                     'sites_usine': Site.objects.all().select_related('uap').order_by('nom'),
                     'type_nc_choices': Reclamation.TYPE_NC_CHOICES,
                     'imputation_choices': Reclamation.IMPUTATION_CHOICES,
@@ -929,22 +1153,44 @@ def creer_reclamation(request):
                     'anciennes_valeurs': request.POST
                 })
             
-            # Créer la réclamation principale
-            # Créer la réclamation principale
-            reclamation = Reclamation.objects.create(...)
+            # Créer la réclamation principale (sans site usine, car il est dans les lignes)
+            reclamation = Reclamation.objects.create(
+                numero_reclamation=numero_reclamation,
+                date_reclamation=date_reclamation or timezone.now().date(),
+                client_id=client_id,
+                site_client_id=site_client_id if site_client_id else None,
+                programme_id=programme_id if programme_id else None,
+                imputation=imputation,
+                type_nc=type_nc,
+                etat_4d='OUVERT',
+                etat_8d='OUVERT',
+                cloture=False,
+                createur=request.user
+            )
             
             # Traiter les lignes de réclamation
             produits = request.POST.getlist('produit[]')
-            quantites = request.POST.getlist('quantite[]')  # Quantité totale du produit
+            quantites = request.POST.getlist('quantite[]')
+            sites = request.POST.getlist('site[]')  # Site usine pour chaque ligne
             commentaires = request.POST.getlist('commentaire[]')
-            uaps_concernees = request.POST.getlist('uap_concernee[]')
             
             # Récupérer les données des NC
             nc_descriptions = request.POST.getlist('nc_description[]')
             nc_quantites = request.POST.getlist('nc_quantite[]')
+            nc_ligne_refs = request.POST.getlist('nc_ligne_ref[]')
             
-            # Index pour les NC
-            nc_index = 0
+            # Regrouper les NC par ligne
+            nc_par_ligne = {}
+            for idx in range(len(nc_descriptions)):
+                ligne_ref = nc_ligne_refs[idx] if idx < len(nc_ligne_refs) else str(idx)
+                if ligne_ref not in nc_par_ligne:
+                    nc_par_ligne[ligne_ref] = []
+                nc_par_ligne[ligne_ref].append({
+                    'description': nc_descriptions[idx],
+                    'quantite': int(nc_quantites[idx]) if idx < len(nc_quantites) and nc_quantites[idx] else 1
+                })
+            
+            lignes_crees = 0
             
             for i in range(len(produits)):
                 if not produits[i]:
@@ -952,27 +1198,36 @@ def creer_reclamation(request):
                 
                 # Quantité totale
                 quantite_totale = int(quantites[i]) if quantites[i] else 1
+                site_id = sites[i] if i < len(sites) and sites[i] else None
+                commentaire = commentaires[i] if i < len(commentaires) else ''
                 
-                # Créer la ligne de réclamation
+                # Créer la ligne de réclamation (l'UAP sera automatiquement définie par le save)
                 ligne = LigneReclamation.objects.create(
                     reclamation=reclamation,
                     produit_id=produits[i],
                     quantite=quantite_totale,
-                    uap_concernee_id=uaps_concernees[i] if i < len(uaps_concernees) else None,
-                    commentaire=commentaires[i] if i < len(commentaires) else ''
+                    site_id=site_id,
+                    commentaire=commentaire
                 )
                 
+                # L'UAP est automatiquement définie par la méthode save() de LigneReclamation
+                # à partir du site sélectionné
+                
                 # Ajouter les non-conformités pour cette ligne
-                while nc_index < len(nc_descriptions) and nc_descriptions[nc_index]:
-                    NonConformite.objects.create(
-                        ligne_reclamation=ligne,
-                        description=nc_descriptions[nc_index],
-                        quantite=int(nc_quantites[nc_index]) if nc_quantites[nc_index] else 1
-                    )
-                    nc_index += 1
+                ligne_ref = str(i)  # Référence de la ligne
+                ncs_ajoutees = 0
+                
+                for nc_data in nc_par_ligne.get(ligne_ref, []):
+                    if nc_data['description'].strip():
+                        NonConformite.objects.create(
+                            ligne_reclamation=ligne,
+                            description=nc_data['description'],
+                            quantite=nc_data['quantite']
+                        )
+                        ncs_ajoutees += 1
                 
                 # Si aucune NC n'a été ajoutée pour cette ligne, la supprimer
-                if nc_ajoutees == 0:
+                if ncs_ajoutees == 0:
                     ligne.delete()
                 else:
                     lignes_crees += 1
@@ -998,7 +1253,6 @@ def creer_reclamation(request):
             return render(request, 'reclamations/creer.html', {
                 'clients': Client.objects.filter(actif=True).order_by('nom'),
                 'produits': Produit.objects.filter(actif=True).order_by('product_number'),
-                'uaps': UAP.objects.all().order_by('nom'),
                 'sites_usine': Site.objects.all().select_related('uap').order_by('nom'),
                 'type_nc_choices': Reclamation.TYPE_NC_CHOICES,
                 'imputation_choices': Reclamation.IMPUTATION_CHOICES,
@@ -1011,7 +1265,6 @@ def creer_reclamation(request):
     context = {
         'clients': Client.objects.filter(actif=True).order_by('nom'),
         'produits': Produit.objects.filter(actif=True).order_by('product_number'),
-        'uaps': UAP.objects.all().order_by('nom'),
         'sites_usine': Site.objects.all().select_related('uap').order_by('nom'),
         'type_nc_choices': Reclamation.TYPE_NC_CHOICES,
         'imputation_choices': Reclamation.IMPUTATION_CHOICES,
@@ -1084,11 +1337,10 @@ def detail_reclamation(request, pk):
     reclamation = get_object_or_404(
         Reclamation.objects.prefetch_related(
             'lignes__produit', 
+            'lignes__site',
             'lignes__uap_concernee'
         ).select_related(
             'client',      # Client
-            'site',        # Site usine
-            'site__uap',   # UAP du site usine
             'programme',   # Programme
             'createur'     # Créateur
         ),
@@ -1108,9 +1360,24 @@ def modifier_etats(request, pk):
             reclamation.etat_8d = request.POST.get('etat_8d', reclamation.etat_8d)
             reclamation.cloture = request.POST.get('cloture') == 'on'
             
+            # Numéros 4D et 8D (liens externes)
+            reclamation.numero_4d = request.POST.get('numero_4d', '')
+            reclamation.numero_8d = request.POST.get('numero_8d', '')
+            
+            # Dates de clôture
+            date_cloture_4d = request.POST.get('date_cloture_4d')
+            if date_cloture_4d:
+                reclamation.date_cloture_4d = date_cloture_4d
+                
+            date_cloture_8d = request.POST.get('date_cloture_8d')
+            if date_cloture_8d:
+                reclamation.date_cloture_8d = date_cloture_8d
+            
             # Autres champs modifiables
             reclamation.decision = request.POST.get('decision', reclamation.decision)
-            reclamation.nqc = request.POST.get('nqc', reclamation.nqc)
+            nqc = request.POST.get('nqc')
+            if nqc:
+                reclamation.nqc = nqc
             
             # Sauvegarde (les dates de clôture sont gérées automatiquement dans le modèle)
             reclamation.save()
@@ -1383,10 +1650,9 @@ def liste_uap(request):
         # Compter le nombre de sites
         nb_sites = uap.sites.count()
         
-        # Compter le nombre total de réclamations via les sites
         nb_reclamations = Reclamation.objects.filter(
-            site__in=uap.sites.all()
-        ).count()
+            lignes__uap_concernee=uap
+        ).distinct().count()
         
         uaps_data.append({
             'uap': uap,
@@ -2466,51 +2732,9 @@ def extraire_produits(produits_raw):
     
     return produits
 
-def valider_ligne_import(row_data):
-    """Valide les données d'une ligne d'import"""
-    erreurs = []
-    
-    if not row_data.get('numero_reclamation'):
-        erreurs.append("Numéro de réclamation manquant")
-    
-    if not row_data.get('client_nom'):
-        erreurs.append("Client manquant")
-    else:
-        client = Client.objects.filter(nom=row_data['client_nom']).first()
-        if not client:
-            erreurs.append(f"Client '{row_data['client_nom']}' non trouvé")
-    
-    if not row_data.get('site_nom'):
-        erreurs.append("Site usine manquant")
-    else:
-        site = Site.objects.filter(nom=row_data['site_nom']).first()
-        if not site:
-            erreurs.append(f"Site '{row_data['site_nom']}' non trouvé")
-    
-    # Vérifier que la réclamation n'existe pas déjà
-    if row_data.get('numero_reclamation'):
-        if Reclamation.objects.filter(numero_reclamation=row_data['numero_reclamation']).exists():
-            erreurs.append("Ce numéro de réclamation existe déjà")
-    
-    # Vérifier les produits
-    produits = row_data.get('produits', [])
-    if not produits:
-        erreurs.append("Aucun produit valide")
-    else:
-        produits_non_trouves = []
-        for pn in produits:
-            if not Produit.objects.filter(product_number=pn).exists():
-                produits_non_trouves.append(pn)
-        if produits_non_trouves:
-            erreurs.append(f"Produits non trouvés: {', '.join(produits_non_trouves)}")
-    
-    row_data['erreurs'] = erreurs
-    return erreurs
-
 @login_required
 def import_reclamations_excel(request):
     """Importe des réclamations depuis un fichier Excel"""
-    
     step = request.POST.get('step', '1')
     
     if request.method == 'POST':
@@ -2527,7 +2751,6 @@ def import_reclamations_excel(request):
                 
                 # Convertir les données pour éviter les problèmes de sérialisation
                 preview_data = []
-                
                 for index, row in df.iterrows():
                     # Convertir chaque ligne en dictionnaire sérialisable
                     row_dict = {}
@@ -2546,6 +2769,10 @@ def import_reclamations_excel(request):
                     produits_raw = str(row_dict.get('produit', '')).strip()
                     produits_list = extraire_produits(produits_raw)
                     
+                    # Traiter les descriptions de non-conformités (séparées par +)
+                    description_raw = str(row_dict.get('description_non_conformite', '')).strip()
+                    nc_list = extraire_non_conformites(description_raw)
+                    
                     # Construire les données de prévisualisation
                     row_data = {
                         'ligne': index + 2,
@@ -2555,10 +2782,10 @@ def import_reclamations_excel(request):
                         'site_nom': str(row_dict.get('site', '')).strip(),
                         'site_client_nom': str(row_dict.get('site_client', '')).strip() if row_dict.get('site_client') else '',
                         'programme_nom': str(row_dict.get('programme', '')).strip() if row_dict.get('programme') else '',
-                        'type_nc': str(row_dict.get('type_nc', 'TECHNIQUE')).strip(),
-                        'imputation': str(row_dict.get('imputation', 'CIM')).strip(),
-                        'etat_4d': str(row_dict.get('etat_4d', 'OUVERT')).strip(),
-                        'etat_8d': str(row_dict.get('etat_8d', 'OUVERT')).strip(),
+                        'type_nc': str(row_dict.get('type_nc', 'TECHNIQUE')).strip().upper(),
+                        'imputation': str(row_dict.get('imputation', 'CIM')).strip().upper(),
+                        'etat_4d': str(row_dict.get('etat_4d', 'OUVERT')).strip().upper(),
+                        'etat_8d': str(row_dict.get('etat_8d', 'OUVERT')).strip().upper(),
                         'evidence': str(row_dict.get('evidence', '')).strip() if row_dict.get('evidence') else '',
                         'me': bool(row_dict.get('me', False)) if row_dict.get('me') else False,
                         'cloture': bool(row_dict.get('cloture', False)) if row_dict.get('cloture') else False,
@@ -2571,7 +2798,7 @@ def import_reclamations_excel(request):
                         'numero_8d': str(row_dict.get('numero_8d', '')).strip() if row_dict.get('numero_8d') else '',
                         'produits': produits_list,
                         'quantite': int(row_dict.get('quantite', 1)) if row_dict.get('quantite') else 1,
-                        'description_non_conformite': str(row_dict.get('description_non_conformite', '')).strip() if row_dict.get('description_non_conformite') else '',
+                        'non_conformites': nc_list,  # Liste des NC
                         'commentaire': str(row_dict.get('commentaire', '')).strip() if row_dict.get('commentaire') else '',
                         'uap_nom': str(row_dict.get('uap_concernee', '')).strip() if row_dict.get('uap_concernee') else '',
                         'erreurs': []
@@ -2579,7 +2806,6 @@ def import_reclamations_excel(request):
                     
                     # Valider la ligne
                     valider_ligne_import(row_data)
-                    
                     preview_data.append(row_data)
                 
                 # Stocker les données en session pour l'import final
@@ -2608,7 +2834,8 @@ def import_reclamations_excel(request):
                 'crees': 0,
                 'erreurs': [],
                 'skips': 0,
-                'produits_importes': 0
+                'produits_importes': 0,
+                'nc_importes': 0
             }
             
             # Traitement ligne par ligne sans transaction atomique globale
@@ -2630,13 +2857,6 @@ def import_reclamations_excel(request):
                             resultat['skips'] += 1
                             continue
                         
-                        # Récupérer le site
-                        site = Site.objects.filter(nom=row_data['site_nom']).first()
-                        if not site:
-                            resultat['erreurs'].append(f"Ligne {row_data['ligne']}: Site '{row_data['site_nom']}' non trouvé")
-                            resultat['skips'] += 1
-                            continue
-                        
                         # Récupérer le site client (optionnel)
                         site_client = None
                         if row_data['site_client_nom']:
@@ -2649,7 +2869,7 @@ def import_reclamations_excel(request):
                         programme = None
                         if row_data['programme_nom']:
                             programme = Programme.objects.filter(
-                                clients=client,
+                                clients=client, 
                                 nom=row_data['programme_nom']
                             ).first()
                         
@@ -2662,9 +2882,8 @@ def import_reclamations_excel(request):
                         # Créer la réclamation
                         reclamation = Reclamation.objects.create(
                             numero_reclamation=row_data['numero_reclamation'],
-                            date_reclamation=datetime.strptime(row_data['date_reclamation'], '%Y-%m-%d').date() if row_data['date_reclamation'] else None,
+                            date_reclamation=datetime.strptime(row_data['date_reclamation'], '%Y-%m-%d').date() if row_data['date_reclamation'] else timezone.now().date(),
                             client=client,
-                            site=site,
                             site_client=site_client,
                             programme=programme,
                             imputation=row_data['imputation'],
@@ -2683,22 +2902,30 @@ def import_reclamations_excel(request):
                             numero_8d=row_data['numero_8d'],
                             createur=request.user
                         )
-                        
                         resultat['crees'] += 1
+                        
+                        # Récupérer le site de production
+                        site = Site.objects.filter(nom=row_data['site_nom']).first()
+                        if not site:
+                            resultat['erreurs'].append(f"Ligne {row_data['ligne']}: Site '{row_data['site_nom']}' non trouvé")
+                            resultat['skips'] += 1
+                            continue
                         
                         # Récupérer l'UAP (optionnel)
                         uap = None
                         if row_data['uap_nom']:
                             uap = UAP.objects.filter(nom=row_data['uap_nom']).first()
                         
-                        # Créer les lignes de réclamation pour chaque produit
-                        # Utiliser un set pour éviter les doublons
-                        produits_uniques = set(row_data['produits'])
+                        # Si pas d'UAP spécifiée mais site trouvé, utiliser l'UAP du site
+                        if not uap and site and site.uap:
+                            uap = site.uap
                         
+                        # Créer les lignes de réclamation pour chaque produit
+                        produits_uniques = set(row_data['produits'])
                         for produit_pn in produits_uniques:
                             produit = Produit.objects.filter(product_number=produit_pn).first()
                             if produit:
-                                # Vérifier si cette ligne existe déjà (éviter la contrainte unique)
+                                # Vérifier si cette ligne existe déjà
                                 ligne_existante = LigneReclamation.objects.filter(
                                     reclamation=reclamation,
                                     produit=produit
@@ -2708,21 +2935,44 @@ def import_reclamations_excel(request):
                                     # Si la ligne existe déjà, mettre à jour la quantité
                                     ligne_existante.quantite += row_data['quantite']
                                     ligne_existante.save()
+                                    
+                                    # Ajouter les NC à la ligne existante
+                                    for nc_desc in row_data['non_conformites']:
+                                        if nc_desc:
+                                            NonConformite.objects.create(
+                                                ligne_reclamation=ligne_existante,
+                                                description=nc_desc,
+                                                quantite=row_data['quantite']
+                                            )
+                                            resultat['nc_importes'] += 1
+                                    
                                     resultat['produits_importes'] += 1
                                 else:
                                     # Créer une nouvelle ligne
-                                    LigneReclamation.objects.create(
+                                    ligne = LigneReclamation.objects.create(
                                         reclamation=reclamation,
                                         produit=produit,
                                         quantite=row_data['quantite'],
-                                        description_non_conformite=row_data['description_non_conformite'],
+                                        description_non_conformite=" | ".join(row_data['non_conformites']) if row_data['non_conformites'] else "",
                                         commentaire=row_data['commentaire'],
+                                        site=site,
                                         uap_concernee=uap
                                     )
+                                    
+                                    # Créer les non-conformités individuelles
+                                    for nc_desc in row_data['non_conformites']:
+                                        if nc_desc:
+                                            NonConformite.objects.create(
+                                                ligne_reclamation=ligne,
+                                                description=nc_desc,
+                                                quantite=row_data['quantite']
+                                            )
+                                            resultat['nc_importes'] += 1
+                                    
                                     resultat['produits_importes'] += 1
                             else:
-                                resultat['erreurs'].append(f"Ligne {row_data['ligne']}: Produit '{produit_pn}' non trouvé pour la réclamation {row_data['numero_reclamation']}")
-                        
+                                resultat['erreurs'].append(f"Ligne {row_data['ligne']}: Produit '{produit_pn}' non trouvé")
+                
                 except Exception as e:
                     resultat['erreurs'].append(f"Ligne {row_data.get('ligne', '?')}: {str(e)}")
                     resultat['skips'] += 1
@@ -2730,7 +2980,13 @@ def import_reclamations_excel(request):
             # Nettoyer la session
             request.session.pop('import_preview_data', None)
             
-            messages.success(request, f"Import terminé! {resultat['crees']} réclamations créées, {resultat['produits_importes']} produits importés.")
+            messages.success(
+                request, 
+                f"Import terminé! {resultat['crees']} réclamations créées, "
+                f"{resultat['produits_importes']} produits importés, "
+                f"{resultat['nc_importes']} non-conformités créées."
+            )
+            
             if resultat['erreurs']:
                 messages.warning(request, f"{len(resultat['erreurs'])} erreur(s) rencontrée(s)")
             
@@ -2740,6 +2996,72 @@ def import_reclamations_excel(request):
             })
     
     return render(request, 'reclamations/import/reclamations.html', {'step': 1})
+
+
+def extraire_non_conformites(description_raw):
+    """
+    Extrait les non-conformités d'une chaîne de caractères.
+    Les NC peuvent être séparées par '+' ou '|'
+    """
+    if not description_raw:
+        return []
+    
+    # Remplacer les séparateurs par un séparateur unique
+    description_raw = description_raw.replace('|', '+')
+    
+    # Séparer et nettoyer
+    nc_list = []
+    for nc in description_raw.split('+'):
+        nc_clean = nc.strip()
+        if nc_clean:
+            nc_list.append(nc_clean)
+    
+    return nc_list
+
+
+def valider_ligne_import(row_data):
+    """Valide une ligne d'import et ajoute les erreurs dans row_data['erreurs']"""
+    erreurs = []
+    
+    # Validation des champs obligatoires
+    if not row_data.get('numero_reclamation'):
+        erreurs.append("Numéro de réclamation obligatoire")
+    
+    if not row_data.get('date_reclamation'):
+        erreurs.append("Date de réclamation obligatoire")
+    elif row_data.get('date_reclamation'):
+        try:
+            datetime.strptime(row_data['date_reclamation'], '%Y-%m-%d')
+        except ValueError:
+            erreurs.append("Format de date invalide (attendu: YYYY-MM-DD)")
+    
+    if not row_data.get('client_nom'):
+        erreurs.append("Client obligatoire")
+    
+    if not row_data.get('site_nom'):
+        erreurs.append("Site obligatoire")
+    
+    if not row_data.get('produits'):
+        erreurs.append("Au moins un produit obligatoire")
+    
+    # Validation des choix
+    type_nc_valid = [choice[0] for choice in Reclamation.TYPE_NC_CHOICES]
+    if row_data.get('type_nc') not in type_nc_valid:
+        erreurs.append(f"Type NC invalide. Valeurs acceptées: {', '.join(type_nc_valid)}")
+    
+    imputation_valid = [choice[0] for choice in Reclamation.IMPUTATION_CHOICES]
+    if row_data.get('imputation') not in imputation_valid:
+        erreurs.append(f"Imputation invalide. Valeurs acceptées: {', '.join(imputation_valid)}")
+    
+    etat_valid = [choice[0] for choice in Reclamation.ETAT_CHOICES]
+    if row_data.get('etat_4d') not in etat_valid:
+        erreurs.append(f"État 4D invalide. Valeurs acceptées: {', '.join(etat_valid)}")
+    
+    if row_data.get('etat_8d') not in etat_valid:
+        erreurs.append(f"État 8D invalide. Valeurs acceptées: {', '.join(etat_valid)}")
+    
+    row_data['erreurs'] = erreurs
+    return len(erreurs) == 0
 
 @login_required
 def recherche_produits(request):

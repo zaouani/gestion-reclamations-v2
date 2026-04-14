@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
-
+ 
 {% block title %}Nouvelle Réclamation{% endblock %}
-
+ 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <style>
@@ -54,7 +54,7 @@
     }
 </style>
 {% endblock %}
-
+ 
 {% block content %}
 <div class="container-fluid">
     <div class="row mb-4">
@@ -67,10 +67,10 @@
             </a>
         </div>
     </div>
-
+ 
     <form method="post" id="reclamationForm">
         {% csrf_token %}
-        
+       
         <!-- Informations générales -->
         <div class="card mb-4">
             <div class="card-header bg-primary text-white">
@@ -80,12 +80,12 @@
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label for="numero_reclamation" class="form-label">N° Réclamation *</label>
-                        <input type="text" class="form-control" id="numero_reclamation" name="numero_reclamation" 
+                        <input type="text" class="form-control" id="numero_reclamation" name="numero_reclamation"
                                value="{{ anciennes_valeurs.numero_reclamation|default:'' }}" required>
                     </div>
                     <div class="col-md-4 mb-3">
                         <label for="date_reclamation" class="form-label">Date réclamation</label>
-                        <input type="date" class="form-control" id="date_reclamation" name="date_reclamation" 
+                        <input type="date" class="form-control" id="date_reclamation" name="date_reclamation"
                                value="{{ anciennes_valeurs.date_reclamation|default:today|date:'Y-m-d' }}">
                     </div>
                     <div class="col-md-4 mb-3">
@@ -93,7 +93,7 @@
                         <select class="form-control" id="client" name="client" required>
                             <option value="">Sélectionnez un client</option>
                             {% for client in clients %}
-                            <option value="{{ client.id }}" 
+                            <option value="{{ client.id }}"
                                 {% if anciennes_valeurs.client == client.id|stringformat:"s" %}selected{% endif %}>
                                 {{ client.nom }}
                             </option>
@@ -101,7 +101,7 @@
                         </select>
                     </div>
                 </div>
-                
+               
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label for="site_client" class="form-label">Site client concerné</label>
@@ -114,7 +114,7 @@
                         <select class="form-control" id="site_usine" name="site_usine" required>
                             <option value="">Sélectionnez un site usine</option>
                             {% for site in sites_usine %}
-                            <option value="{{ site.id }}" 
+                            <option value="{{ site.id }}"
                                 {% if anciennes_valeurs.site_usine == site.id|stringformat:"s" %}selected{% endif %}>
                                 {{ site.nom }} ({{ site.uap.nom }})
                             </option>
@@ -128,13 +128,13 @@
                         </select>
                     </div>
                 </div>
-                
+               
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label for="imputation" class="form-label">Imputation</label>
                         <select class="form-control" id="imputation" name="imputation">
                             {% for value, label in imputation_choices %}
-                            <option value="{{ value }}" 
+                            <option value="{{ value }}"
                                 {% if anciennes_valeurs.imputation == value or value == 'CIM' and not anciennes_valeurs.imputation %}selected{% endif %}>
                                 {{ label }}
                             </option>
@@ -145,7 +145,7 @@
                         <label for="type_nc" class="form-label">Type de NC</label>
                         <select class="form-control" id="type_nc" name="type_nc">
                             {% for value, label in type_nc_choices %}
-                            <option value="{{ value }}" 
+                            <option value="{{ value }}"
                                 {% if anciennes_valeurs.type_nc == value or value == 'TECHNIQUE' and not anciennes_valeurs.type_nc %}selected{% endif %}>
                                 {{ label }}
                             </option>
@@ -155,7 +155,7 @@
                 </div>
             </div>
         </div>
-        
+       
         <!-- Lignes de réclamation -->
         <div class="card mb-4">
             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
@@ -168,13 +168,13 @@
                 <div id="lignes-container">
                     <!-- Les lignes seront ajoutées ici dynamiquement -->
                 </div>
-                
+               
                 <div class="alert alert-info" id="no-lignes-message">
                     <i class="fas fa-info-circle"></i> Cliquez sur "Ajouter un produit" pour commencer.
                 </div>
             </div>
         </div>
-        
+       
         <div class="text-end mb-4">
             <button type="submit" class="btn btn-primary btn-lg">
                 <i class="fas fa-save"></i> Créer la réclamation
@@ -183,27 +183,27 @@
     </form>
 </div>
 {% endblock %}
-
+ 
 {% block extra_js %}
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 // Variables globales
 let ligneCount = 0;
-
+ 
 // Fonction pour ajouter une NC à une ligne
 function addNC(ligneId) {
     const container = document.getElementById(`nc-container-${ligneId}`);
     const ncCount = container.children.length;
-    
+   
     const template = `
         <div class="nc-item">
             <input type="hidden" name="nc_ligne_ref[]" value="${ligneId}">
             <div class="row">
                 <div class="col-md-7 mb-2">
                     <label class="form-label">Description NC</label>
-                    <input type="text" class="form-control" 
-                        name="nc_description[]" 
+                    <input type="text" class="form-control"
+                        name="nc_description[]"
                         list="nc-suggestions-{{ ligne.id }}"
                         placeholder="Tapez pour voir les suggestions..."
                         value="{{ nc.description }}">
@@ -225,10 +225,10 @@ function addNC(ligneId) {
             </div>
         </div>
     `;
-    
+   
     container.insertAdjacentHTML('beforeend', template);
 }
-
+ 
 // Fonction pour supprimer une NC
 function removeNC(button, ligneId) {
     const ncItem = button.closest('.nc-item');
@@ -236,29 +236,29 @@ function removeNC(button, ligneId) {
         ncItem.remove();
     }
 }
-
+ 
 // Initialisation au chargement du DOM
 document.addEventListener('DOMContentLoaded', function() {
     console.log("DOM chargé, initialisation...");
-    
+   
     // Ajouter la première ligne de produit
     addLigneReclamation();
-    
+   
     // Event listeners
     document.getElementById('addLigne').addEventListener('click', function() {
         addLigneReclamation();
     });
-    
+   
     // Gestion du changement de client
     const clientSelect = document.getElementById('client');
     if (clientSelect) {
         clientSelect.addEventListener('change', function() {
             const clientId = this.value;
             console.log("Client sélectionné ID:", clientId);
-            
+           
             const programmeSelect = document.getElementById('programme');
             const siteClientSelect = document.getElementById('site_client');
-            
+           
             if (clientId) {
                 if (programmeSelect) {
                     programmeSelect.innerHTML = '<option value="">Chargement des programmes...</option>';
@@ -268,10 +268,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     siteClientSelect.innerHTML = '<option value="">Chargement des sites client...</option>';
                     siteClientSelect.disabled = true;
                 }
-                
+               
                 const programmesUrl = `{% url 'reclamations:programmes_par_client' %}?client_id=${clientId}`;
                 const sitesUrl = `{% url 'reclamations:sites_client_par_client' %}?client_id=${clientId}`;
-                
+               
                 fetch(programmesUrl)
                     .then(response => response.json())
                     .then(data => {
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             programmeSelect.disabled = false;
                         }
                     });
-                
+               
                 fetch(sitesUrl)
                     .then(response => response.json())
                     .then(data => {
@@ -321,12 +321,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
-        
+       
         if (clientSelect.value) {
             clientSelect.dispatchEvent(new Event('change'));
         }
     }
-    
+   
     // Validation du formulaire
     const form = document.getElementById('reclamationForm');
     if (form) {
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Vous devez ajouter au moins un produit à la réclamation.');
                 return;
             }
-            
+           
             let hasEmptyProduct = false;
             document.querySelectorAll('select[name="produit[]"]').forEach(select => {
                 if (!select.value) {
@@ -347,13 +347,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     select.classList.remove('is-invalid');
                 }
             });
-            
+           
             if (hasEmptyProduct) {
                 e.preventDefault();
                 alert('Veuillez sélectionner un produit pour chaque ligne.');
                 return;
             }
-            
+           
             let hasInvalidQuantity = false;
             document.querySelectorAll('input[name="quantite[]"]').forEach(input => {
                 if (!input.value || parseInt(input.value) < 1) {
@@ -363,7 +363,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     input.classList.remove('is-invalid');
                 }
             });
-            
+           
             if (hasInvalidQuantity) {
                 e.preventDefault();
                 alert('Veuillez saisir une quantité valide (minimum 1).');
@@ -372,13 +372,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
+ 
 function addLigneReclamation(data = {}) {
     const container = document.getElementById('lignes-container');
     if (!container) return;
-    
+   
     const ligneId = ligneCount;
-    
+   
     const template = `
         <div class="ligne-reclamation" id="ligne-${ligneId}">
             <input type="hidden" name="ligne_id[]" value="new_${ligneId}">
@@ -415,7 +415,7 @@ function addLigneReclamation(data = {}) {
                     </div>
                 </div>
             </div>
-            
+           
             <!-- Container pour les non-conformités -->
             <div id="nc-container-${ligneId}" class="mt-3">
                 <div class="nc-item">
@@ -423,8 +423,8 @@ function addLigneReclamation(data = {}) {
                     <div class="row">
                         <div class="col-md-7 mb-2">
                             <label class="form-label">Description NC</label>
-                            <input type="text" class="form-control" 
-                                name="nc_description[]" 
+                            <input type="text" class="form-control"
+                                name="nc_description[]"
                                 list="nc-suggestions-{{ ligne.id }}"
                                 placeholder="Tapez pour voir les suggestions..."
                                 value="{{ nc.description }}">
@@ -446,7 +446,7 @@ function addLigneReclamation(data = {}) {
                     </div>
                 </div>
             </div>
-            
+           
             <div class="text-end mt-2">
                 <button type="button" class="btn btn-sm btn-outline-success btn-add-nc" onclick="addNC(${ligneId})">
                     <i class="fas fa-plus"></i> Ajouter une non-conformité
@@ -454,9 +454,9 @@ function addLigneReclamation(data = {}) {
             </div>
         </div>
     `;
-    
+   
     container.insertAdjacentHTML('beforeend', template);
-    
+   
     // Initialiser Select2 avec AJAX
     $(`.select2-produit-${ligneId}`).select2({
         ajax: {
@@ -496,22 +496,22 @@ function addLigneReclamation(data = {}) {
             }
         }
     });
-    
+   
     const noLignesMessage = document.getElementById('no-lignes-message');
     if (noLignesMessage) {
         noLignesMessage.style.display = 'none';
     }
-    
+   
     ligneCount++;
 }
-
+ 
 function removeLigne(id) {
     const ligne = document.getElementById(`ligne-${id}`);
     if (ligne) {
         $(ligne).find('.select2-produit-' + id).select2('destroy');
         ligne.remove();
     }
-    
+   
     const noLignesMessage = document.getElementById('no-lignes-message');
     if (noLignesMessage && document.querySelectorAll('.ligne-reclamation').length === 0) {
         noLignesMessage.style.display = 'block';
@@ -520,29 +520,29 @@ function removeLigne(id) {
 // Version jQuery pour plus de compatibilité
 $(document).ready(function() {
     let timeout = null;
-    
+   
     // Pour les champs existants
     $('input[name="nc_description[]"]').each(function(index) {
         const $input = $(this);
         const datalistId = `nc-suggestions-${index}`;
-        
+       
         // Créer le datalist
         $('<datalist>')
             .attr('id', datalistId)
             .insertAfter($input);
         $input.attr('list', datalistId);
-        
+       
         // Événement de saisie
         $input.on('input', function() {
             const term = $(this).val().trim();
-            
+           
             clearTimeout(timeout);
-            
+           
             if (term.length < 2) {
                 $(`#${datalistId}`).empty();
                 return;
             }
-            
+           
             timeout = setTimeout(() => {
                 $.ajax({
                     url: `/api/rechercher-descriptions-nc/?term=${encodeURIComponent(term)}`,
@@ -562,7 +562,7 @@ $(document).ready(function() {
             }, 300);
         });
     });
-    
+   
     // Observer pour les nouveaux champs ajoutés dynamiquement
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
@@ -571,21 +571,21 @@ $(document).ready(function() {
                     $(node).find('input[name="nc_description[]"]').each(function(index) {
                         const $input = $(this);
                         const datalistId = `nc-suggestions-${Date.now()}-${index}`;
-                        
+                       
                         $('<datalist>')
                             .attr('id', datalistId)
                             .insertAfter($input);
                         $input.attr('list', datalistId);
-                        
+                       
                         $input.off('input').on('input', function() {
                             const term = $(this).val().trim();
                             clearTimeout(timeout);
-                            
+                           
                             if (term.length < 2) {
                                 $(`#${datalistId}`).empty();
                                 return;
                             }
-                            
+                           
                             timeout = setTimeout(() => {
                                 $.ajax({
                                     url: `/api/rechercher-descriptions-nc/?term=${encodeURIComponent(term)}`,
@@ -604,7 +604,7 @@ $(document).ready(function() {
             });
         });
     });
-    
+   
     observer.observe(document.body, { childList: true, subtree: true });
 });
 </script>

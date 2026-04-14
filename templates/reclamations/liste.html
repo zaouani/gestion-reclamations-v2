@@ -31,7 +31,7 @@
         margin-bottom: 15px;
     }
     .produits-list {
-        max-width: 200px;
+        max-width: 250px;
     }
     .produit-badge {
         display: inline-block;
@@ -57,6 +57,33 @@
         color: #007bff;
         text-decoration: underline;
     }
+    .site-badge {
+        font-size: 10px;
+        padding: 2px 5px;
+        background-color: #17a2b8;
+        color: white;
+        border-radius: 3px;
+    }
+    .month-year-group {
+        display: flex;
+        gap: 10px;
+    }
+    .month-select {
+        flex: 1;
+    }
+    .year-select {
+        flex: 1;
+    }
+    /* Alignement des filtres */
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    .filter-item {
+        display: flex;
+        flex-direction: column;
+    }
 </style>
 {% endblock %}
 
@@ -77,12 +104,13 @@
     <!-- Barre de recherche et filtres -->
     <div class="filter-card">
         <form method="get" id="filterForm">
-            <div class="row g-3">
-                <div class="col-md-3">
+            <!-- Première ligne : Recherche, Statut, Client -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
                     <label class="form-label">Recherche</label>
                     <div class="input-group">
                         <input type="text" name="search" class="form-control" 
-                               placeholder="N° réclamation, client, programme..." 
+                               placeholder="N° réclamation, client, produit, défaut..." 
                                value="{{ search }}">
                         <button class="btn btn-primary" type="submit">
                             <i class="fas fa-search"></i>
@@ -111,19 +139,7 @@
                     </select>
                 </div>
                 
-                <div class="col-md-2">
-                    <label class="form-label">Type NC</label>
-                    <select name="type_nc" class="form-select" onchange="this.form.submit()">
-                        <option value="">Tous</option>
-                        {% for value, label in type_nc_choices %}
-                        <option value="{{ value }}" {% if type_nc_filter == value %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <label class="form-label">Imputation</label>
                     <select name="imputation" class="form-select" onchange="this.form.submit()">
                         <option value="">Toutes</option>
@@ -134,9 +150,48 @@
                         {% endfor %}
                     </select>
                 </div>
+            </div>
+            
+            <!-- Deuxième ligne : Période (Mois/Année) -->
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Période</label>
+                    <div class="month-year-group">
+                        <div class="month-select">
+                            <select name="mois" class="form-select" onchange="this.form.submit()">
+                                <option value="">Tous les mois</option>
+                                {% for value, label in mois_choices %}
+                                <option value="{{ value }}" {% if mois_filter == value|stringformat:"s" %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="year-select">
+                            <select name="annee" class="form-select" onchange="this.form.submit()">
+                                <option value="">Toutes les années</option>
+                                {% for value, label in annees_choices %}
+                                <option value="{{ value }}" {% if annee_filter == value|stringformat:"s" %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        {% if mois_filter and annee_filter %}
+                            Filtré : {{ mois_filter }}/{{ annee_filter }}
+                        {% elif annee_filter %}
+                            Filtré : Année {{ annee_filter }}
+                        {% elif mois_filter %}
+                            Filtré : Mois {{ mois_filter }} (toutes années)
+                        {% endif %}
+                    </small>
+                </div>
                 
-                <div class="col-md-12 text-end mt-2">
-                    <button type="submit" class="btn btn-primary">
+                <div class="col-md-8 text-end">
+                    <button type="submit" class="btn btn-primary me-2">
                         <i class="fas fa-filter"></i> Appliquer les filtres
                     </button>
                     <a href="{% url 'reclamations:liste' %}" class="btn btn-secondary">
@@ -151,6 +206,18 @@
     <div class="info-stats d-flex justify-content-between align-items-center">
         <div>
             <strong>{{ total_reclamations }}</strong> réclamation(s) trouvée(s)
+            {% if mois_filter or annee_filter %}
+                <span class="text-muted ms-2">
+                    <i class="fas fa-filter"></i> 
+                    {% if mois_filter and annee_filter %}
+                        {{ mois_filter }}/{{ annee_filter }}
+                    {% elif annee_filter %}
+                        Année {{ annee_filter }}
+                    {% elif mois_filter %}
+                        Mois {{ mois_filter }}
+                    {% endif %}
+                </span>
+            {% endif %}
         </div>
         <div>
             Affichage de <strong>{{ page_obj.start_index }}</strong> à <strong>{{ page_obj.end_index }}</strong> sur <strong>{{ page_obj.paginator.count }}</strong>
@@ -166,34 +233,44 @@
                             <th style="width: 10%">N° Réclamation</th>
                             <th style="width: 8%">Date</th>
                             <th style="width: 12%">Client</th>
-                            <th style="width: 8%">Site usine</th>
-                            <th style="width: 12%">Produits</th>
-                            <th style="width: 8%">Type NC</th>
+                            <th style="width: 12%">Produits / Défauts</th>
+                            <th style="width: 8%">Site</th>
                             <th style="width: 8%">Imputation</th>
                             <th style="width: 6%">4D</th>
                             <th style="width: 6%">8D</th>
                             <th style="width: 6%">Statut</th>
                             <th style="width: 10%">Actions</th>
-                         </thead>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for rec in reclamations %}
-                          <tr>
-                              <td><strong>{{ rec.numero_reclamation }}</strong></td>
-                              <td>{{ rec.date_reclamation|date:"d/m/Y" }}</td>
-                              <td>{{ rec.client.nom }}</td>
-                              <td>{{ rec.site.nom|default:"-" }}</td>
-                              <td class="produits-list">
+                        <tr>
+                            <td>
+                                <strong>{{ rec.numero_reclamation }}</strong>
+                            </td>
+                            <td>{{ rec.date_reclamation|date:"d/m/Y" }}</td>
+                            <td>{{ rec.client.nom }}</td>
+                            <td class="produits-list">
                                 {% with produits=rec.lignes.all %}
                                     {% if produits %}
                                         {% for ligne in produits|slice:":3" %}
-                                            <span class="produit-badge" title="{{ ligne.produit.designation|default:ligne.produit.product_number }}">
-                                                {{ ligne.produit.product_number }}
-                                            </span>
+                                            <div class="produit-badge" title="{{ ligne.produit.designation|default:ligne.produit.product_number }}">
+                                                <strong>{{ ligne.produit.product_number }}</strong>
+                                                {% if ligne.non_conformites.all %}
+                                                    <span class="text-muted ms-1">({{ ligne.non_conformites.count }} NC)</span>
+                                                {% endif %}
+                                            </div>
+                                            {% if ligne.non_conformites.all %}
+                                                {% for nc in ligne.non_conformites.all|slice:":1" %}
+                                                    <div class="small text-muted ms-2">- {{ nc.description|truncatechars:30 }}</div>
+                                                {% endfor %}
+                                            {% endif %}
                                         {% endfor %}
                                         {% if produits|length > 3 %}
                                             <span class="plus-produits" data-bs-toggle="tooltip" 
-                                                  title="{% for ligne in produits %}{{ ligne.produit.product_number }} (x{{ ligne.quantite }})
-{% endfor %}">
+                                                  title="{% for ligne in produits %}{{ ligne.produit.product_number }} ({{ ligne.quantite }} pcs)
+{% for nc in ligne.non_conformites.all %}  - {{ nc.description|truncatechars:40 }}
+{% endfor %}{% endfor %}">
                                                 +{{ produits|length|add:"-3" }} autres
                                             </span>
                                         {% endif %}
@@ -201,45 +278,45 @@
                                         <span class="text-muted">-</span>
                                     {% endif %}
                                 {% endwith %}
-                              </td>
-                              <td>
-                                <span class="badge 
-                                    {% if rec.type_nc == 'FOURNISSEUR' %}bg-secondary
-                                    {% elif rec.type_nc == 'LOGISTIQUE' %}bg-info
-                                    {% elif rec.type_nc == 'TRANSPORT' %}bg-warning
-                                    {% else %}bg-primary{% endif %}">
-                                    {{ rec.get_type_nc_display|truncatechars:12 }}
-                                </span>
-                              </td>
-                              <td>
+                            </td>
+                            <td>
+                                {% with first_ligne=rec.lignes.first %}
+                                    {% if first_ligne and first_ligne.site %}
+                                        <span class="badge bg-info">{{ first_ligne.site.nom }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
                                 <span class="badge bg-dark">
                                     {{ rec.get_imputation_display }}
                                 </span>
-                              </td>
-                              <td>
+                            </td>
+                            <td>
                                 <span class="badge 
                                     {% if rec.etat_4d == 'CLOTURE' %}bg-success
                                     {% elif rec.etat_4d == 'EN_COURS' %}bg-warning
                                     {% else %}bg-secondary{% endif %}">
                                     {{ rec.get_etat_4d_display|truncatechars:5 }}
                                 </span>
-                              </td>
-                              <td>
+                            </td>
+                            <td>
                                 <span class="badge 
                                     {% if rec.etat_8d == 'CLOTURE' %}bg-success
                                     {% elif rec.etat_8d == 'EN_COURS' %}bg-warning
                                     {% else %}bg-secondary{% endif %}">
                                     {{ rec.get_etat_8d_display|truncatechars:5 }}
                                 </span>
-                              </td>
-                              <td>
+                            </td>
+                            <td>
                                 {% if rec.cloture %}
                                 <span class="badge bg-success">Clôturé</span>
                                 {% else %}
                                 <span class="badge bg-danger">Ouvert</span>
                                 {% endif %}
-                              </td>
-                              <td>
+                            </td>
+                            <td>
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'reclamations:detail_reclamation' rec.id %}" 
                                        class="btn btn-sm btn-info" title="Voir détails">
@@ -258,18 +335,18 @@
                                         <i class="fas fa-trash"></i>
                                     </a>
                                 </div>
-                              </td>
-                          </tr>
+                            </td>
+                        </tr>
                         {% empty %}
-                          <tr>
-                            <td colspan="11" class="text-center py-4">
+                        <tr>
+                            <td colspan="10" class="text-center py-4">
                                 <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                                 <p class="lead">Aucune réclamation trouvée</p>
                                 <a href="{% url 'reclamations:creer' %}" class="btn btn-primary">
                                     Créer la première réclamation
                                 </a>
                             </td>
-                          </tr>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>

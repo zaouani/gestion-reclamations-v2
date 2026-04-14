@@ -10,12 +10,14 @@
         margin-bottom: 30px;
         position: relative;
     }
+    
     .step {
         flex: 1;
         text-align: center;
         position: relative;
         z-index: 1;
     }
+    
     .step-number {
         width: 40px;
         height: 40px;
@@ -28,25 +30,31 @@
         margin-bottom: 10px;
         transition: all 0.3s;
     }
+    
     .step.active .step-number {
         background-color: #007bff;
         color: white;
     }
+    
     .step.completed .step-number {
         background-color: #28a745;
         color: white;
     }
+    
     .step-label {
         font-size: 0.85rem;
         color: #6c757d;
     }
+    
     .step.active .step-label {
         color: #007bff;
         font-weight: bold;
     }
+    
     .step.completed .step-label {
         color: #28a745;
     }
+    
     .step-indicator::before {
         content: '';
         position: absolute;
@@ -57,11 +65,13 @@
         background-color: #e9ecef;
         z-index: 0;
     }
+    
     .preview-table {
         max-height: 500px;
         overflow-y: auto;
         font-size: 0.85rem;
     }
+    
     .badge-produit {
         background-color: #6c757d;
         color: white;
@@ -71,6 +81,17 @@
         margin: 2px;
         display: inline-block;
     }
+    
+    .badge-nc {
+        background-color: #dc3545;
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin: 2px;
+        display: inline-block;
+    }
+    
     .badge-required {
         background-color: #dc3545;
         color: white;
@@ -79,6 +100,7 @@
         border-radius: 10px;
         margin-left: 5px;
     }
+    
     .badge-optional {
         background-color: #6c757d;
         color: white;
@@ -87,9 +109,52 @@
         border-radius: 10px;
         margin-left: 5px;
     }
+    
     .produits-list {
         max-width: 200px;
         word-break: break-all;
+    }
+    
+    .nc-list {
+        max-width: 250px;
+        font-size: 0.8rem;
+    }
+    
+    .nc-item {
+        background-color: #fff3cd;
+        border-left: 3px solid #ffc107;
+        padding: 3px 6px;
+        margin: 2px 0;
+        border-radius: 3px;
+    }
+    
+    .field-info {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .field-info h6 {
+        color: #495057;
+        margin-bottom: 15px;
+    }
+    
+    .field-info code {
+        background-color: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: #d63384;
+    }
+    
+    .result-card {
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .result-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
     }
 </style>
 {% endblock %}
@@ -99,15 +164,15 @@
     <div class="row mb-4">
         <div class="col">
             <h1><i class="fas fa-file-import text-success"></i> Importer des réclamations</h1>
-            <p class="text-muted">Importez des réclamations à partir d'un fichier Excel (supporte plusieurs produits par ligne)</p>
+            <p class="text-muted">Importez des réclamations à partir d'un fichier Excel avec gestion des non-conformités multiples</p>
         </div>
         <div class="col text-end">
             <a href="{% url 'reclamations:liste' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Retour
+                <i class="fas fa-arrow-left"></i> Retour à la liste
             </a>
         </div>
     </div>
-
+    
     <!-- Indicateur d'étape -->
     <div class="step-indicator mb-5">
         <div class="step {% if step == 1 %}active{% elif step > 1 %}completed{% endif %}">
@@ -123,7 +188,7 @@
             <div class="step-label">Résultat de l'import</div>
         </div>
     </div>
-
+    
     {% if step == 1 or not step %}
     <!-- Étape 1: Télécharger le fichier -->
     <div class="card">
@@ -137,37 +202,125 @@
                 
                 <div class="mb-4">
                     <label for="excel_file" class="form-label">Fichier Excel <span class="text-danger">*</span></label>
-                    <input type="file" class="form-control" id="excel_file" name="excel_file" 
-                           accept=".xlsx,.xls" required>
+                    <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx,.xls" required>
                     <div class="form-text">Formats acceptés: .xlsx, .xls (taille max: 10 Mo)</div>
                 </div>
                 
-                <div class="alert alert-info">
+                <div class="alert alert-info field-info">
                     <h6><i class="fas fa-info-circle"></i> Format du fichier Excel attendu :</h6>
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered">
-                            <thead>
+                            <thead class="table-light">
                                 <tr>
                                     <th>Colonne</th>
                                     <th>Description</th>
+                                    <th>Exemple</th>
                                     <th>Obligatoire</th>
-                                 </thead>
+                                </tr>
+                            </thead>
                             <tbody>
-                                <tr><td><code>numero_reclamation</code></td><td>Numéro unique</td><td><span class="badge-required">Oui</span></td></tr>
-                                <tr><td><code>date_reclamation</code></td><td>Date (YYYY-MM-DD)</td><td><span class="badge-required">Oui</span></td></tr>
-                                <tr><td><code>client</code></td><td>Nom du client</td><td><span class="badge-required">Oui</span></td></tr>
-                                <tr><td><code>site</code></td><td>Site usine</td><td><span class="badge-required">Oui</span></td></tr>
-                                <tr><td><code>produit</code></td><td>Référence(s) produit</td><td><span class="badge-required">Oui</span></td></tr>
+                                <tr>
+                                    <td><code>numero_reclamation</code></td>
+                                    <td>Numéro unique de réclamation</td>
+                                    <td>REC-2024-001</td>
+                                    <td><span class="badge-required">Oui</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>date_reclamation</code></td>
+                                    <td>Date de la réclamation</td>
+                                    <td>2024-01-15</td>
+                                    <td><span class="badge-required">Oui</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>client</code></td>
+                                    <td>Nom du client (doit exister dans la base)</td>
+                                    <td>Client A</td>
+                                    <td><span class="badge-required">Oui</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>site</code></td>
+                                    <td>Nom du site de production</td>
+                                    <td>Site Paris</td>
+                                    <td><span class="badge-required">Oui</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>produit</code></td>
+                                    <td>Référence(s) produit (séparées par virgule, point-virgule ou retour à la ligne)</td>
+                                    <td>PROD001,PROD002</td>
+                                    <td><span class="badge-required">Oui</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>quantite</code></td>
+                                    <td>Quantité concernée</td>
+                                    <td>10</td>
+                                    <td><span class="badge-optional">Non (défaut: 1)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>description_non_conformite</code></td>
+                                    <td>Description des NC (séparées par + ou |)</td>
+                                    <td>Défaut A + Défaut B</td>
+                                    <td><span class="badge-optional">Non</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>type_nc</code></td>
+                                    <td>Type de non-conformité</td>
+                                    <td>TECHNIQUE</td>
+                                    <td><span class="badge-optional">Non (défaut: TECHNIQUE)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>imputation</code></td>
+                                    <td>Imputation</td>
+                                    <td>CIM</td>
+                                    <td><span class="badge-optional">Non (défaut: CIM)</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>site_client</code></td>
+                                    <td>Site du client</td>
+                                    <td>Site Client Paris</td>
+                                    <td><span class="badge-optional">Non</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>programme</code></td>
+                                    <td>Nom du programme</td>
+                                    <td>Programme A</td>
+                                    <td><span class="badge-optional">Non</span></td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="mt-2 mb-0"><small>Pour plusieurs produits, séparez-les par virgule, point-virgule ou saut de ligne</small></p>
+                    
+                    <div class="mt-3">
+                        <h6><i class="fas fa-lightbulb text-warning"></i> Types de NC acceptés :</h6>
+                        <ul class="mb-2">
+                            <li><code>FOURNISSEUR</code> - Fournisseur</li>
+                            <li><code>LOGISTIQUE</code> - Logistique</li>
+                            <li><code>TRANSPORT</code> - Transport</li>
+                            <li><code>TECHNIQUE</code> - Technique</li>
+                        </ul>
+                        
+                        <h6><i class="fas fa-lightbulb text-warning"></i> Imputations acceptées :</h6>
+                        <ul class="mb-2">
+                            <li><code>CIM</code>, <code>CIB</code>, <code>CLIENT</code>, <code>ALERTE</code></li>
+                        </ul>
+                        
+                        <h6><i class="fas fa-lightbulb text-warning"></i> États acceptés :</h6>
+                        <ul>
+                            <li><code>OUVERT</code>, <code>EN_COURS</code>, <code>CLOTURE</code></li>
+                        </ul>
+                    </div>
+                    
+                    <p class="mt-3 mb-0">
+                        <i class="fas fa-plus-circle text-success"></i> 
+                        <strong>Non-conformités multiples :</strong> Séparez les descriptions par <code>+</code> ou <code>|</code>
+                        <br>
+                        <small class="text-muted">Exemple: "Défaut esthétique + Problème dimensionnel + Mauvaise finition"</small>
+                    </p>
                 </div>
                 
                 <div class="row mb-4">
                     <div class="col-md-6">
                         <button type="button" class="btn btn-outline-primary" id="downloadTemplate">
-                            <i class="fas fa-download"></i> Télécharger le modèle
+                            <i class="fas fa-download"></i> Télécharger le modèle Excel
                         </button>
                     </div>
                 </div>
@@ -181,7 +334,7 @@
         </div>
     </div>
     {% endif %}
-
+    
     {% if step == 2 and preview_data %}
     <!-- Étape 2: Aperçu des données -->
     <div class="card">
@@ -190,7 +343,8 @@
         </div>
         <div class="card-body">
             <div class="alert alert-info">
-                <strong>{{ preview_data|length }}</strong> ligne(s) trouvée(s)
+                <i class="fas fa-info-circle"></i>
+                <strong>{{ preview_data|length }}</strong> ligne(s) trouvée(s) dans le fichier
             </div>
             
             <div class="preview-table">
@@ -204,8 +358,10 @@
                             <th>Site</th>
                             <th>Produits</th>
                             <th>Qté</th>
+                            <th>Non-conformités</th>
                             <th>Statut</th>
-                         </thead>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for row in preview_data %}
                         <tr class="{% if row.erreurs %}table-danger{% endif %}">
@@ -220,16 +376,37 @@
                                 {% endfor %}
                             </td>
                             <td class="text-end">{{ row.quantite }}</td>
+                            <td class="nc-list">
+                                {% if row.non_conformites %}
+                                    {% for nc in row.non_conformites %}
+                                    <div class="nc-item">{{ nc|truncatechars:40 }}</div>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if row.erreurs %}
-                                <span class="badge bg-danger" title="{{ row.erreurs|join:'; ' }}">
-                                    {{ row.erreurs|length }} erreur(s)
+                                <span class="badge bg-danger" title="{{ row.erreurs|join:';&#10;' }}">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ row.erreurs|length }} erreur(s)
                                 </span>
                                 {% else %}
-                                <span class="badge bg-success">Valide</span>
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check"></i> Valide
+                                </span>
                                 {% endif %}
                             </td>
                         </tr>
+                        {% if row.erreurs %}
+                        <tr class="table-danger">
+                            <td colspan="9">
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    <strong>Erreurs :</strong> {{ row.erreurs|join:' | ' }}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -242,8 +419,13 @@
                 
                 <div class="alert alert-warning">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Attention :</strong> Les lignes valides seront importées.
-                    Les lignes en erreur seront ignorées.
+                    <strong>Attention :</strong> 
+                    <ul class="mb-0 mt-2">
+                        <li>Les lignes valides seront importées</li>
+                        <li>Les lignes en erreur seront ignorées</li>
+                        <li>Les non-conformités multiples seront créées comme des entités séparées</li>
+                        <li>Vérifiez que tous les clients, sites et produits existent déjà dans la base de données</li>
+                    </ul>
                 </div>
                 
                 <div class="text-center">
@@ -251,51 +433,77 @@
                         <i class="fas fa-check"></i> Confirmer l'import
                     </button>
                     <a href="{% url 'reclamations:import_reclamations' %}" class="btn btn-secondary btn-lg">
-                        Annuler
+                        <i class="fas fa-times"></i> Annuler
                     </a>
                 </div>
             </form>
         </div>
     </div>
     {% endif %}
-
+    
     {% if step == 3 %}
     <!-- Étape 3: Résultat de l'import -->
-    <div class="card">
+    <div class="card result-card">
         <div class="card-header {% if resultat.erreurs %}bg-danger{% else %}bg-success{% endif %} text-white">
-            <h5 class="mb-0"><i class="fas fa-chart-line"></i> Étape 3 : Résultat de l'import</h5>
+            <h5 class="mb-0">
+                <i class="fas fa-{% if resultat.erreurs %}exclamation-triangle{% else %}check-circle{% endif %}"></i> 
+                Étape 3 : Résultat de l'import
+            </h5>
         </div>
         <div class="card-body">
             <div class="row mb-4">
                 <div class="col-md-3">
-                    <div class="card bg-info text-white">
+                    <div class="card bg-info text-white h-100">
                         <div class="card-body text-center">
+                            <div class="result-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
                             <h3>{{ resultat.total }}</h3>
-                            <p>Lignes traitées</p>
+                            <p class="mb-0">Lignes traitées</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card bg-success text-white">
+                    <div class="card bg-success text-white h-100">
                         <div class="card-body text-center">
+                            <div class="result-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
                             <h3>{{ resultat.crees }}</h3>
-                            <p>Réclamations créées</p>
+                            <p class="mb-0">Réclamations créées</p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card bg-primary text-white">
+                <div class="col-md-2">
+                    <div class="card bg-primary text-white h-100">
                         <div class="card-body text-center">
+                            <div class="result-icon">
+                                <i class="fas fa-box"></i>
+                            </div>
                             <h3>{{ resultat.produits_importes|default:0 }}</h3>
-                            <p>Lignes produits</p>
+                            <p class="mb-0">Lignes produits</p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card bg-secondary text-white">
+                <div class="col-md-2">
+                    <div class="card bg-warning text-white h-100">
                         <div class="card-body text-center">
+                            <div class="result-icon">
+                                <i class="fas fa-clipboard-list"></i>
+                            </div>
+                            <h3>{{ resultat.nc_importes|default:0 }}</h3>
+                            <p class="mb-0">Non-conformités</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-secondary text-white h-100">
+                        <div class="card-body text-center">
+                            <div class="result-icon">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </div>
                             <h3>{{ resultat.erreurs|length }}</h3>
-                            <p>Erreurs</p>
+                            <p class="mb-0">Erreurs</p>
                         </div>
                     </div>
                 </div>
@@ -304,19 +512,32 @@
             {% if resultat.erreurs %}
             <div class="alert alert-danger">
                 <h6><i class="fas fa-exclamation-circle"></i> Détail des erreurs :</h6>
-                <ul>
-                    {% for erreur in resultat.erreurs %}
-                    <li>{{ erreur }}</li>
-                    {% endfor %}
-                </ul>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <ul class="mb-0">
+                        {% for erreur in resultat.erreurs %}
+                        <li>{{ erreur }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
             {% endif %}
             
-            <div class="text-center">
-                <a href="{% url 'reclamations:liste' %}" class="btn btn-primary">
+            {% if resultat.crees > 0 %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                <strong>{{ resultat.crees }}</strong> réclamation(s) importée(s) avec succès !
+                {% if resultat.nc_importes > 0 %}
+                <br>
+                <small>{{ resultat.nc_importes }} non-conformité(s) créée(s)</small>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div class="text-center mt-4">
+                <a href="{% url 'reclamations:liste' %}" class="btn btn-primary btn-lg me-2">
                     <i class="fas fa-list"></i> Voir les réclamations
                 </a>
-                <a href="{% url 'reclamations:import_reclamations' %}" class="btn btn-secondary">
+                <a href="{% url 'reclamations:import_reclamations' %}" class="btn btn-success btn-lg">
                     <i class="fas fa-file-import"></i> Nouvel import
                 </a>
             </div>
@@ -328,19 +549,35 @@
 <script>
 document.getElementById('downloadTemplate')?.addEventListener('click', function(e) {
     e.preventDefault();
+    
+    // Créer un template avec des exemples
     const data = [
-        ['numero_reclamation', 'date_reclamation', 'client', 'site', 'produit', 'quantite', 'description_non_conformite'],
-        ['REC-001', '2024-01-15', 'Client A', 'Site Paris', 'PROD001', '10', 'Défaut esthétique'],
-        ['REC-002', '2024-01-20', 'Client B', 'Site Lyon', 'PROD002,PROD003', '5', 'Problème fonctionnel'],
-        ['REC-003', '2024-01-25', 'Client A', 'Site Paris', 'PROD004\nPROD005', '2', 'Non-conformité']
+        ['numero_reclamation', 'date_reclamation', 'client', 'site', 'produit', 'quantite', 'description_non_conformite', 'type_nc', 'imputation', 'etat_4d', 'etat_8d', 'site_client', 'programme'],
+        ['REC-2024-001', '2024-01-15', 'Client A', 'Site Paris', 'PROD001', '10', 'Défaut esthétique + Problème dimensionnel', 'TECHNIQUE', 'CIM', 'OUVERT', 'OUVERT', 'Site Client Paris', 'Programme A'],
+        ['REC-2024-002', '2024-01-20', 'Client B', 'Site Lyon', 'PROD002,PROD003', '5', 'Non-conformité fonctionnelle', 'FOURNISSEUR', 'CIB', 'EN_COURS', 'OUVERT', '', ''],
+        ['REC-2024-003', '2024-01-25', 'Client A', 'Site Paris', 'PROD004\nPROD005', '2', 'Mauvaise finition|Problème d\'assemblage', 'TECHNIQUE', 'CLIENT', 'OUVERT', 'EN_COURS', 'Site Client Lyon', 'Programme B']
     ];
-    const csv = data.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    
+    // Convertir en CSV
+    const csv = data.map(row => 
+        row.map(cell => {
+            // Échapper les virgules et les guillemets
+            if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
+                return `"${cell.replace(/"/g, '""')}"`;
+            }
+            return cell;
+        }).join(',')
+    ).join('\n');
+    
+    // Ajouter BOM pour UTF-8
     const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'template_reclamations.csv';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
 });
 
@@ -349,7 +586,22 @@ document.getElementById('uploadForm')?.addEventListener('submit', function(e) {
     if (!fileInput.files.length) {
         e.preventDefault();
         alert('Veuillez sélectionner un fichier');
+        return;
     }
+    
+    const file = fileInput.files[0];
+    const maxSize = 10 * 1024 * 1024; // 10 Mo
+    
+    if (file.size > maxSize) {
+        e.preventDefault();
+        alert('Le fichier est trop volumineux. Taille maximum : 10 Mo');
+        return;
+    }
+    
+    // Afficher un indicateur de chargement
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traitement en cours...';
 });
 </script>
 {% endblock %}

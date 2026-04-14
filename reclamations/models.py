@@ -132,7 +132,6 @@ class Reclamation(models.Model):
     numero_reclamation = models.CharField("N° Réclamation", max_length=50, unique=True)
     date_reclamation = models.DateField(default=timezone.now)
     client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name='reclamations')
-    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='clients')
     site_client = models.ForeignKey('SiteClient', on_delete=models.SET_NULL, null=True, blank=True, related_name='reclamations')
     programme = models.ForeignKey( Programme, on_delete=models.PROTECT, related_name='reclamations', null=True, blank=True)
     imputation = models.CharField("Imputation", max_length=20, choices=IMPUTATION_CHOICES, default='CIM')
@@ -197,6 +196,7 @@ class LigneReclamation(models.Model):
     quantite = models.IntegerField(validators=[MinValueValidator(1)])
     description_non_conformite = models.TextField("Description non-conformité")
     commentaire = models.TextField(blank=True)
+    site = models.ForeignKey('Site', on_delete=models.PROTECT, related_name='lignes_reclamation', null=True, blank=True)
     uap_concernee = models.ForeignKey(UAP, on_delete=models.SET_NULL, null=True, blank=True, related_name='lignes_reclamation')
     
     class Meta:
@@ -206,7 +206,12 @@ class LigneReclamation(models.Model):
     
     def __str__(self):
         return f"{self.reclamation.numero_reclamation} - {self.produit.product_number}"
-        
+    def save(self, *args, **kwargs):
+        # Si un site est sélectionné, définir automatiquement l'UAP correspondante
+        if self.site and not self.uap_concernee:
+            self.uap_concernee = self.site.uap
+        super().save(*args, **kwargs)
+
 class NonConformite(models.Model):
     """Non-conformité individuelle liée à une ligne de réclamation"""
     ligne_reclamation = models.ForeignKey(

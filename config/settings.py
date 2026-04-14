@@ -116,11 +116,11 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = 'noreply@gmail.com'
 
 # Notification settings
-NOTIFICATION_RESPONSABLE_EMAIL = 'zaouani.hicham@aiac.ma'  # Email du responsable
+NOTIFICATION_RESPONSABLE_EMAIL = 'mostafa.elouahabi@hutchinson.com'  # Email du responsable
 SITE_URL = 'http://127.0.0.1:8000'  # URL de votre site
 
 # Email pour les alertes FAI
-QUALITY_MANAGER_EMAIL = 'zaouani.hicham@aiac.ma'
+QUALITY_MANAGER_EMAIL = 'mostafa.elouahabi@hutchinson.com'
 QUALITY_TEAM_EMAILS = []
 SITE_URL = 'http://127.0.0.1:8000'
 

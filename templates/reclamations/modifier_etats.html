@@ -50,6 +50,19 @@
                                                    value="{{ reclamation.date_cloture_4d|date:'Y-m-d' }}">
                                             <small class="text-muted">La date sera automatiquement remplie quand l'état passe à "Clôturé"</small>
                                         </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="numero_4d" class="form-label">
+                                                <i class="fas fa-link"></i> Lien fichier 4D (URL externe)
+                                            </label>
+                                            <input type="url" 
+                                                   class="form-control" 
+                                                   id="numero_4d" 
+                                                   name="numero_4d" 
+                                                   placeholder="https://..."
+                                                   value="{{ reclamation.numero_4d }}">
+                                            <small class="text-muted">URL complète vers le fichier Excel 4D (SharePoint, Drive, etc.)</small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -76,6 +89,19 @@
                                             <input type="date" class="form-control" id="date_cloture_8d" name="date_cloture_8d"
                                                    value="{{ reclamation.date_cloture_8d|date:'Y-m-d' }}">
                                             <small class="text-muted">La date sera automatiquement remplie quand l'état passe à "Clôturé"</small>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="numero_8d" class="form-label">
+                                                <i class="fas fa-link"></i> Lien fichier 8D (URL externe)
+                                            </label>
+                                            <input type="url" 
+                                                   class="form-control" 
+                                                   id="numero_8d" 
+                                                   name="numero_8d" 
+                                                   placeholder="https://..."
+                                                   value="{{ reclamation.numero_8d }}">
+                                            <small class="text-muted">URL complète vers le fichier Excel 8D (SharePoint, Drive, etc.)</small>
                                         </div>
                                     </div>
                                 </div>
@@ -108,8 +134,14 @@
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label for="nqc" class="form-label">NQC</label>
-                                    <input type="text" class="form-control" id="nqc" name="nqc" value="{{ reclamation.nqc }}">
+                                    <label for="nqc" class="form-label">NQC (MAD)</label>
+                                    <input type="number" 
+                                           step="0.01" 
+                                           min="0" 
+                                           class="form-control" 
+                                           id="nqc" 
+                                           name="nqc" 
+                                           value="{{ reclamation.nqc }}">
                                 </div>
                             </div>
                         </div>
@@ -118,6 +150,9 @@
                             <i class="fas fa-info-circle"></i>
                             <strong>Information:</strong> Les dates de clôture 4D et 8D sont automatiquement remplies 
                             lorsque vous passez l'état correspondant à "Clôturé". Vous pouvez aussi les modifier manuellement.
+                            <br><br>
+                            <i class="fas fa-link"></i>
+                            <strong>Liens fichiers:</strong> Saisissez l'URL complète du fichier Excel (ex: https://sharepoint.com/.../fichier.xlsx)
                         </div>
                         
                         <div class="text-center">
