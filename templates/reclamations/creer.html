@@ -52,6 +52,9 @@
     .btn-add-nc {
         margin-top: 10px;
     }
+      .uap-readonly {
+        background-color: #e9ecef;
+    }
 </style>
 {% endblock %}
  
@@ -110,26 +113,11 @@
                         </select>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <label for="site_usine" class="form-label">Site usine *</label>
-                        <select class="form-control" id="site_usine" name="site_usine" required>
-                            <option value="">Sélectionnez un site usine</option>
-                            {% for site in sites_usine %}
-                            <option value="{{ site.id }}"
-                                {% if anciennes_valeurs.site_usine == site.id|stringformat:"s" %}selected{% endif %}>
-                                {{ site.nom }} ({{ site.uap.nom }})
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-4 mb-3">
                         <label for="programme" class="form-label">Programme</label>
                         <select class="form-control" id="programme" name="programme">
                             <option value="">Sélectionnez d'abord un client</option>
                         </select>
                     </div>
-                </div>
-               
-                <div class="row">
                     <div class="col-md-4 mb-3">
                         <label for="imputation" class="form-label">Imputation</label>
                         <select class="form-control" id="imputation" name="imputation">
@@ -141,6 +129,9 @@
                             {% endfor %}
                         </select>
                     </div>
+                </div>
+               
+                <div class="row">
                     <div class="col-md-4 mb-3">
                         <label for="type_nc" class="form-label">Type de NC</label>
                         <select class="form-control" id="type_nc" name="type_nc">
@@ -190,7 +181,23 @@
 <script>
 // Variables globales
 let ligneCount = 0;
- 
+
+// Fonction pour mettre à jour l'UAP en fonction du site sélectionné
+function updateUAPForLigne(ligneId) {
+    const siteSelect = document.querySelector(`#ligne-${ligneId} .site-select`);
+    const uapDisplay = document.getElementById(`uap-display-${ligneId}`);
+    const uapHidden = document.getElementById(`uap-hidden-${ligneId}`);
+    
+    if (siteSelect && uapDisplay && uapHidden) {
+        const selectedOption = siteSelect.options[siteSelect.selectedIndex];
+        const uapName = selectedOption?.dataset.uapName || '';
+        const uapId = selectedOption?.dataset.uap || '';
+        
+        uapDisplay.value = uapName;
+        uapHidden.value = uapId;
+    }
+}
+
 // Fonction pour ajouter une NC à une ligne
 function addNC(ligneId) {
     const container = document.getElementById(`nc-container-${ligneId}`);
@@ -383,7 +390,7 @@ function addLigneReclamation(data = {}) {
         <div class="ligne-reclamation" id="ligne-${ligneId}">
             <input type="hidden" name="ligne_id[]" value="new_${ligneId}">
             <div class="row">
-                <div class="col-md-4 mb-2">
+                <div class="col-md-3 mb-2">
                     <label class="form-label">Produit *</label>
                     <select class="form-control select2-produit-${ligneId}" name="produit[]" style="width: 100%;" required>
                         <option value="">Rechercher un produit...</option>
@@ -395,23 +402,32 @@ function addLigneReclamation(data = {}) {
                     <input type="number" class="form-control" name="quantite[]" min="1" value="${data.quantite || '1'}" required>
                     <div class="invalid-feedback">Quantité invalide</div>
                 </div>
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">UAP</label>
-                    <select class="form-control" name="uap_concernee[]">
-                        <option value="">Sélectionnez</option>
-                        {% for uap in uaps %}
-                        <option value="{{ uap.id }}">{{ uap.nom }}</option>
+                <div class="col-md-3 mb-2">
+                    <label class="form-label">Site usine *</label>
+                    <select class="form-control site-select" name="site[]" data-ligne="${ligneId}" required>
+                        <option value="">Sélectionnez un site</option>
+                        {% for site in sites_usine %}
+                        <option value="{{ site.id }}" data-uap="{{ site.uap.id }}" data-uap-name="{{ site.uap.nom }}">
+                            {{ site.nom }} ({{ site.uap.nom }})
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3 mb-2">
-                    <label class="form-label">Commentaire</label>
-                    <textarea class="form-control" name="commentaire[]" rows="2">${data.commentaire || ''}</textarea>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label">UAP</label>
+                    <input type="text" class="form-control uap-readonly" id="uap-display-${ligneId}" readonly disabled placeholder="Sélectionnez d'abord un site">
+                    <input type="hidden" name="uap_concernee[]" id="uap-hidden-${ligneId}">
                 </div>
                 <div class="col-md-1 mb-2 text-end">
                     <label class="form-label">&nbsp;</label>
                     <div>
                         <i class="fas fa-trash-alt remove-ligne" onclick="removeLigne(${ligneId})"></i>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12 mb-2">
+                        <label class="form-label">Commentaire</label>
+                        <textarea class="form-control" name="commentaire[]" rows="2">${data.commentaire || ''}</textarea>
                     </div>
                 </div>
             </div>
@@ -496,7 +512,14 @@ function addLigneReclamation(data = {}) {
             }
         }
     });
-   
+
+    // Initialiser l'événement de changement de site pour la nouvelle ligne
+    const siteSelect = document.querySelector(`#ligne-${ligneId} .site-select`);
+    if (siteSelect) {
+        siteSelect.addEventListener('change', function() {
+            updateUAPForLigne(ligneId);
+        });
+    }
     const noLignesMessage = document.getElementById('no-lignes-message');
     if (noLignesMessage) {
         noLignesMessage.style.display = 'none';
