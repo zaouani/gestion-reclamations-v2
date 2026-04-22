@@ -493,7 +493,7 @@ function addLigneReclamation(data = {}) {
    
     const template = `
         <div class="ligne-reclamation" id="ligne-${newId}">
-            <input type="hidden" name="ligne_id[]" value="${newId}">
+            <input type="hidden" name="nc_ligne_ref[]" value="${ligneCounter - 1}">
             <div class="row">
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Produit *</label>
@@ -607,8 +607,7 @@ function removeLigne(id) {
         }
     }
 }
-// Version améliorée avec debounce et gestion des erreurs
-// Version jQuery pour plus de compatibilité
+
 $(document).ready(function() {
     let timeout = null;
    

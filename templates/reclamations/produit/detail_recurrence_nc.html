@@ -150,8 +150,10 @@
                                 <tr>
                                     <th>Date</th>
                                     <th>Réclamation</th>
+                                    <th>Type NC</th>
                                     <th>Client</th>
                                     <th>Produit</th>
+                                    <th>Programme</th>
                                     <th>Quantité</th>
                                     <th>UAP</th>
                                  </thead>
@@ -164,8 +166,10 @@
                                             {{ ligne.reclamation.numero_reclamation }}
                                         </a>
                                      </td>
+                                    <td>{{ ligne.reclamation.type_nc }}</td>
                                     <td>{{ ligne.reclamation.client.nom }}</td>
                                     <td>{{ ligne.produit.product_number }}</td>
+                                    <td>{{ ligne.reclamation.programme.nom }}</td>
                                     <td>{{ ligne.quantite }}</td>
                                     <td>{{ ligne.uap_concernee.nom|default:"-" }}</td>
                                  </tr>

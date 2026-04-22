@@ -1,0 +1,50 @@
+<!-- templates/reclamations/fai/importer.html -->
+{% extends 'base.html' %}
+
+{% block title %}Importer FAI{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-file-import"></i> Importer fichier ERP</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Fichier Excel ERP</label>
+                            <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
+                            <div class="form-text">
+                                Le fichier doit contenir les colonnes: <strong>PN, OF, DATE_DERNIERE_PRODUCTION</strong>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Format attendu:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><strong>PN</strong> - Numéro de produit</li>
+                                <li><strong>OF</strong> - Numéro d'ordre de fabrication</li>
+                                <li><strong>DATE_DERNIERE_PRODUCTION</strong> - Date de la dernière production (format JJ/MM/AAAA)</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Importer
+                            </button>
+                            <a href="{% url 'reclamations:liste_fai' %}" class="btn btn-secondary">
+                                Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

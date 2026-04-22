@@ -2,8 +2,9 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 import logging
+from django.conf import settings 
 from django.utils import timezone
-from .models import (Reclamation, Client, Produit, LigneReclamation, NonConformite, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison, HuitD, OrdreFabrication, LigneOF, AlerteFAI)
+from .models import (Reclamation, Client, Produit, LigneReclamation, NonConformite, UAP, Site, ObjectifsAnnuel, Programme, SiteClient, Livraison, HuitD, ArticleFAI, Produit, HistoriqueImportFAI)
 from django.http import JsonResponse
 from django.db.models import Count, Q, F, Avg, Sum, Prefetch
 from django.db.models.functions import TruncMonth, ExtractMonth
@@ -31,11 +32,10 @@ from .services.chatbot_service import ChatbotService
 from io import BytesIO
 from typing import Generator
 from .services.ollama_service import OllamaService
-from .services.fai_alert_service import FAIAlertService
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from urllib.parse import unquote
-
+from .services.fai_service import FAIService
 
 # CONFIGURATION LOGGER
 logger = logging.getLogger(__name__)
@@ -950,6 +950,165 @@ def detail_recurrence_nc(request, description):
     
     return render(request, 'reclamations/produit/detail_recurrence_nc.html', context)
 
+@login_required
+def exporter_recurrence_nc_excel(request):
+    """
+    Exporte les données de taux de récurrence NC vers un fichier Excel
+    """
+    # Même logique que taux_recurrence_nc
+    total_reclamations_cim = Reclamation.objects.filter(
+        imputation='CIM'
+    ).count()
+    
+    descriptions = NonConformite.objects.filter(
+        ligne_reclamation__reclamation__imputation='CIM'
+    ).values('description').annotate(
+        nb_occurences=Count('id'),
+        quantite_totale=Sum('quantite'),
+        nb_produits=Count('ligne_reclamation__produit', distinct=True),
+        nb_reclamations_concernees=Count('ligne_reclamation__reclamation', distinct=True)
+    ).filter(
+        description__isnull=False
+    ).exclude(
+        description=''
+    ).order_by('-nb_reclamations_concernees')
+    
+    # Création du fichier Excel
+    output = BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    
+    # Formats
+    header_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#4472C4',
+        'font_color': 'white',
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+    
+    title_format = workbook.add_format({
+        'bold': True,
+        'font_size': 14,
+        'bg_color': '#D9E1F2',
+        'border': 1
+    })
+    
+    cell_format = workbook.add_format({'border': 1, 'valign': 'vcenter'})
+    number_format = workbook.add_format({'border': 1, 'align': 'right', 'valign': 'vcenter'})
+    percent_format = workbook.add_format({'border': 1, 'align': 'right', 'num_format': '0.00%', 'valign': 'vcenter'})
+    
+    # ============ FEUILLE 1 : Récapitulatif ============
+    worksheet_summary = workbook.add_worksheet("Récapitulatif")
+    
+    # Titre
+    worksheet_summary.merge_range('A1:D1', "STATISTIQUES GLOBALES - RÉCURRENCE NC", title_format)
+    
+    # En-têtes
+    headers_summary = ['Indicateur', 'Valeur', '', '']
+    for col, header in enumerate(headers_summary[:2]):
+        worksheet_summary.write(1, col, header, header_format)
+    
+    # Données
+    summary_data = [
+        ['Total réclamations CIM', total_reclamations_cim],
+        ['Nombre de descriptions NC distinctes', descriptions.count()],
+        ['Total occurrences NC', sum(d['nb_occurences'] for d in descriptions)],
+        ['Taux moyen de récurrence', f"{sum(d['nb_reclamations_concernees'] for d in descriptions) / total_reclamations_cim * 100:.2f}%" if total_reclamations_cim > 0 else "0%"],
+    ]
+    
+    row = 2
+    for data in summary_data:
+        worksheet_summary.write(row, 0, data[0], cell_format)
+        worksheet_summary.write(row, 1, data[1], number_format if isinstance(data[1], int) else cell_format)
+        row += 1
+    
+    worksheet_summary.set_column('A:A', 30)
+    worksheet_summary.set_column('B:B', 20)
+    
+    # ============ FEUILLE 2 : Détail des NC ============
+    worksheet_details = workbook.add_worksheet("Détail des NC")
+    
+    # En-têtes
+    headers_details = [
+        'Description NC',
+        'Nb réclamations concernées',
+        'Taux de récurrence',
+        'Nb occurrences',
+        'Quantité totale',
+        'Nb produits distincts',
+        'Produits concernés (échantillon)'
+    ]
+    
+    for col, header in enumerate(headers_details):
+        worksheet_details.write(0, col, header, header_format)
+    
+    # Données
+    row = 1
+    for desc in descriptions:
+        nb_reclamations = desc['nb_reclamations_concernees']
+        taux = (nb_reclamations / total_reclamations_cim) if total_reclamations_cim > 0 else 0
+        
+        # Récupérer les produits concernés (max 5)
+        produits_concernes = Produit.objects.filter(
+            lignes_reclamation__non_conformites__description=desc['description'],
+            lignes_reclamation__reclamation__imputation='CIM'
+        ).distinct().values_list('product_number', flat=True)[:5]
+        
+        worksheet_details.write(row, 0, desc['description'], cell_format)
+        worksheet_details.write(row, 1, nb_reclamations, number_format)
+        worksheet_details.write(row, 2, taux, percent_format)
+        worksheet_details.write(row, 3, desc['nb_occurences'], number_format)
+        worksheet_details.write(row, 4, desc['quantite_totale'] or 0, number_format)
+        worksheet_details.write(row, 5, desc['nb_produits'], number_format)
+        worksheet_details.write(row, 6, ', '.join(produits_concernes), cell_format)
+        row += 1
+    
+    # Ajuster les colonnes
+    worksheet_details.set_column('A:A', 50)
+    worksheet_details.set_column('B:B', 22)
+    worksheet_details.set_column('C:C', 18)
+    worksheet_details.set_column('D:D', 18)
+    worksheet_details.set_column('E:E', 15)
+    worksheet_details.set_column('F:F', 18)
+    worksheet_details.set_column('G:G', 40)
+    
+    # ============ FEUILLE 3 : Top 20 des NC ============
+    worksheet_top = workbook.add_worksheet("Top 20 NC")
+    
+    headers_top = ['Rang', 'Description NC', 'Nb réclamations', 'Taux de récurrence']
+    for col, header in enumerate(headers_top):
+        worksheet_top.write(0, col, header, header_format)
+    
+    top_descriptions = descriptions.order_by('-nb_reclamations_concernees')[:20]
+    row = 1
+    for idx, desc in enumerate(top_descriptions, 1):
+        nb_reclamations = desc['nb_reclamations_concernees']
+        taux = (nb_reclamations / total_reclamations_cim) if total_reclamations_cim > 0 else 0
+        
+        worksheet_top.write(row, 0, idx, number_format)
+        worksheet_top.write(row, 1, desc['description'], cell_format)
+        worksheet_top.write(row, 2, nb_reclamations, number_format)
+        worksheet_top.write(row, 3, taux, percent_format)
+        row += 1
+    
+    worksheet_top.set_column('A:A', 8)
+    worksheet_top.set_column('B:B', 60)
+    worksheet_top.set_column('C:C', 18)
+    worksheet_top.set_column('D:D', 18)
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Création de la réponse HTTP
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="recurrence_nc_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+    
+    return response
+
 def calculer_duree_moyenne_sql():
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -1430,7 +1589,8 @@ def modifier_reclamation(request, pk):
         Reclamation.objects.prefetch_related(
             'lignes__produit', 
             'lignes__uap_concernee',
-            'lignes__non_conformites'
+            'lignes__non_conformites',
+            'lignes__site'
         ),
         pk=pk
     )
@@ -1443,14 +1603,13 @@ def modifier_reclamation(request, pk):
                 
                 # Gestion de la date
                 date_raw = request.POST.get('date_reclamation', '').strip()
-                if date_raw and date_raw != '  ':
+                if date_raw:
                     try:
-                        reclamation.date_reclamation = date_raw
-                    except:
+                        reclamation.date_reclamation = datetime.strptime(date_raw, '%Y-%m-%d').date()
+                    except ValueError:
                         reclamation.date_reclamation = timezone.now().date()
                 
                 reclamation.client_id = request.POST.get('client')
-                reclamation.site_id = request.POST.get('site')
                 reclamation.site_client_id = request.POST.get('site_client') or None
                 reclamation.programme_id = request.POST.get('programme') or None
                 reclamation.imputation = request.POST.get('imputation')
@@ -1464,29 +1623,24 @@ def modifier_reclamation(request, pk):
                 reclamation.cloture = request.POST.get('cloture') == 'on'
                 reclamation.decision = request.POST.get('decision', '')
                 
-                # Gestion sécurisée du NQC (Decimal)
-                nqc_value = request.POST.get('nqc', '0')
-                if nqc_value == '' or nqc_value is None:
-                    nqc_value = '0'
-                nqc_value = str(nqc_value).strip().replace(',', '.')
-                import re
-                nqc_value = re.sub(r'[^0-9.-]', '', nqc_value)
-                if nqc_value == '' or nqc_value == '-':
-                    nqc_value = '0'
-                
-                try:
-                    reclamation.nqc = Decimal(nqc_value)
-                except (InvalidOperation, ValueError, TypeError):
+                # Gestion du NQC
+                nqc_value = request.POST.get('nqc', '0').strip()
+                if nqc_value:
+                    nqc_value = nqc_value.replace(',', '.')
+                    try:
+                        reclamation.nqc = Decimal(nqc_value)
+                    except (InvalidOperation, ValueError):
+                        reclamation.nqc = Decimal('0')
+                else:
                     reclamation.nqc = Decimal('0')
-                    messages.warning(request, "La valeur NQC était invalide, elle a été mise à 0.")
                 
                 reclamation.save()
                 
-                # ========== TRAITEMENT DES LIGNES AVEC NC MULTIPLES ==========
-                # Récupérer les IDs des lignes existantes
+                # ========== TRAITEMENT DES LIGNES ==========
                 lignes_ids = request.POST.getlist('ligne_id[]')
                 produits = request.POST.getlist('produit[]')
-                quantites = request.POST.getlist('quantite[]')  # Quantité totale
+                sites = request.POST.getlist('site[]')
+                quantites = request.POST.getlist('quantite[]')
                 commentaires = request.POST.getlist('commentaire[]')
                 uaps = request.POST.getlist('uap_concernee[]')
                 
@@ -1496,17 +1650,20 @@ def modifier_reclamation(request, pk):
                 nc_quantites = request.POST.getlist('nc_quantite[]')
                 nc_ligne_refs = request.POST.getlist('nc_ligne_ref[]')
                 
-                # Regrouper les NC par ligne
-                nc_par_ligne = {}
-                for idx in range(len(nc_ids)):
-                    ligne_ref = nc_ligne_refs[idx] if idx < len(nc_ligne_refs) else ''
-                    if ligne_ref not in nc_par_ligne:
-                        nc_par_ligne[ligne_ref] = []
-                    nc_par_ligne[ligne_ref].append({
-                        'id': nc_ids[idx],
-                        'description': nc_descriptions[idx] if idx < len(nc_descriptions) else '',
-                        'quantite': nc_quantites[idx] if idx < len(nc_quantites) else '1'
-                    })
+                # Regrouper les NC par référence de ligne (index)
+                nc_par_index = {}
+                for idx in range(len(nc_descriptions)):
+                    if idx < len(nc_ligne_refs) and nc_descriptions[idx].strip():
+                        index_ref = nc_ligne_refs[idx]  # C'est l'index de la ligne ou l'ID
+                        
+                        if index_ref not in nc_par_index:
+                            nc_par_index[index_ref] = []
+                        
+                        nc_par_index[index_ref].append({
+                            'id': nc_ids[idx] if idx < len(nc_ids) else '',
+                            'description': nc_descriptions[idx].strip(),
+                            'quantite': int(nc_quantites[idx]) if idx < len(nc_quantites) and nc_quantites[idx] else 1
+                        })
                 
                 lignes_a_conserver = []
                 
@@ -1514,58 +1671,101 @@ def modifier_reclamation(request, pk):
                     if not produits[i]:
                         continue
                     
-                    quantite_totale = int(quantites[i]) if quantites[i] else 1
+                    quantite_totale = int(quantites[i]) if i < len(quantites) and quantites[i] else 1
                     ligne_id = lignes_ids[i] if i < len(lignes_ids) else None
+                    site_id = sites[i] if i < len(sites) and sites[i] else None
+                    uap_id = uaps[i] if i < len(uaps) and uaps[i] else None
+                    commentaire = commentaires[i] if i < len(commentaires) else ''
                     
+                    # Utiliser l'index comme référence pour les NC (compatible avec le template)
+                    ligne_ref = str(i)
+                    
+                    # Récupérer les NC pour cette ligne (par index)
+                    ncs_ligne = nc_par_index.get(ligne_ref, [])
+                    # Chercher aussi par ligne_id si c'est une ligne existante
+                    if ligne_id and ligne_id.isdigit():
+                        ncs_ligne.extend(nc_par_index.get(ligne_id, []))
+                    
+                    # Créer ou modifier la ligne
                     if ligne_id and ligne_id.startswith('new_'):
-                        # Créer nouvelle ligne
                         ligne = LigneReclamation.objects.create(
                             reclamation=reclamation,
                             produit_id=produits[i],
                             quantite=quantite_totale,
-                            uap_concernee_id=uaps[i] if i < len(uaps) else None,
-                            commentaire=commentaires[i] if i < len(commentaires) else ''
+                            site_id=site_id,
+                            uap_concernee_id=uap_id,
+                            commentaire=commentaire,
+                            description_non_conformite=''
                         )
                         lignes_a_conserver.append(ligne.id)
-                        ligne_ref = str(ligne.id)
                         
                     elif ligne_id and ligne_id.isdigit():
-                        # Modifier ligne existante
-                        ligne = LigneReclamation.objects.get(id=ligne_id, reclamation=reclamation)
-                        ligne.produit_id = produits[i]
-                        ligne.quantite = quantite_totale
-                        ligne.uap_concernee_id = uaps[i] if i < len(uaps) else None
-                        ligne.commentaire = commentaires[i] if i < len(commentaires) else ''
-                        ligne.save()
-                        lignes_a_conserver.append(ligne.id)
-                        ligne_ref = ligne_id
+                        try:
+                            ligne = LigneReclamation.objects.get(id=ligne_id, reclamation=reclamation)
+                            ligne.produit_id = produits[i]
+                            ligne.quantite = quantite_totale
+                            ligne.site_id = site_id
+                            ligne.uap_concernee_id = uap_id
+                            ligne.commentaire = commentaire
+                            ligne.save()
+                            lignes_a_conserver.append(ligne.id)
+                        except LigneReclamation.DoesNotExist:
+                            continue
                     else:
                         continue
                     
                     # Traiter les NC pour cette ligne
                     ncs_a_conserver = []
-                    for nc_data in nc_par_ligne.get(ligne_ref, []):
+                    descriptions_nc = []
+                    
+                    for nc_data in ncs_ligne:
                         description = nc_data['description']
-                        quantite_nc = int(nc_data['quantite']) if nc_data['quantite'] else 1
+                        quantite_nc = nc_data['quantite']
                         
                         if not description:
                             continue
                         
-                        if nc_data['id'].startswith('new_'):
-                            NonConformite.objects.create(
+                        descriptions_nc.append(description)
+                        nc_id = nc_data['id']
+                        
+                        if nc_id.startswith('new_') or not nc_id:
+                            # Créer nouvelle NC
+                            nc = NonConformite.objects.create(
                                 ligne_reclamation=ligne,
                                 description=description,
                                 quantite=quantite_nc
                             )
-                        elif nc_data['id'].isdigit():
-                            nc = NonConformite.objects.get(id=nc_data['id'], ligne_reclamation=ligne)
-                            nc.description = description
-                            nc.quantite = quantite_nc
-                            nc.save()
                             ncs_a_conserver.append(nc.id)
+                            
+                        elif nc_id.isdigit():
+                            # Modifier NC existante
+                            try:
+                                nc = NonConformite.objects.get(id=nc_id, ligne_reclamation=ligne)
+                                nc.description = description
+                                nc.quantite = quantite_nc
+                                nc.save()
+                                ncs_a_conserver.append(nc.id)
+                            except NonConformite.DoesNotExist:
+                                # Créer si n'existe pas
+                                nc = NonConformite.objects.create(
+                                    ligne_reclamation=ligne,
+                                    description=description,
+                                    quantite=quantite_nc
+                                )
+                                ncs_a_conserver.append(nc.id)
+                    
+                    # Mettre à jour le champ description_non_conformite
+                    if descriptions_nc:
+                        ligne.description_non_conformite = " | ".join(descriptions_nc)
+                    else:
+                        ligne.description_non_conformite = ""
+                    ligne.save(update_fields=['description_non_conformite'])
                     
                     # Supprimer les NC orphelines
-                    ligne.non_conformites.exclude(id__in=ncs_a_conserver).delete()
+                    if ncs_a_conserver:
+                        ligne.non_conformites.exclude(id__in=ncs_a_conserver).delete()
+                    else:
+                        ligne.non_conformites.all().delete()
                 
                 # Supprimer les lignes orphelines
                 reclamation.lignes.exclude(id__in=lignes_a_conserver).delete()
@@ -1575,17 +1775,14 @@ def modifier_reclamation(request, pk):
                 
         except Exception as e:
             messages.error(request, f"Erreur lors de la modification: {str(e)}")
-                
-        except Exception as e:
-            messages.error(request, f"Erreur lors de la modification: {str(e)}")
             import traceback
             traceback.print_exc()
     
     # GET: afficher le formulaire
     clients = Client.objects.filter(actif=True).order_by('nom')
     sites_usine = Site.objects.all().select_related('uap').order_by('nom')
-    sites_client = SiteClient.objects.filter(client=reclamation.client, actif=True).order_by('nom') if reclamation.client else []
-    programmes = Programme.objects.filter(clients=reclamation.client, actif=True).order_by('nom') if reclamation.client else []
+    sites_client = SiteClient.objects.filter(client=reclamation.client, actif=True).order_by('nom') if reclamation.client else SiteClient.objects.none()
+    programmes = Programme.objects.filter(clients=reclamation.client, actif=True).order_by('nom') if reclamation.client else Programme.objects.none()
     produits = Produit.objects.filter(actif=True).order_by('product_number')
     uaps = UAP.objects.all().order_by('nom')
     
@@ -2997,7 +3194,6 @@ def import_reclamations_excel(request):
     
     return render(request, 'reclamations/import/reclamations.html', {'step': 1})
 
-
 def extraire_non_conformites(description_raw):
     """
     Extrait les non-conformités d'une chaîne de caractères.
@@ -3017,7 +3213,6 @@ def extraire_non_conformites(description_raw):
             nc_list.append(nc_clean)
     
     return nc_list
-
 
 def valider_ligne_import(row_data):
     """Valide une ligne d'import et ajoute les erreurs dans row_data['erreurs']"""
@@ -3047,6 +3242,7 @@ def valider_ligne_import(row_data):
     # Validation des choix
     type_nc_valid = [choice[0] for choice in Reclamation.TYPE_NC_CHOICES]
     if row_data.get('type_nc') not in type_nc_valid:
+        #print(row_data.get('type_nc'))
         erreurs.append(f"Type NC invalide. Valeurs acceptées: {', '.join(type_nc_valid)}")
     
     imputation_valid = [choice[0] for choice in Reclamation.IMPUTATION_CHOICES]
@@ -3170,262 +3366,6 @@ def api_reclamations_client_mois(request):
         data = stats.get_reclamations_par_client_mois()
     
     return JsonResponse(data)
-
-#============AMDEC==========
-@login_required
-def amdec_produit(request, produit_id=None):
-    """Génère une AMDEC pour un produit spécifique ou pour les produits les plus critiques"""
-    
-    context = AMDEC_calculator.AMDEC()
-    
-    return render(request, 'reclamations/amdec/amdec_template.html', context)
-
-try:
-    from xhtml2pdf import pisa
-    XHTML2PDF_AVAILABLE = True
-except ImportError:
-    XHTML2PDF_AVAILABLE = False
-    print("⚠️ xhtml2pdf n'est pas installé. Installez-le avec: pip install xhtml2pdf")
-@login_required
-def amdec_export_pdf(request, produit_id=None):
-    """Exporte l'AMDEC en PDF"""
-    
-    if not XHTML2PDF_AVAILABLE:
-        return HttpResponse(
-            "La bibliothèque xhtml2pdf n'est pas installée. "
-            "Installez-la avec: pip install xhtml2pdf", 
-            status=500
-        )
-    
-    # Récupérer les données
-    context=AMDEC_calculator.AMDEC()
-    
-    # Générer le PDF
-    template = get_template('reclamations/amdec/amdec_pdf.html')
-    html = template.render(context)
-    
-    # Créer la réponse PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="AMDEC_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf"'
-    
-    # Convertir HTML en PDF
-    result = pisa.CreatePDF(io.BytesIO(html.encode('UTF-8')), dest=response)
-    
-    if result.err:
-        return HttpResponse('Erreur lors de la génération du PDF: ' + str(result.err), status=500)
-    
-    return response
-
-@login_required
-def amdec_export_excel(request, produit_id=None):
-    """Exporte l'AMDEC en Excel"""
-
-    context=AMDEC_calculator.AMDEC()
-    amdec_data=context['amdec_data']
-    
-    output = BytesIO()
-    workbook = xlsxwriter.Workbook(output)
-    
-    # Formats
-    header_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#4472C4',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    subheader_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#D9E1F2',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    cell_format = workbook.add_format({
-        'border': 1,
-        'align': 'left',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    center_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    fillable_format = workbook.add_format({
-        'border': 1,
-        'bg_color': '#FEF9E6',
-        'align': 'left',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    title_format = workbook.add_format({
-        'bold': True,
-        'font_size': 14,
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    # Créer une feuille par produit
-    for data in amdec_data:
-        produit = data['produit']
-        worksheet = workbook.add_worksheet(f"{produit.product_number}"[:31])  # Limiter à 31 caractères
-        
-        # Titre
-        worksheet.merge_range('A1:H1', f"AMDEC - Produit: {produit.product_number}", title_format)
-        if produit.designation:
-            worksheet.merge_range('A2:H2', f"Désignation: {produit.designation}", title_format)
-        worksheet.merge_range('A3:H3', f"Date d'analyse: {data['date_analyse'].strftime('%d/%m/%Y')}", title_format)
-        
-        row = 4
-        
-        # Synthèse
-        worksheet.merge_range(f'A{row+1}:H{row+1}', f"Synthèse: {data['total_defauts']} Réclamation(s) analysée(s)", cell_format)
-        row += 2
-        
-        # En-tête du tableau principal
-        headers = ['#', 'Mode de défaillance', 'Effets potentiels', 'G', 'Causes potentielles', 'O', 'D', 'CRIT']
-        for col, header in enumerate(headers):
-            worksheet.write(row, col, header, header_format)
-        
-        # Largeurs des colonnes
-        worksheet.set_column('A:A', 5)
-        worksheet.set_column('B:B', 35)
-        worksheet.set_column('C:C', 30)
-        worksheet.set_column('D:D', 5)
-        worksheet.set_column('E:E', 30)
-        worksheet.set_column('F:F', 5)
-        worksheet.set_column('G:G', 5)
-        worksheet.set_column('H:H', 8)
-        
-        row += 1
-        
-        # Données des défauts
-        for idx, defaut in enumerate(data['defauts'], 1):
-            worksheet.write(row, 0, idx, center_format)
-            worksheet.write(row, 1, defaut['description'], cell_format)
-            worksheet.write(row, 2, "", fillable_format)
-            worksheet.write(row, 3, "", center_format)
-            worksheet.write(row, 4, "", fillable_format)
-            worksheet.write(row, 5, "", center_format)
-            worksheet.write(row, 6, "", center_format)
-            worksheet.write(row, 7, "", center_format)
-            row += 1
-        
-        row += 1
-        
-        # Tableau des actions
-        worksheet.merge_range(f'A{row}:E{row}', "ACTIONS RECOMMANDÉES", header_format)
-        row += 1
-        
-        actions_headers = ['#', 'Actions préventives / correctives', 'Responsable', 'Délai', 'Suivi / Commentaires']
-        for col, header in enumerate(actions_headers):
-            worksheet.write(row, col, header, subheader_format)
-        
-        worksheet.set_column('A:A', 5)
-        worksheet.set_column('B:B', 40)
-        worksheet.set_column('C:C', 20)
-        worksheet.set_column('D:D', 15)
-        worksheet.set_column('E:E', 30)
-        
-        row += 1
-        
-        # Lignes d'actions (une par défaut + 2 supplémentaires)
-        for idx in range(1, len(data['defauts']) + 3):
-            worksheet.write(row, 0, idx, center_format)
-            worksheet.write(row, 1, "", fillable_format)
-            worksheet.write(row, 2, "", fillable_format)
-            worksheet.write(row, 3, "", fillable_format)
-            worksheet.write(row, 4, "", fillable_format)
-            row += 1
-        
-        row += 1
-        
-        # Tableau de validation
-        validation_data = [
-            ['Criticité maximale (CRIT max) :', '', 'Seuil d\'action :', ''],
-            ['Approbateur :', '', 'Date :', ''],
-            ['Animateur :', '', 'Date prochaine revue :', ''],
-            ['Méthode de calcul :', 'G × O × D (Gravité × Occurrence × Détection)', '', '']
-        ]
-        
-        for v_row, v_data in enumerate(validation_data):
-            worksheet.write(row + v_row, 0, v_data[0], subheader_format)
-            worksheet.write(row + v_row, 1, v_data[1], fillable_format)
-            worksheet.write(row + v_row, 2, v_data[2], subheader_format)
-            worksheet.write(row + v_row, 3, v_data[3], fillable_format)
-        
-        # Ajuster la hauteur des lignes
-        worksheet.set_default_row(30)
-    
-    # Ajouter une feuille de synthèse
-    worksheet_synth = workbook.add_worksheet("Synthèse")
-    
-    # En-tête synthèse
-    synth_headers = ['Produit', 'Total défauts', 'Défaut principal', 'Occurrences', 'Quantité', 'Pourcentage']
-    for col, header in enumerate(synth_headers):
-        worksheet_synth.write(0, col, header, header_format)
-    
-    worksheet_synth.set_column('A:A', 20)
-    worksheet_synth.set_column('B:B', 12)
-    worksheet_synth.set_column('C:C', 35)
-    worksheet_synth.set_column('D:D', 12)
-    worksheet_synth.set_column('E:E', 12)
-    worksheet_synth.set_column('F:F', 12)
-    
-    row = 1
-    for data in amdec_data:
-        produit = data['produit']
-        defauts = data['defauts']
-        if defauts:
-            principal = defauts[0]
-            worksheet_synth.write(row, 0, produit.product_number, cell_format)
-            worksheet_synth.write(row, 1, data['total_defauts'], center_format)
-            worksheet_synth.write(row, 2, principal['description'], cell_format)
-            worksheet_synth.write(row, 3, principal['nb_occurences'], center_format)
-            worksheet_synth.write(row, 4, principal['quantite_totale'], center_format)
-            worksheet_synth.write(row, 5, f"{principal['pourcentage']}%", center_format)
-            row += 1
-    
-    # Ajouter une feuille de légende
-    worksheet_legend = workbook.add_worksheet("Légende")
-    worksheet_legend.write(0, 0, "LÉGENDE AMDEC", title_format)
-    
-    legend_data = [
-        ["Gravité (G)", "1-5", "1: Mineur, 5: Critique (sécurité, non-conformité majeure)"],
-        ["Occurrence (O)", "1-5", "1: Très rare, 5: Très fréquent"],
-        ["Détection (D)", "1-5", "1: Très facile à détecter, 5: Impossible à détecter"],
-        ["CRIT", "G × O × D", "Criticité = Gravité × Occurrence × Détection"],
-        ["", "", "Seuil d'action recommandé: > 50"]
-    ]
-    
-    for i, data in enumerate(legend_data, 1):
-        worksheet_legend.write(i, 0, data[0], subheader_format)
-        worksheet_legend.write(i, 1, data[1], cell_format)
-        worksheet_legend.write(i, 2, data[2], cell_format)
-    
-    worksheet_legend.set_column('A:A', 15)
-    worksheet_legend.set_column('B:B', 10)
-    worksheet_legend.set_column('C:C', 50)
-    
-    workbook.close()
-    output.seek(0)
-    
-    # Créer la réponse
-    response = HttpResponse(
-        output.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="AMDEC_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx"'
-    
-    return response
 
 #=============8D=============================================
 @login_required
@@ -3595,7 +3535,6 @@ def chat_stream(request):
         logger.exception("Error in chat_stream")
         return JsonResponse({'error': 'Erreur interne du serveur'}, status=500)
  
- 
 def stream_generator(message: str, historique: list) -> Generator:
     """Streaming optimisé - plus rapide et plus naturel"""
     try:
@@ -3617,7 +3556,6 @@ def stream_generator(message: str, historique: list) -> Generator:
  
     # Petit délai final pour que le dernier mot s’affiche bien
     time.sleep(1)
- 
  
 def traiter_message_chatbot(message: str, historique: list = None) -> str:
     """Fallback manuel quand Ollama n'est pas disponible"""
@@ -3665,7 +3603,6 @@ def traiter_message_chatbot(message: str, historique: list = None) -> str:
                 "• PPM\n"
                 "• 8D\n\n"
                 "Ou tapez 'aide'.")
- 
  
 def generer_suggestions(message: str) -> list:
     """Génère des suggestions contextuelles pour le frontend"""
@@ -3767,312 +3704,6 @@ def api_analyse_kpis(request):
             'actions_prioritaires': [],
             'recommandations': []
         }, status=500)
- 
-#=========FAI Service====================
-
-@login_required
-def verifier_alertes_fai(request):
-    """Vérification manuelle des alertes FAI"""
-    service = FAIAlertService()
-    
-    # Lancer la vérification
-    resultats = service.verifier_of_non_fermes()
-    
-    # Compter les alertes par niveau
-    stats = {'CRITIQUE': 0, 'URGENT': 0, 'ALERTE': 0, 'INFO': 0, 'TOTAL': 0}
-    for resultat in resultats:
-        for alerte in resultat['alertes']:
-            stats[alerte.niveau] += 1
-            stats['TOTAL'] += 1
-    
-    context = {
-        'resultats': resultats,
-        'stats': stats,
-        'date_verification': timezone.now()
-    }
-    return render(request, 'reclamations/fai/verification_resultat.html', context)
-
-@login_required
-def liste_alertes_fai(request):
-    """Liste des alertes FAI"""
-    alertes = AlerteFAI.objects.select_related('ordre_fabrication', 'produit').all()
-    
-    # Filtres
-    statut = request.GET.get('statut', '')
-    niveau = request.GET.get('niveau', '')
-    of_id = request.GET.get('of', '')
-    
-    if statut:
-        alertes = alertes.filter(statut=statut)
-    if niveau:
-        alertes = alertes.filter(niveau=niveau)
-    if of_id:
-        alertes = alertes.filter(ordre_fabrication_id=of_id)
-    
-    context = {
-        'alertes': alertes,
-        'statut_choices': AlerteFAI.STATUT_CHOICES,
-        'niveau_choices': AlerteFAI.NIVEAU_CHOICES,
-    }
-    return render(request, 'reclamations/fai/liste_alertes.html', context)
-
-@login_required
-def traiter_alerte_fai(request, pk):
-    """Traiter manuellement une alerte FAI"""
-    alerte = get_object_or_404(AlerteFAI, pk=pk)
-    
-    if request.method == 'POST':
-        alerte.statut = request.POST.get('statut')
-        alerte.commentaire = request.POST.get('commentaire', '')
-        alerte.traite_par = request.user.get_full_name() or request.user.username
-        alerte.date_traitement = timezone.now()
-        alerte.save()
-        
-        messages.success(request, f"Alerte {alerte.get_niveau_display()} traitée")
-        return redirect('reclamations:liste_alertes_fai')
-    
-    context = {'alerte': alerte}
-    return render(request, 'reclamations/fai/traiter_alerte.html', context)
-
-@login_required
-def alertes_par_of(request, of_id):
-    """Alertes pour un OF spécifique"""
-    of = get_object_or_404(OrdreFabrication, pk=of_id)
-    alertes = AlerteFAI.objects.filter(ordre_fabrication=of).select_related('produit')
-    
-    context = {
-        'of': of,
-        'alertes': alertes
-    }
-    return render(request, 'reclamations/fai/alertes_par_of.html', context)
-
-@login_required
-def importer_of_erp(request):
-    """Import des OF depuis l'ERP (simulation)"""
-    if request.method == 'POST':
-        # Simulation d'import
-        data = request.POST.get('data')
-        # Traitement...
-        
-        messages.success(request, "Import des OF terminé")
-        return redirect('reclamations:verifier_alertes_fai')
-    
-    return render(request, 'reclamations/fai/importer_of.html')
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def api_importer_of(request):
-    """API pour importer des OF depuis l'ERP"""
-    try:
-        data = json.loads(request.body)
-        ofs_data = data.get('ofs', [])
-        
-        service = FAIAlertService()
-        resultats = service.importer_donnees_erp(ofs_data)
-        
-        return JsonResponse({
-            'success': True,
-            'message': f"{resultats['crees']} OF créés, {resultats['mis_a_jour']} mis à jour",
-            'details': resultats
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
-
-@require_http_methods(["GET"])
-def api_statut_of(request):
-    """API pour obtenir le statut des OF"""
-    of_id = request.GET.get('of_id')
-    numero_of = request.GET.get('numero_of')
-    
-    try:
-        if of_id:
-            of = OrdreFabrication.objects.get(id=of_id)
-        elif numero_of:
-            of = OrdreFabrication.objects.get(numero_of=numero_of)
-        else:
-            return JsonResponse({
-                'success': False,
-                'error': "Paramètre of_id ou numero_of requis"
-            }, status=400)
-        
-        return JsonResponse({
-            'success': True,
-            'of': {
-                'id': of.id,
-                'numero_of': of.numero_of,
-                'statut': of.statut,
-                'statut_display': of.get_statut_display(),
-                'date_creation': of.date_creation.strftime('%Y-%m-%d'),
-                'date_previsionnelle': of.date_previsionnelle.strftime('%Y-%m-%d') if of.date_previsionnelle else None,
-                'date_reelle_fin': of.date_reelle_fin.strftime('%Y-%m-%d') if of.date_reelle_fin else None,
-                'responsable': of.responsable,
-                'atelier': of.atelier,
-                'priorite': of.priorite
-            }
-        })
-        
-    except OrdreFabrication.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': "OF non trouvé"
-        }, status=404)
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
-
-@login_required
-def liste_of(request):
-    """Liste des ordres de fabrication"""
-    ofs = OrdreFabrication.objects.all().order_by('-date_creation')
-    
-    # Filtres
-    statut = request.GET.get('statut', '')
-    if statut:
-        ofs = ofs.filter(statut=statut)
-    
-    context = {
-        'ofs': ofs,
-        'statut_choices': OrdreFabrication.STATUT_CHOICES
-    }
-    return render(request, 'reclamations/fai/liste_of.html', context)
-
-@login_required
-def detail_of(request, pk):
-    """Détail d'un ordre de fabrication"""
-    of = get_object_or_404(OrdreFabrication.objects.prefetch_related('lignes__produit'), pk=pk)
-    alertes = AlerteFAI.objects.filter(ordre_fabrication=of).select_related('produit')
-    
-    context = {
-        'of': of,
-        'alertes': alertes
-    }
-    return render(request, 'reclamations/fai/detail_of.html', context)
-
-
-@login_required
-def fermer_of(request, pk):
-    """Fermer manuellement un OF"""
-    of = get_object_or_404(OrdreFabrication, pk=pk)
-    
-    if request.method == 'POST':
-        of.statut = 'CLOTURE'
-        of.date_reelle_fin = timezone.now().date()
-        of.save()
-        
-        messages.success(request, f"OF {of.numero_of} clôturé avec succès")
-        return redirect('reclamations:liste_of')
-    
-    context = {'of': of}
-    return render(request, 'reclamations/fai/fermer_of.html', context)
-
-
-@login_required
-def envoyer_alertes_fai(request):
-    """Envoyer manuellement les alertes FAI groupées"""
-    if request.method == 'POST':
-        service = FAIAlertService()
-        alertes_envoyees = service.envoyer_alertes_groupes()
-        
-        messages.success(request, f"{len(alertes_envoyees)} alerte(s) groupée(s) envoyée(s)")
-        return redirect('reclamations:liste_alertes_fai')
-    
-    # GET: afficher confirmation avec statistiques calculées
-    service = FAIAlertService()
-    resultats = service.verifier_of_non_fermes()
-    
-    # Calculer les statistiques par OF
-    resultats_detail = []
-    for resultat in resultats:
-        nb_critique = sum(1 for a in resultat['alertes'] if a.niveau == 'CRITIQUE')
-        nb_urgent = sum(1 for a in resultat['alertes'] if a.niveau == 'URGENT')
-        nb_alerte = sum(1 for a in resultat['alertes'] if a.niveau == 'ALERTE')
-        
-        resultats_detail.append({
-            'of': resultat['of'],
-            'nb_alertes': len(resultat['alertes']),
-            'nb_critique': nb_critique,
-            'nb_urgent': nb_urgent,
-            'nb_alerte': nb_alerte
-        })
-    
-    nb_alertes_total = sum(r['nb_alertes'] for r in resultats_detail)
-    
-    context = {
-        'nb_of': len(resultats_detail),
-        'nb_alertes': nb_alertes_total,
-        'resultats': resultats_detail
-    }
-    return render(request, 'reclamations/fai/confirmation_envoi.html', context)
-
-@login_required
-def liste_produits_fai(request):
-    """Liste des produits avec suivi FAI"""
-    produits = Produit.objects.filter(
-        lignes_of__isnull=False
-    ).distinct().annotate(
-        nb_of=Count('lignes_of'),
-        derniere_production=Max('lignes_of__date_fin')
-    ).order_by('-derniere_production')
-    
-    context = {
-        'produits': produits
-    }
-    return render(request, 'reclamations/fai/liste_produits_fai.html', context)
-
-@login_required
-def detail_produit_fai(request, pk):
-    """Détail FAI d'un produit"""
-    produit = get_object_or_404(Produit, pk=pk)
-    alertes = AlerteFAI.objects.filter(produit=produit).select_related('ordre_fabrication')
-    historique_productions = LigneOF.objects.filter(produit=produit).select_related('ordre_fabrication').order_by('-date_fin')
-    
-    context = {
-        'produit': produit,
-        'alertes': alertes,
-        'historique_productions': historique_productions
-    }
-    return render(request, 'reclamations/fai/detail_produit_fai.html', context)
-
-
-@login_required
-def enregistrer_inspection_fai(request, pk):
-    """Enregistrer une inspection FAI réalisée"""
-    produit = get_object_or_404(Produit, pk=pk)
-    
-    if request.method == 'POST':
-        date_inspection = request.POST.get('date_inspection')
-        commentaire = request.POST.get('commentaire', '')
-        
-        # Mettre à jour ou créer l'article FAI
-        article, created = Article.objects.update_or_create(
-            produit=produit,
-            defaults={
-                'dernier_controle': date_inspection,
-                'statut': 'VALIDE',
-                'observations': commentaire
-            }
-        )
-        
-        # Mettre à jour les alertes associées
-        AlerteFAI.objects.filter(
-            produit=produit,
-            statut__in=['NOUVELLE', 'EN_COURS']
-        ).update(statut='TRAITEE', date_traitement=timezone.now())
-        
-        messages.success(request, f"Inspection FAI enregistrée pour {produit.product_number}")
-        return redirect('reclamations:detail_produit_fai', pk=produit.id)
-    
-    context = {
-        'produit': produit,
-        'today': timezone.now().date()
-    }
-    return render(request, 'reclamations/fai/enregistrer_inspection.html', context)
 
 @login_required
 def envoyer_notifications(request):
@@ -4101,3 +3732,328 @@ def envoyer_notifications(request):
         'notifications_grouped': notifications_grouped
     }
     return render(request, 'reclamations/notifications/confirmation_envoi.html', context)
+
+#=========FAI Service===============
+
+@login_required
+def importer_fai(request):
+    """Importe un fichier Excel FAI depuis l'ERP"""
+    if request.method == 'POST':
+        fichier = request.FILES.get('excel_file')
+        if not fichier:
+            messages.error(request, "Veuillez sélectionner un fichier")
+            return redirect('reclamations:importer_fai')
+        
+        service = FAIService()
+        resultat = service.importer_fichier_excel(fichier, fichier.name)
+        
+        if resultat['success']:
+            messages.success(request, f"Import réussi! {resultat['importees']} lignes traitées, {resultat['modifiees']} mises à jour")
+            if resultat['erreurs']:
+                messages.warning(request, f"{len(resultat['erreurs'])} erreurs rencontrées")
+        else:
+            messages.error(request, f"Erreur: {resultat.get('error', 'Erreur inconnue')}")
+        
+        return redirect('reclamations:liste_fai')
+    
+    return render(request, 'reclamations/fai/importer.html')
+
+@login_required
+def configurer_chemin_fai(request):
+    """Configure le chemin d'accès au fichier Excel ERP"""
+    if request.method == 'POST':
+        chemin = request.POST.get('chemin_fichier')
+        if chemin:
+            request.session['fai_chemin_fichier'] = chemin
+            messages.success(request, f"Chemin configuré: {chemin}")
+        return redirect('reclamations:liste_fai')
+    
+    chemin_actuel = request.session.get('fai_chemin_fichier', '')
+    return render(request, 'reclamations/fai/configurer_chemin.html', {'chemin_actuel': chemin_actuel})
+
+@login_required
+def synchroniser_fai(request):
+    """Synchronise les données depuis le chemin configuré"""
+    chemin = request.session.get('fai_chemin_fichier')
+    if not chemin:
+        messages.error(request, "Veuillez d'abord configurer le chemin du fichier")
+        return redirect('reclamations:configurer_chemin_fai')
+    
+    service = FAIService()
+    resultat = service.mettre_a_jour_depuis_chemin(chemin)
+    
+    if resultat['success']:
+        messages.success(request, f"Synchronisation réussie! {resultat['importees']} lignes traitées")
+    else:
+        messages.error(request, f"Erreur: {resultat.get('error', 'Erreur inconnue')}")
+    
+    return redirect('reclamations:liste_fai')
+
+@login_required
+def liste_fai(request):
+    """Liste des articles FAI avec pagination, recherche et filtre par statut"""
+    
+    # Récupération des paramètres - Assurez-vous que 'statut' est bien récupéré
+    recherche_pn = request.GET.get('recherche_pn', '').strip()
+    statut_filtre = request.GET.get('statut', '')
+    page = request.GET.get('page', 1)
+    per_page = int(request.GET.get('per_page', 20))
+    
+    # DEBUG: Afficher dans la console pour vérifier
+    print(f"Filtre statut reçu: '{statut_filtre}'")
+    print(f"Recherche PN: '{recherche_pn}'")
+    
+    # Construction de la requête de base
+    queryset = ArticleFAI.objects.select_related('produit')
+    
+    # Application des filtres
+    if recherche_pn:
+        queryset = queryset.filter(produit__product_number__icontains=recherche_pn)
+    
+    if statut_filtre and statut_filtre != '':
+        queryset = queryset.filter(statut=statut_filtre)
+    
+    # Tri
+    queryset = queryset.order_by('-derniere_production')
+    
+    # Pagination
+    paginator = Paginator(queryset, per_page)
+    try:
+        articles_pagines = paginator.page(page)
+    except PageNotAnInteger:
+        articles_pagines = paginator.page(1)
+    except EmptyPage:
+        articles_pagines = paginator.page(paginator.num_pages)
+    
+    # Statistiques pour les cartes
+    statistiques = {
+        'CRITIQUE': ArticleFAI.objects.filter(statut='CRITIQUE').count(),
+        'URGENT': ArticleFAI.objects.filter(statut='URGENT').count(),
+        'ALERTE': ArticleFAI.objects.filter(statut='ALERTE').count(),
+        'INFO': ArticleFAI.objects.filter(statut='INFO').count(),
+    }
+    
+    context = {
+        'articles_pagines': articles_pagines,
+        'statistiques': statistiques,
+        'date_analyse': timezone.now().date(),
+        'statut_actuel': statut_filtre,  # Passer le statut actuel au template
+        'recherche_actuelle': recherche_pn,  # Passer la recherche actuelle
+    }
+    return render(request, 'reclamations/fai/liste.html', context)
+
+@login_required
+def exporter_alertes_fai(request):
+    """Exporte les alertes FAI en Excel"""
+    service = FAIService()
+    excel_file = service.exporter_alertes_excel()
+    
+    response = HttpResponse(
+        excel_file.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="alertes_fai_{timezone.now().date()}.xlsx"'
+    return response
+
+def exporter_alertes_excel(self):
+    """Exporte les alertes FAI vers un fichier Excel avec onglets séparés"""
+    output = BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    
+    # Formats
+    header_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#4472C4',
+        'font_color': 'white',
+        'border': 1,
+        'align': 'center'
+    })
+    
+    urgent_format = workbook.add_format({'bg_color': '#FFC000', 'border': 1})
+    critique_format = workbook.add_format({'bg_color': '#FF0000', 'font_color': 'white', 'border': 1})
+    date_format = workbook.add_format({'num_format': 'dd/mm/yyyy', 'border': 1})
+    
+    # ============ FEUILLE 1 : CRITIQUE (> 2 ans) ============
+    worksheet_critique = workbook.add_worksheet("CRITIQUE (>2 ans)")
+    
+    headers = ['PN', 'Désignation', 'N° OF', 'Dernière production', 'Années écoulées', 'Statut']
+    for col, header in enumerate(headers):
+        worksheet_critique.write(0, col, header, header_format)
+    
+    articles_critiques = ArticleFAI.objects.filter(statut='CRITIQUE').select_related('produit').order_by('produit__product_number')
+    
+    row = 1
+    for article in articles_critiques:
+        annees = self.get_annees_ecoules(article.derniere_production) if article.derniere_production else 0
+        
+        worksheet_critique.write(row, 0, article.produit.product_number, critique_format)
+        worksheet_critique.write(row, 1, article.produit.designation or '-', critique_format)
+        worksheet_critique.write(row, 2, article.numero_of or '-', critique_format)
+        worksheet_critique.write(row, 3, article.derniere_production if article.derniere_production else '-', date_format if article.derniere_production else critique_format)
+        worksheet_critique.write(row, 4, f"{annees} ans" if annees else '-', critique_format)
+        worksheet_critique.write(row, 5, 'CRITIQUE', critique_format)
+        row += 1
+    
+    worksheet_critique.set_column('A:A', 20)
+    worksheet_critique.set_column('B:B', 40)
+    worksheet_critique.set_column('C:C', 15)
+    worksheet_critique.set_column('D:D', 15)
+    worksheet_critique.set_column('E:E', 15)
+    worksheet_critique.set_column('F:F', 12)
+    
+    # ============ FEUILLE 2 : URGENT (1.8-2 ans) ============
+    worksheet_urgent = workbook.add_worksheet("URGENT (1.8-2 ans)")
+    
+    for col, header in enumerate(headers):
+        worksheet_urgent.write(0, col, header, header_format)
+    
+    articles_urgents = ArticleFAI.objects.filter(statut='URGENT').select_related('produit').order_by('produit__product_number')
+    
+    row = 1
+    for article in articles_urgents:
+        annees = self.get_annees_ecoules(article.derniere_production) if article.derniere_production else 0
+        
+        worksheet_urgent.write(row, 0, article.produit.product_number, urgent_format)
+        worksheet_urgent.write(row, 1, article.produit.designation or '-', urgent_format)
+        worksheet_urgent.write(row, 2, article.numero_of or '-', urgent_format)
+        worksheet_urgent.write(row, 3, article.derniere_production if article.derniere_production else '-', date_format if article.derniere_production else urgent_format)
+        worksheet_urgent.write(row, 4, f"{annees} ans" if annees else '-', urgent_format)
+        worksheet_urgent.write(row, 5, 'URGENT', urgent_format)
+        row += 1
+    
+    worksheet_urgent.set_column('A:A', 20)
+    worksheet_urgent.set_column('B:B', 40)
+    worksheet_urgent.set_column('C:C', 15)
+    worksheet_urgent.set_column('D:D', 15)
+    worksheet_urgent.set_column('E:E', 15)
+    worksheet_urgent.set_column('F:F', 12)
+    
+    # ============ FEUILLE 3 : Synthèse ============
+    worksheet_synth = workbook.add_worksheet("Synthèse")
+    
+    synth_headers = ['Statut', 'Nombre', 'Seuil', 'Action recommandée']
+    for col, header in enumerate(synth_headers):
+        worksheet_synth.write(0, col, header, header_format)
+    
+    stats = self.get_statistiques()
+    seuils_desc = {
+        'CRITIQUE': {'seuil': '> 2 ans', 'action': 'Production immédiate requise'},
+        'URGENT': {'seuil': '1.8 - 2 ans', 'action': 'Planifier production sous 2 semaines'},
+        'ALERTE': {'seuil': '1.5 - 1.8 ans', 'action': 'À surveiller, planifier prochainement'},
+        'INFO': {'seuil': '< 1.5 an', 'action': 'OK - Production récente'}
+    }
+    
+    row = 1
+    for statut, count in stats.items():
+        worksheet_synth.write(row, 0, statut)
+        worksheet_synth.write(row, 1, count)
+        worksheet_synth.write(row, 2, seuils_desc.get(statut, {}).get('seuil', '-'))
+        worksheet_synth.write(row, 3, seuils_desc.get(statut, {}).get('action', '-'))
+        row += 1
+    
+    worksheet_synth.set_column('A:A', 15)
+    worksheet_synth.set_column('B:B', 10)
+    worksheet_synth.set_column('C:C', 20)
+    worksheet_synth.set_column('D:D', 35)
+    
+    workbook.close()
+    output.seek(0)
+    
+    return output
+
+def envoyer_alertes_email(self, destinataires=None):
+    """Envoie un email avec fichier Excel des alertes (sans liste dans le corps)"""
+    if not destinataires:
+        destinataires = [settings.NOTIFICATION_RESPONSABLE_EMAIL]
+    
+    articles_critiques = ArticleFAI.objects.filter(statut='CRITIQUE')
+    articles_urgents = ArticleFAI.objects.filter(statut='URGENT')
+    
+    nb_critique = articles_critiques.count()
+    nb_urgent = articles_urgents.count()
+    
+    if nb_critique == 0 and nb_urgent == 0:
+        return {'success': True, 'message': 'Aucune alerte à envoyer'}
+    
+    # Générer le fichier Excel
+    excel_file = self.exporter_alertes_excel()
+    
+    # Préparer l'email (corps court sans liste de PN)
+    sujet = f"[FAI] Alerte stocks - {nb_critique} critique(s), {nb_urgent} urgent(s)"
+    
+    message_html = render_to_string('reclamations/emails/fai_alerte_email.html', {
+        'nb_critique': nb_critique,
+        'nb_urgent': nb_urgent,
+        'date_analyse': date.today(),
+        'site_url': settings.SITE_URL,
+        'seuils': {
+            'critique': '> 2 ans',
+            'urgent': '1.8 - 2 ans',
+            'alerte': '1.5 - 1.8 ans',
+            'info': '< 1.5 an'
+        }
+    })
+    
+    message_texte = f"""
+    ALERTE FAI - First Article Inspection
+    
+    Date: {date.today()}
+    
+    Résumé:
+    - {nb_critique} article(s) en statut CRITIQUE (> 2 ans sans production)
+    - {nb_urgent} article(s) en statut URGENT (1.8 - 2 ans sans production)
+    
+    Consultez le fichier Excel joint pour la liste détaillée.
+    
+    Accéder au tableau de bord: {settings.SITE_URL}/fai/liste/
+    """
+    
+    try:
+        send_mail(
+            subject=sujet,
+            message=message_texte,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=destinataires,
+            html_message=message_html,
+            fail_silently=False,
+            attachments=[('alertes_fai.xlsx', excel_file.getvalue(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')]
+        )
+        return {'success': True, 'message': f'Email envoyé à {", ".join(destinataires)}'}
+        
+    except Exception as e:
+        logger.error(f"Erreur envoi email FAI: {e}")
+        return {'success': False, 'error': str(e)}
+  
+@login_required
+def envoyer_alertes_fai_email(request):
+    """Envoie les alertes FAI par email"""
+    if request.method == 'POST':
+        destinataires = request.POST.getlist('destinataires')
+        if not destinataires:
+            destinataires = [settings.NOTIFICATION_RESPONSABLE_EMAIL]
+        
+        service = FAIService()
+        resultat = service.envoyer_alertes_email(destinataires)
+        
+        if resultat['success']:
+            messages.success(request, resultat['message'])
+        else:
+            messages.error(request, f"Erreur: {resultat.get('error', 'Erreur inconnue')}")
+        
+        return redirect('reclamations:liste_fai')
+    
+    service = FAIService()
+    articles_alertes = service.get_articles_a_alerter()
+    
+    # Compter par statut pour l'affichage
+    nb_critique = articles_alertes.filter(statut='CRITIQUE').count()
+    nb_urgent = articles_alertes.filter(statut='URGENT').count()
+    
+    context = {
+        'articles_alertes': articles_alertes,
+        'destinataires_par_defaut': settings.NOTIFICATION_RESPONSABLE_EMAIL,
+        'nb_critique': nb_critique,
+        'nb_urgent': nb_urgent,
+    }
+    return render(request, 'reclamations/fai/envoyer_alertes.html', context)
+

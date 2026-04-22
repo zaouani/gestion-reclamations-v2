@@ -72,7 +72,9 @@ urlpatterns = [
     path('export/dashboard/pdf/', views.export_dashboard_pdf, name='export_dashboard_pdf'),
     path('export/reclamations/excel/', views.export_reclamations_excel, name='export_reclamations_excel'),
     path('export/dashboard/excel/', views.export_dashboard_excel, name='export_dashboard_excel'),
-    
+    path('taux-recurrence-nc/', views.taux_recurrence_nc, name='taux_recurrence_nc'),
+    path('exporter-recurrence-nc/', views.exporter_recurrence_nc_excel, name='exporter_recurrence_nc'),
+
     # Imports
     path('import/produits/', views.import_produits_excel, name='import_produits'),
     path('import/clients/', views.import_clients_excel, name='import_clients'),
@@ -91,37 +93,15 @@ urlpatterns = [
     path('api/chatbot/', views.api_chatbot, name='api_chatbot'),
     path('api/chatbot/suggestions/', views.get_chatbot_suggestions, name='chatbot_suggestions'),
 
-    #AMDEC
-    path('amdec/', views.amdec_produit, name='amdec_produit'),
-    path('amdec/produit/<int:produit_id>/', views.amdec_produit, name='amdec_produit_detail'),
-    path('amdec/export-pdf/', views.amdec_export_pdf, name='amdec_export_pdf'),
-    path('amdec/export-pdf/<int:produit_id>/', views.amdec_export_pdf, name='amdec_export_pdf_detail'),
-    path('amdec/export-excel/', views.amdec_export_excel, name='amdec_export_excel'),
-    path('amdec/export-excel/<int:produit_id>/', views.amdec_export_excel, name='amdec_export_excel_detail'),
-
     #8D
     path('reclamation/<int:pk>/8d/', views.huitd_detail, name='huitd_detail'),
     path('reclamation/8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
 
-        # ================ GESTION FAI ================
-    path('fai/verifier/', views.verifier_alertes_fai, name='verifier_alertes_fai'),
-    path('fai/alertes/', views.liste_alertes_fai, name='liste_alertes_fai'),
-    path('fai/alertes/<int:pk>/traiter/', views.traiter_alerte_fai, name='traiter_alerte_fai'),
-    path('fai/alertes/envoyer/', views.envoyer_alertes_fai, name='envoyer_alertes_fai'),
-    path('fai/alertes/of/<int:of_id>/', views.alertes_par_of, name='alertes_par_of'),
-    
-    # Gestion des OF
-    path('fai/of/', views.liste_of, name='liste_of'),
-    path('fai/of/<int:pk>/', views.detail_of, name='detail_of'),
-    path('fai/of/importer/', views.importer_of_erp, name='importer_of_erp'),
-    path('fai/of/<int:pk>/fermer/', views.fermer_of, name='fermer_of'),
-    
-    # Gestion des produits FAI
-    path('fai/produits/', views.liste_produits_fai, name='liste_produits_fai'),
-    path('fai/produits/<int:pk>/', views.detail_produit_fai, name='detail_produit_fai'),
-    path('fai/produits/<int:pk>/inspection/', views.enregistrer_inspection_fai, name='enregistrer_inspection_fai'),
-    
-    # API pour l'ERP (intégration)
-    path('api/erp/importer-of/', views.api_importer_of, name='api_importer_of'),
-    path('api/erp/statut-of/', views.api_statut_of, name='api_statut_of'),
+    # ================ GESTION FAI ================
+    path('fai/importer/', views.importer_fai, name='importer_fai'),
+    path('fai/configurer-chemin/', views.configurer_chemin_fai, name='configurer_chemin_fai'),
+    path('fai/synchroniser/', views.synchroniser_fai, name='synchroniser_fai'),
+    path('fai/liste/', views.liste_fai, name='liste_fai'),
+    path('fai/exporter-alertes/', views.exporter_alertes_fai, name='exporter_alertes_fai'),
+    path('fai/envoyer-alertes/', views.envoyer_alertes_fai_email, name='envoyer_alertes_email'),
 ]

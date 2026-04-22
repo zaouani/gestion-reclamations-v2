@@ -79,11 +79,17 @@
             </h1>
             <p class="text-muted">Analyse de la fréquence des descriptions de non-conformité à travers tous les produits</p>
         </div>
+        <div class="btn-group" role="group">
+
         <div class="col text-end">
+            <a href="{% url 'reclamations:exporter_recurrence_nc' %}" class="btn btn-success">
+                <i class="fas fa-file-excel me-1"></i> Exporter en Excel
+            </a>
             <a href="{% url 'reclamations:dashboard' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>Retour
             </a>
         </div>
+
     </div>
     
     <!-- Statistiques globales -->

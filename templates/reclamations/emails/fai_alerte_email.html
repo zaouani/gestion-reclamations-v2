@@ -1,0 +1,64 @@
+<!-- reclamations/templates/reclamations/emails/fai_alerte_email.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #dc3545; color: white; padding: 20px; text-align: center; border-radius: 5px; }
+        .content { padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin-top: 20px; }
+        .statut-critique { color: #dc3545; font-weight: bold; }
+        .statut-urgent { color: #fd7e14; font-weight: bold; }
+        .footer { margin-top: 20px; padding: 10px; text-align: center; font-size: 12px; color: #666; }
+        .btn { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; }
+        .summary { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; }
+        .badge-danger { background-color: #dc3545; color: white; }
+        .badge-warning { background-color: #fd7e14; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🚨 Alerte FAI - First Article Inspection</h2>
+        </div>
+        <div class="content">
+            <h3>Résumé des alertes</h3>
+            <p>Date d'analyse : <strong>{{ date_analyse|date:"d/m/Y" }}</strong></p>
+            
+            <div class="summary">
+                <h4>📊 Synthèse</h4>
+                <ul>
+                    <li>🔴 <strong class="statut-critique">{{ nb_critique }} article(s) en statut CRITIQUE</strong> - Production arrêtée depuis <strong>> 2 ans</strong></li>
+                    <li>🟠 <strong class="statut-urgent">{{ nb_urgent }} article(s) en statut URGENT</strong> - Production arrêtée depuis <strong>1.8 - 2 ans</strong></li>
+                </ul>
+            </div>
+            
+            <h4>📎 Fichier joint</h4>
+            <p>Le fichier Excel <strong>alertes_fai.xlsx</strong> contient :</p>
+            <ul>
+                <li><strong>Onglet "CRITIQUE (>2 ans)"</strong> : Liste détaillée des articles critiques</li>
+                <li><strong>Onglet "URGENT (1.8-2 ans)"</strong> : Liste détaillée des articles urgents</li>
+                <li><strong>Onglet "Synthèse"</strong> : Récapitulatif des quantités par statut</li>
+            </ul>
+            
+            <h4>⚡ Actions recommandées</h4>
+            <ul>
+                <li><strong class="statut-critique">Critique (>2 ans)</strong> : Lancer une production <strong>immédiatement</strong></li>
+                <li><strong class="statut-urgent">Urgent (1.8-2 ans)</strong> : Planifier une production <strong>dans les 2 semaines</strong></li>
+            </ul>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ site_url }}/fai/liste/" class="btn">📊 Voir le tableau de bord FAI</a>
+            </div>
+            
+            <hr>
+            <p><small><em>Cet email est généré automatiquement. Pour toute question, contactez le service qualité.</em></small></p>
+        </div>
+        <div class="footer">
+            <p>Ne pas répondre à cet email.</p>
+        </div>
+    </div>
+</body>
+</html>

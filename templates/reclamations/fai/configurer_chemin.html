@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Configuration FAI - Source Excel{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-folder-open"></i> Configuration du fichier source FAI
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Configurez le chemin d'accès au fichier Excel provenant de l'ERP contenant les dates de dernière production.
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="chemin_fichier" class="form-label">Chemin du fichier Excel :</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="chemin_fichier" 
+                                   name="chemin_fichier" 
+                                   value="{{ chemin_actuel }}"
+                                   placeholder="Ex: C:/erp_export/production.xlsx"
+                                   required>
+                            <div class="form-text">
+                                Indiquez le chemin complet vers votre fichier Excel exporté depuis l'ERP
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Enregistrer le chemin
+                            </button>
+                            <a href="{% url 'reclamations:liste_fai' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Retour à la liste
+                            </a>
+                        </div>
+                    </form>
+                    
+                    {% if chemin_actuel %}
+                    <hr>
+                    <div class="alert alert-success mt-3">
+                        <i class="fas fa-check-circle"></i> 
+                        <strong>Chemin actuellement configuré :</strong><br>
+                        <code>{{ chemin_actuel }}</code>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-question-circle"></i> Format du fichier attendu</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Le fichier Excel doit contenir les colonnes suivantes :</h6>
+                    <ul>
+                        <li><strong>PN</strong> - Numéro de pièce / Product Number</li>
+                        <li><strong>OF</strong> - Numéro d'ordre de fabrication</li>
+                        <li><strong>DATE_DERNIERE_PRODUCTION</strong> - Date de dernière production</li>
+                    </ul>
+                    <div class="alert alert-warning mt-2">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Note :</strong> Les articles sans production depuis plus de 90 jours seront marqués comme "URGENT" ou "CRITIQUE".
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Liste des articles FAI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col">
+            <h2>
+                <i class="fas fa-microscope"></i> First Article Inspection (FAI)
+                <small class="text-muted">Suivi des dernières productions</small>
+            </h2>
+            <p class="text-muted">Dernière analyse : {{ date_analyse|date:"d/m/Y" }}</p>
+        </div>
+        <div class="col text-end">
+            <div class="btn-group">
+                <a href="{% url 'reclamations:configurer_chemin_fai' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-folder-open"></i> Configurer source
+                </a>
+                <a href="{% url 'reclamations:synchroniser_fai' %}" class="btn btn-primary" onclick="return confirm('Synchroniser avec le fichier Excel ?')">
+                    <i class="fas fa-sync-alt"></i> Synchroniser
+                </a>
+                <a href="{% url 'reclamations:importer_fai' %}" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> Importer fichier
+                </a>
+                <a href="{% url 'reclamations:envoyer_alertes_email' %}" class="btn btn-info">
+                    <i class="fas fa-envelope"></i> Envoyer alertes
+                </a>
+                <a href="{% url 'reclamations:exporter_alertes_fai' %}" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> Exporter alertes
+                </a>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartes statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">CRITIQUE</h5>
+                    <h2 class="mb-0">{{ statistiques.CRITIQUE|default:0 }}</h2>
+                    <small>> 2 ans sans production</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card" style="background-color: #fd7e14; color: white;">
+                <div class="card-body">
+                    <h5 class="card-title">URGENT</h5>
+                    <h2 class="mb-0">{{ statistiques.URGENT|default:0 }}</h2>
+                    <small>1.8 - 2 ans</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">ALERTE</h5>
+                    <h2 class="mb-0">{{ statistiques.ALERTE|default:0 }}</h2>
+                    <small>1.5 - 1.8 ans</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">INFO</h5>
+                    <h2 class="mb-0">{{ statistiques.INFO|default:0 }}</h2>
+                    <small>< 1.5 an</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et filtre -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="mb-4">
+                <div class="row">
+                    <div class="col-md-3">
+                        <input type="text" name="recherche_pn" class="form-control" 
+                            value="{{ request.GET.recherche_pn|default:'' }}" 
+                            placeholder="Rechercher PN">
+                    </div>
+                    <div class="col-md-2">
+                        <select name="statut" class="form-select">
+                            <option value="">Tous</option>
+                            <option value="CRITIQUE" {% if request.GET.statut == 'CRITIQUE' %}selected{% endif %}>CRITIQUE</option>
+                            <option value="URGENT" {% if request.GET.statut == 'URGENT' %}selected{% endif %}>URGENT</option>
+                            <option value="ALERTE" {% if request.GET.statut == 'ALERTE' %}selected{% endif %}>ALERTE</option>
+                            <option value="INFO" {% if request.GET.statut == 'INFO' %}selected{% endif %}>INFO</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary">Filtrer</button>
+                        <a href="{% url 'reclamations:liste_fai' %}" class="btn btn-secondary">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau des résultats -->
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> 
+                    Liste des articles FAI
+                    <span class="badge bg-secondary ms-2">{{ articles_pagines.paginator.count }} articles</span>
+                </h5>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if articles_pagines %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>PN</th>
+                            <th>Désignation</th>
+                            <th>N° OF</th>
+                            <th>Dernière production</th>
+                            <th>Âge</th>
+                            <th>Statut</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for article in articles_pagines %}
+                        <tr>
+                            <td>{{ article.produit.product_number }}</td>
+                            <td>{{ article.produit.designation|default:"-"|truncatechars:50 }}</td>
+                            <td>{{ article.numero_of|default:"-" }}</td>
+                            <td>
+                                {% if article.derniere_production %}
+                                    {{ article.derniere_production|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">Jamais</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if article.derniere_production %}
+                                    {{ article.derniere_production|timesince }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if article.statut == 'CRITIQUE' %}
+                                    <span class="badge bg-danger">CRITIQUE</span>
+                                {% elif article.statut == 'URGENT' %}
+                                    <span class="badge" style="background-color: #fd7e14;">URGENT</span>
+                                {% elif article.statut == 'ALERTE' %}
+                                    <span class="badge bg-warning text-dark">ALERTE</span>
+                                {% else %}
+                                    <span class="badge bg-info">INFO</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="alert('Détails du produit {{ article.produit.product_number }}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if articles_pagines.paginator.num_pages > 1 %}
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if articles_pagines.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&statut={{ request.GET.statut|default:'' }}&recherche_pn={{ request.GET.recherche_pn|default:'' }}&per_page={{ request.GET.per_page|default:'20' }}">
+                            &laquo; Premier
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ articles_pagines.previous_page_number }}&statut={{ request.GET.statut|default:'' }}&recherche_pn={{ request.GET.recherche_pn|default:'' }}&per_page={{ request.GET.per_page|default:'20' }}">
+                            Précédent
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ articles_pagines.number }} / {{ articles_pagines.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if articles_pagines.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ articles_pagines.next_page_number }}&statut={{ request.GET.statut|default:'' }}&recherche_pn={{ request.GET.recherche_pn|default:'' }}&per_page={{ request.GET.per_page|default:'20' }}">
+                            Suivant
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ articles_pagines.paginator.num_pages }}&statut={{ request.GET.statut|default:'' }}&recherche_pn={{ request.GET.recherche_pn|default:'' }}&per_page={{ request.GET.per_page|default:'20' }}">
+                            Dernier &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            
+            <div class="text-center text-muted small">
+                Affichage de {{ articles_pagines.start_index }} à {{ articles_pagines.end_index }} 
+                sur {{ articles_pagines.paginator.count }} articles
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle fa-2x mb-2"></i>
+                <p>Aucun article trouvé.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-submit quand on change le filtre ou le nombre par page
+document.getElementById('statutFilter')?.addEventListener('change', function() {
+    const form = document.getElementById('filterForm');
+    // Supprimer le paramètre page quand on change de filtre
+    const url = new URL(window.location.href);
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+});
+
+document.getElementById('perPage')?.addEventListener('change', function() {
+    const form = document.getElementById('filterForm');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('page');
+    url.searchParams.set('per_page', this.value);
+    window.location.href = url.toString();
+});
+
+// Recherche avec Enter
+document.getElementById('recherche_pn')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        const form = document.getElementById('filterForm');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('page');
+        url.searchParams.set('recherche_pn', this.value);
+        window.location.href = url.toString();
+    }
+});
+</script>
+{% endblock %}
