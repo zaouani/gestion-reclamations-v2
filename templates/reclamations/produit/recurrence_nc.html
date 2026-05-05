@@ -60,6 +60,45 @@
         border-radius: 10px;
         color: #03316e;
     }
+    
+    .filter-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .filter-bar .form-label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .btn-imputation {
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+    
+    .btn-imputation.active {
+        font-weight: bold;
+    }
+    
+    .btn-detail {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    
+    .btn-detail:hover {
+        transform: translateX(3px);
+    }
+    
     @media (max-width: 768px) {
         .stat-card h2 { font-size: 1.5rem; }
         .description-cell { max-width: 200px; }
@@ -77,20 +116,82 @@
                 <i class="fas fa-chart-line text-primary me-2"></i>
                 Taux de récurrence des non-conformités
             </h1>
-            <p class="text-muted">Analyse de la fréquence des descriptions de non-conformité à travers tous les produits</p>
+            <p class="text-muted">
+                Analyse de la fréquence des défauts 
+                <span class="badge bg-primary">{{ imputation_label }}</span>
+            </p>
         </div>
-        <div class="btn-group" role="group">
-
         <div class="col text-end">
-            <a href="{% url 'reclamations:exporter_recurrence_nc' %}" class="btn btn-success">
+            <a href="{% url 'reclamations:dashboard_pdca' %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-tasks"></i> Dashboard PDCA
+            </a>
+            <a href="{% url 'reclamations:exporter_recurrence_nc' %}" class="btn btn-success me-2">
                 <i class="fas fa-file-excel me-1"></i> Exporter en Excel
             </a>
-            <a href="{% url 'reclamations:dashboard' %}" class="btn btn-outline-secondary">
+            <a href="{% url 'reclamations:liste' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>Retour
             </a>
         </div>
-
     </div>
+    
+    <!-- Barre de recherche et filtres -->
+    <div class="filter-bar">
+        <form method="get" id="filterForm">
+            <div class="row g-3 align-items-end">
+                <!-- Recherche -->
+                <div class="col-md-6">
+                    <label class="form-label">
+                        <i class="fas fa-search me-1"></i> Rechercher un défaut
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white">
+                            <i class="fas fa-search text-muted"></i>
+                        </span>
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Ex: Compression, Défaut esthétique..." 
+                               value="{{ search }}">
+                        {% if search %}
+                        <a href="?imputation={{ filtre_imputation }}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i>
+                        </a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filtre Imputation -->
+                <div class="col-md-6">
+                    <label class="form-label">
+                        <i class="fas fa-filter me-1"></i> Imputation
+                    </label>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for value, label in imputation_choices %}
+                        <a href="?imputation={{ value }}{% if search %}&search={{ search }}{% endif %}" 
+                           class="btn btn-outline-primary btn-imputation {% if filtre_imputation == value %}active{% endif %}">
+                            {{ label }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Résultat de la recherche -->
+    {% if search %}
+    <div class="alert alert-info mb-3">
+        <i class="fas fa-search me-2"></i>
+        <strong>{{ descriptions|length }}</strong> résultat(s) trouvé(s) pour 
+        <strong>"{{ search }}"</strong>
+        dans <strong>{{ imputation_label }}</strong>
+        <a href="?imputation={{ filtre_imputation }}" class="btn btn-sm btn-outline-secondary ms-2">
+            <i class="fas fa-times"></i> Effacer
+        </a>
+    </div>
+    {% endif %}
     
     <!-- Statistiques globales -->
     <div class="row g-4 mb-4">
@@ -108,7 +209,7 @@
                 <div class="card-body text-center">
                     <i class="fas fa-chart-bar fs-1 mb-2 opacity-50"></i>
                     <h2 class="mb-0">{{ total_occurences_nc }}</h2>
-                    <p>Total occurrences</p>
+                    <p>Total réclamations concernées</p>
                 </div>
             </div>
         </div>
@@ -117,7 +218,7 @@
                 <div class="card-body text-center">
                     <i class="fas fa-file-alt fs-1 mb-2 opacity-50"></i>
                     <h2 class="mb-0">{{ total_reclamations_cim }}</h2>
-                    <p>Reclamation (CIM)</p>
+                    <p>Total réclamations ({{ imputation_label }})</p>
                 </div>
             </div>
         </div>
@@ -125,10 +226,12 @@
     
     <!-- Liste des défauts -->
     <div class="card shadow-sm">
-        <div class="card-header bg-white border-bottom">
-            <i class="fas fa-ranking-star text-primary me-2"></i>
-            <strong>Classement des non-conformités par fréquence</strong>
-            <span class="badge bg-secondary ms-2">{{ descriptions|length }} défaut(s)</span>
+        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-ranking-star text-primary me-2"></i>
+                <strong>Classement des non-conformités par fréquence</strong>
+            </div>
+            <span class="badge bg-secondary">{{ descriptions|length }} défaut(s)</span>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -137,12 +240,13 @@
                         <tr>
                             <th style="width: 5%">#</th>
                             <th style="width: 35%">Description du défaut</th>
-                            <th style="width: 10%" class="text-end">Occurrences</th>
+                            <th style="width: 10%" class="text-end">Réclamations</th>
                             <th style="width: 10%" class="text-end">Quantité</th>
                             <th style="width: 10%" class="text-end">Produits</th>
-                            <th style="width: 20%" class="text-end">Taux</th>
-                            <th style="width: 10%" class="text-center">Actions</th>
-                         </thead>
+                            <th style="width: 20%" class="text-end">Taux de récurrence</th>
+                            <th style="width: 10%" class="text-center">Détail</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for desc in descriptions %}
                         <tr>
@@ -152,14 +256,14 @@
                                 {% if desc.nb_produits > 1 %}
                                 <br><small class="text-muted"><i class="fas fa-cube me-1"></i>{{ desc.nb_produits }} produits concernés</small>
                                 {% endif %}
-                             </td>
+                            </td>
                             <td class="text-end align-middle">
                                 <span class="badge bg-danger badge-occurrence">{{ desc.nb_occurences }}</span>
-                             </td>
+                            </td>
                             <td class="text-end align-middle">{{ desc.quantite_totale|floatformat:0 }}</td>
                             <td class="text-end align-middle">
                                 <span class="badge bg-info badge-occurrence">{{ desc.nb_produits }}</span>
-                             </td>
+                            </td>
                             <td class="text-end align-middle" style="width: 180px;">
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="progress flex-grow-1" style="height: 8px;">
@@ -176,35 +280,48 @@
                                         {{ desc.taux_recurrence }}%
                                     </small>
                                 </div>
-                             </td>
+                            </td>
                             <td class="text-center align-middle">
                                 <a href="{% url 'reclamations:detail_recurrence_nc' desc.description|urlencode %}" 
-                                   class="btn btn-sm btn-outline-info" title="Voir le détail">
-                                    <i class="fas fa-chart-line"></i>
+                                   class="btn btn-outline-primary btn-detail" title="Voir le détail">
+                                    <i class="fas fa-arrow-right"></i>
                                 </a>
-                             </td>
-                          </tr>
+                            </td>
+                        </tr>
                         {% empty %}
-                          <tr>
+                        <tr>
                             <td colspan="7" class="text-center py-5">
                                 <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                                <p class="lead mb-0">Aucune donnée disponible</p>
-                                <small class="text-muted">Créez des réclamations pour voir les statistiques</small>
-                             </td>
-                          </tr>
+                                <p class="lead mb-0">
+                                    {% if search %}
+                                    Aucun défaut trouvé pour "{{ search }}"
+                                    {% else %}
+                                    Aucune donnée disponible
+                                    {% endif %}
+                                </p>
+                                <small class="text-muted">
+                                    {% if search %}
+                                    Essayez un autre terme de recherche
+                                    {% else %}
+                                    Créez des réclamations pour voir les statistiques
+                                    {% endif %}
+                                </small>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
-                  </table>
+                </table>
             </div>
         </div>
         <div class="card-footer bg-white border-top">
-            <div class="alert alert-info mb-0">
+            <div class="alert alert-info mb-0 d-flex align-items-center flex-wrap">
                 <i class="fas fa-info-circle me-2"></i>
                 <strong>Légende :</strong>
                 <span class="badge bg-success ms-2">Taux &lt; 5% (Faible)</span>
                 <span class="badge bg-warning ms-2">Taux 5% - 15% (Modéré)</span>
                 <span class="badge bg-danger ms-2">Taux &gt; 15% (Élevé)</span>
-                <span class="ms-3 text-muted">Taux = (Occurrences du défaut / Total des occurrences) × 100</span>
+                <span class="ms-3 text-muted">| Taux = Réclamations avec le défaut / Total réclamations × 100</span>
+                <span class="ms-2 text-muted">| Imputation : {{ imputation_label }}</span>
             </div>
         </div>
     </div>
@@ -213,8 +330,8 @@
 
 {% block extra_js %}
 <script>
-    // Animation des progress bars au chargement
     document.addEventListener('DOMContentLoaded', function() {
+        // Animation des progress bars
         const progressBars = document.querySelectorAll('.progress-bar');
         progressBars.forEach(bar => {
             const width = bar.style.width;
@@ -222,15 +339,6 @@
             setTimeout(() => {
                 bar.style.width = width;
             }, 100);
-        });
-        
-        // Ajouter un tooltip sur les badges de produits
-        const productBadges = document.querySelectorAll('.badge-info');
-        productBadges.forEach(badge => {
-            if (badge.textContent > 1) {
-                badge.setAttribute('data-bs-toggle', 'tooltip');
-                badge.setAttribute('title', 'Nombre de produits différents concernés');
-            }
         });
     });
 </script>

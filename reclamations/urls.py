@@ -74,6 +74,7 @@ urlpatterns = [
     path('export/dashboard/excel/', views.export_dashboard_excel, name='export_dashboard_excel'),
     path('taux-recurrence-nc/', views.taux_recurrence_nc, name='taux_recurrence_nc'),
     path('exporter-recurrence-nc/', views.exporter_recurrence_nc_excel, name='exporter_recurrence_nc'),
+    path('recurrence/produits/export/', views.export_recurrence_produits_excel, name='export_recurrence_produits'),
 
     # Imports
     path('import/produits/', views.import_produits_excel, name='import_produits'),
@@ -93,9 +94,19 @@ urlpatterns = [
     path('api/chatbot/', views.api_chatbot, name='api_chatbot'),
     path('api/chatbot/suggestions/', views.get_chatbot_suggestions, name='chatbot_suggestions'),
 
-    #8D
-    path('reclamation/<int:pk>/8d/', views.huitd_detail, name='huitd_detail'),
-    path('reclamation/8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
+    # Analyse NC
+    path('<int:pk>/analyse/', views.analyse_nc_detail, name='analyse_nc_detail'),
+    path('analyse/nc/<int:pk>/modifier/', views.analyse_nc_modifier, name='analyse_nc_modifier'),
+
+    # 8D
+    path('8d/creer/<int:reclamation_id>/', views.huitd_creer, name='huitd_creer'),
+    path('8d/<int:pk>/', views.huitd_detail, name='huitd_detail'),
+    path('8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
+    path('8d/evidence/<int:pk>/supprimer/', views.huitd_supprimer_evidence, name='huitd_supprimer_evidence'),
+
+    # ========== PDCA ==========
+    path('pdca/dashboard/', views.dashboard_pdca, name='dashboard_pdca'),
+    path('pdca/<int:pk>/modifier/', views.pdca_modifier, name='pdca_modifier'),
 
     # ================ GESTION FAI ================
     path('fai/importer/', views.importer_fai, name='importer_fai'),

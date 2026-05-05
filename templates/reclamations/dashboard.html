@@ -1039,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: {{ imputation_labels|safe }},
             datasets: [{ 
                 data: {{ imputation_data|safe }}, 
-                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56','#FF9F45'] 
+                backgroundColor: ['#FF6384','#FC0956','#FF6004', '#36A2EB', '#FFCE56','#FF9F45'] 
             }]
         },
         options: { responsive: true, maintainAspectRatio: false }
@@ -1051,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', function() {
     (function() {
         try {
             const typologieData = {{ typologie_par_mois|safe }};
-            const colorsTypo = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'];
+            const colorsTypo = ['#FF6384', '#36A2EB','#FF6004','#FFCE56', '#4BC0C0'];
             const moisLabels = {{ mois_labels|safe }};
             
             safeCreateChart('chartTypologie', {
@@ -1183,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const canvas = document.getElementById('chartReactiviteUAP_{{ annee }}');
             if (canvas) {
                 new Chart(canvas, {
-                    type: 'line',                    // ← Changé en line
+                    type: 'line',                    
                     data: {
                         labels: moisLabels,
                         datasets: datasets

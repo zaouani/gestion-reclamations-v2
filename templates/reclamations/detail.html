@@ -2,6 +2,54 @@
 
 {% block title %}Détail - {{ reclamation.numero_reclamation }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .badge-CRITIQUE { background-color: #fadbd8; color: #922b21; }
+    .badge-ELEVEE { background-color: #fdebd0; color: #935116; }
+    .badge-MOYENNE { background-color: #fef9e7; color: #7d6608; }
+    .badge-BASSE { background-color: #eaecee; color: #616a6b; }
+    
+    .nc-card {
+        transition: all 0.3s ease;
+    }
+    
+    .nc-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .analyse-collapse {
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .cause-racine-display {
+        border-left: 3px solid #007bff;
+        padding-left: 12px;
+        margin: 8px 0;
+    }
+    
+    .action-mini-item {
+        border-bottom: 1px solid #eee;
+        padding: 8px 0;
+    }
+    
+    .action-mini-item:last-child {
+        border-bottom: none;
+    }
+    
+    .progress-micro {
+        height: 3px;
+        border-radius: 2px;
+    }
+    
+    .badge-statut-PLAN { background-color: #e8daef; color: #6c3483; }
+    .badge-statut-DO { background-color: #fadbd8; color: #922b21; }
+    .badge-statut-CHECK { background-color: #d6eaf8; color: #1a5276; }
+    .badge-statut-ACT { background-color: #d5f5e3; color: #1e8449; }
+    .badge-statut-CLOTURE { background-color: #d5f5e3; color: #1e8449; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="row mb-4">
@@ -21,8 +69,17 @@
             <a href="{% url 'reclamations:modifier_etats' reclamation.id %}" class="btn btn-warning">
                 <i class="fas fa-flag"></i> Modifier états
             </a>
-            <a href="{% url 'reclamations:huitd_detail' reclamation.id %}" class="btn btn-info">
-                <i class="fas fa-chart-line"></i> Fiche 8D
+            {% if reclamation.huitd %}
+                <a href="{% url 'reclamations:huitd_detail' reclamation.huitd.id %}" class="btn btn-info">
+                    <i class="fas fa-chart-line"></i> Voir 8D
+                </a>
+            {% else %}
+                <a href="{% url 'reclamations:huitd_creer' reclamation.id %}" class="btn btn-outline-info">
+                    <i class="fas fa-plus-circle"></i> Créer 8D
+                </a>
+            {% endif %}
+            <a href="{% url 'reclamations:dashboard_pdca' %}" class="btn btn-outline-primary">
+                <i class="fas fa-tasks"></i> Dashboard PDCA
             </a>
             <a href="{% url 'reclamations:supprimer_reclamation' reclamation.id %}" class="btn btn-danger">
                 <i class="fas fa-trash"></i> Supprimer
@@ -86,51 +143,196 @@
                 </div>
             </div>
 
+            <!-- ========== PRODUITS & ANALYSE NC INTÉGRÉE ========== -->
             <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-boxes"></i> Produits concernés</h5>
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-boxes"></i> Produits concernés & Analyse NC</h5>
+                    <span class="badge bg-light text-dark">
+                        {{ reclamation.lignes.all|length }} produit(s)
+                    </span>
                 </div>
                 <div class="card-body">
                     {% for ligne in reclamation.lignes.all %}
-                    <div class="border rounded p-3 mb-3">
-                        <div class="row">
+                    <div class="border rounded p-3 mb-4">
+                        <!-- Info produit -->
+                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <strong>{{ ligne.produit.product_number }}</strong>
                                 <br>
                                 <small class="text-muted">{{ ligne.produit.designation }}</small>
                             </div>
                             <div class="col-md-2">
-                                <span class="badge bg-info">Quantité: {{ ligne.quantite }}</span>
+                                <span class="badge bg-info">Qté: {{ ligne.quantite }}</span>
                             </div>
                             <div class="col-md-4">
                                 {% if ligne.site %}
                                 <span class="badge bg-success">Site: {{ ligne.site.nom }}</span>
-                                <br>
                                 {% endif %}
                                 {% if ligne.uap_concernee %}
                                 <span class="badge bg-secondary">UAP: {{ ligne.uap_concernee.nom }}</span>
-                                {% elif ligne.site and ligne.site.uap %}
-                                <span class="badge bg-secondary">UAP: {{ ligne.site.uap.nom }}</span>
                                 {% endif %}
                             </div>
                         </div>
-                        {% if ligne.description_non_conformite %}
-                        <div class="mt-2">
-                            <small><strong>Description:</strong> {{ ligne.description_non_conformite }}</small>
+                        
+                        <!-- Non-conformités avec analyse intégrée -->
+                        {% if ligne.non_conformites.all %}
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-exclamation-triangle text-warning"></i> 
+                            Non-conformités ({{ ligne.non_conformites.count }})
+                        </h6>
+                        
+                        {% for nc in ligne.non_conformites.all %}
+                        <div class="card nc-card mb-3 
+                            {% if nc.analyse and nc.analyse.statut == 'TERMINE' %}border-success
+                            {% elif nc.analyse and nc.analyse.statut == 'EN_COURS' %}border-warning
+                            {% elif nc.analyse %}border-secondary
+                            {% else %}border-danger{% endif %}">
+                            
+                            <!-- En-tête NC -->
+                            <div class="card-header d-flex justify-content-between align-items-center py-2" 
+                                 style="background-color: {% if nc.analyse and nc.analyse.statut == 'TERMINE' %}#d4edda{% elif nc.analyse and nc.analyse.statut == 'EN_COURS' %}#fff3cd{% else %}#f8f9fa{% endif %};">
+                                <div>
+                                    <strong>{{ nc.description }}</strong>
+                                    <span class="badge bg-dark ms-2">Qté: {{ nc.quantite }} pcs</span>
+                                    {% if nc.analyse %}
+                                        <span class="badge {% if nc.analyse.statut == 'TERMINE' %}bg-success{% elif nc.analyse.statut == 'EN_COURS' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-1">
+                                            {{ nc.analyse.get_statut_display }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger ms-1">Non analysée</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if nc.analyse %}
+                                    <button class="btn btn-sm btn-outline-primary me-1" type="button" 
+                                            data-bs-toggle="collapse" 
+                                            data-bs-target="#analyse-{{ nc.id }}" 
+                                            aria-expanded="false">
+                                        <i class="fas fa-chevron-down"></i> Détails
+                                    </button>
+                                    {% endif %}
+                                    <a href="{% url 'reclamations:analyse_nc_modifier' nc.id %}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-{% if nc.analyse %}edit{% else %}plus{% endif %}"></i> 
+                                        {% if nc.analyse %}Modifier{% else %}Analyser{% endif %}
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <!-- Zone d'analyse (collapsible) -->
+                            {% if nc.analyse %}
+                            <div class="collapse analyse-collapse" id="analyse-{{ nc.id }}">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <!-- Colonne gauche : Cause racine -->
+                                        <div class="col-md-6 border-end">
+                                            <h6 class="text-primary mb-3">
+                                                <i class="fas fa-search"></i> Cause racine
+                                            </h6>
+                                            
+                                            {% if nc.analyse.cause_racine %}
+                                            <div class="cause-racine-display">
+                                                <p class="mb-1">{{ nc.analyse.cause_racine|linebreaksbr }}</p>
+                                                {% if nc.analyse.methode_analyse %}
+                                                <small class="text-muted">
+                                                    <i class="fas fa-tools"></i> {{ nc.analyse.get_methode_analyse_display }}
+                                                </small>
+                                                {% endif %}
+                                            </div>
+                                            {% else %}
+                                            <div class="alert alert-warning py-2 mb-0">
+                                                <small><i class="fas fa-exclamation-circle"></i> Cause racine non définie</small>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Colonne droite : Actions PDCA -->
+                                        <div class="col-md-6">
+                                            <h6 class="text-success mb-3">
+                                                <i class="fas fa-tasks"></i> Actions PDCA
+                                                <a href="{% url 'reclamations:analyse_nc_modifier' nc.id %}" 
+                                                   class="btn btn-sm btn-outline-success ms-2">
+                                                    <i class="fas fa-plus"></i> Ajouter
+                                                </a>
+                                            </h6>
+                                            
+                                            {% if nc.analyse.actions_pdca.exists %}
+                                            <div class="list-group list-group-flush">
+                                                {% for action in nc.analyse.actions_pdca.all %}
+                                                <div class="action-mini-item">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div class="flex-grow-1">
+                                                            <strong>{{ action.titre|truncatechars:60 }}</strong>
+                                                            <div class="mt-1">
+                                                                <span class="badge badge-{{ action.priorite }} me-1">
+                                                                    {{ action.get_priorite_display }}
+                                                                </span>
+                                                                <span class="badge badge-statut-{{ action.statut }} me-1">
+                                                                    {{ action.get_statut_display }}
+                                                                </span>
+                                                                <small class="text-muted">{{ action.responsable }}</small>
+                                                            </div>
+                                                            <small class="text-muted">
+                                                                <i class="far fa-calendar-alt"></i> {{ action.date_cible|date:"d/m/Y" }}
+                                                                {% if action.date_realisation %}
+                                                                <span class="text-success ms-2">
+                                                                    <i class="fas fa-check-circle"></i> {{ action.date_realisation|date:"d/m/Y" }}
+                                                                </span>
+                                                                {% endif %}
+                                                            </small>
+                                                        </div>
+                                                        <a href="{% url 'reclamations:pdca_modifier' action.id %}" 
+                                                           class="btn btn-sm btn-outline-primary ms-2" target="_blank" 
+                                                           title="Modifier dans PDCA">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    </div>
+                                                    
+                                                    <!-- Micro barre de progression -->
+                                                    {% if action.pourcentage_avancement > 0 %}
+                                                    <div class="progress progress-micro mt-1">
+                                                        <div class="progress-bar bg-success" style="width: {{ action.pourcentage_avancement }}%"></div>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% else %}
+                                            <div class="text-center py-3 text-muted">
+                                                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                                <small>Aucune action définie</small>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <!-- Message si pas d'analyse -->
+                            <div class="card-body bg-light text-center py-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i> 
+                                    Cliquez sur <strong>Analyser</strong> pour définir la cause racine et les actions
+                                </small>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endif %}
-                        {% if ligne.commentaire %}
-                        <div class="mt-1">
-                            <small><strong>Commentaire:</strong> {{ ligne.commentaire }}</small>
-                        </div>
+                        {% endfor %}
+                        
+                        {% else %}
+                        <p class="text-muted fst-italic">Aucune non-conformité pour ce produit</p>
                         {% endif %}
                     </div>
                     {% empty %}
                     <p class="text-muted">Aucun produit associé</p>
                     {% endfor %}
                     
+                    <a href="{% url 'reclamations:ajouter_ligne' reclamation.id %}" class="btn btn-sm btn-outline-success mt-2">
+                        <i class="fas fa-plus"></i> Ajouter un produit
+                    </a>
                 </div>
             </div>
+            
             <div class="card">
                 <div class="card-header bg-light">
                     <h5 class="mb-0"><i class="fas fa-history"></i> Métadonnées</h5>
@@ -208,26 +410,26 @@
                 </div>
                 <div class="card-body">
                     <h6>Fichier 4D:</h6>
-                        <p>
-                            {% if reclamation.numero_4d %}
-                                <a href="{{ reclamation.numero_4d }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-file-excel"></i> Ouvrir le fichier 4D
-                                </a>
-                            {% else %}
-                                <span class="text-muted">4D non applicable</span>
-                            {% endif %}
-                        </p>
+                    <p>
+                        {% if reclamation.numero_4d %}
+                            <a href="{{ reclamation.numero_4d }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-file-excel"></i> Ouvrir le fichier 4D
+                            </a>
+                        {% else %}
+                            <span class="text-muted">4D non applicable</span>
+                        {% endif %}
+                    </p>
 
-                        <h6>Fichier 8D:</h6>
-                        <p>
-                            {% if reclamation.numero_8d %}
-                                <a href="{{ reclamation.numero_8d }}" target="_blank" class="btn btn-sm btn-outline-success">
-                                    <i class="fas fa-file-excel"></i> Ouvrir le fichier 8D
-                                </a>
-                            {% else %}
-                                <span class="text-muted">8D non applicable</span>
-                            {% endif %}
-                        </p>
+                    <h6>Fichier 8D:</h6>
+                    <p>
+                        {% if reclamation.numero_8d %}
+                            <a href="{{ reclamation.numero_8d }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-file-excel"></i> Ouvrir le fichier 8D
+                            </a>
+                        {% else %}
+                            <span class="text-muted">8D non applicable</span>
+                        {% endif %}
+                    </p>
                 </div>
             </div>
         </div>

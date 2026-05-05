@@ -2,6 +2,47 @@
 
 {% block title %}Détail NC - {{ description|truncatechars:50 }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .badge-CRITIQUE { background-color: #fadbd8; color: #922b21; }
+    .badge-ELEVEE { background-color: #fdebd0; color: #935116; }
+    .badge-MOYENNE { background-color: #fef9e7; color: #7d6608; }
+    .badge-BASSE { background-color: #eaecee; color: #616a6b; }
+    
+    .badge-statut-PLAN { background-color: #e8daef; color: #6c3483; }
+    .badge-statut-DO { background-color: #fadbd8; color: #922b21; }
+    .badge-statut-CHECK { background-color: #d6eaf8; color: #1a5276; }
+    .badge-statut-ACT { background-color: #d5f5e3; color: #1e8449; }
+    .badge-statut-CLOTURE { background-color: #d5f5e3; color: #1e8449; }
+    
+    .cause-card {
+        border-left: 4px solid #007bff;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .cause-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .action-card {
+        border-left: 4px solid #28a745;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .action-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="row mb-4">
@@ -10,6 +51,9 @@
             <p class="text-muted">{{ description }}</p>
         </div>
         <div class="col text-end">
+            <a href="{% url 'reclamations:dashboard_pdca' %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-tasks"></i> Dashboard PDCA
+            </a>
             <a href="{% url 'reclamations:taux_recurrence_produits' %}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Retour
             </a>
@@ -68,7 +112,8 @@
                                     <th>Occurrences</th>
                                     <th>Quantité</th>
                                     <th>Taux</th>
-                                 </thead>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {% for produit in produits %}
                                 <tr>
@@ -76,12 +121,12 @@
                                         <small class="text-muted">{{ produit.produit.designation|truncatechars:30 }}</small>
                                     </td>
                                     <td>{{ produit.nb_occurences }}</td>
-                                    <td >{{ produit.quantite_totale|floatformat:0 }}</td>
-                                    <td >{{ produit.taux }}%</td>
-                                 </tr>
+                                    <td>{{ produit.quantite_totale|floatformat:0 }}</td>
+                                    <td>{{ produit.taux }}%</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
-                         </table>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -101,19 +146,18 @@
                                     <th>Client</th>
                                     <th>Occurrences</th>
                                     <th>Quantité</th>
-                                 </thead>
                                 </tr>
+                            </thead>
                             <tbody>
                                 {% for client in clients %}
                                 <tr>
                                     <td>{{ client.ligne_reclamation__reclamation__client__nom }}</td>
-                                    <td >{{ client.nb_occurences }}</td>
+                                    <td>{{ client.nb_occurences }}</td>
                                     <td>{{ client.quantite_totale|floatformat:0 }}</td>
                                 </tr>
-                                
                                 {% endfor %}
                             </tbody>
-                         </table>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -156,7 +200,9 @@
                                     <th>Programme</th>
                                     <th>Quantité</th>
                                     <th>UAP</th>
-                                 </thead>
+                                    <th>Analyse</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {% for ligne in lignes %}
                                 <tr>
@@ -165,18 +211,165 @@
                                         <a href="{% url 'reclamations:detail_reclamation' ligne.reclamation.id %}">
                                             {{ ligne.reclamation.numero_reclamation }}
                                         </a>
-                                     </td>
-                                    <td>{{ ligne.reclamation.type_nc }}</td>
+                                    </td>
+                                    <td>{{ ligne.reclamation.get_type_nc_display }}</td>
                                     <td>{{ ligne.reclamation.client.nom }}</td>
                                     <td>{{ ligne.produit.product_number }}</td>
-                                    <td>{{ ligne.reclamation.programme.nom }}</td>
+                                    <td>{{ ligne.reclamation.programme.nom|default:"-" }}</td>
                                     <td>{{ ligne.quantite }}</td>
                                     <td>{{ ligne.uap_concernee.nom|default:"-" }}</td>
-                                 </tr>
+                                    <td>
+                                        {% if ligne.analyse %}
+                                            {% if ligne.analyse.cause_racine %}
+                                            <span class="badge bg-success" title="{{ ligne.analyse.cause_racine|truncatechars:100 }}">
+                                                <i class="fas fa-check"></i> Analysée
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-hourglass-half"></i> Partielle
+                                            </span>
+                                            {% endif %}
+                                        {% else %}
+                                        <span class="badge bg-secondary">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
-                         </table>
+                        </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white section-header">
+                    <h5 class="mb-0"><i class="fas fa-search me-2"></i> Causes racines identifiées</h5>
+                    <span class="badge bg-light text-primary">{{ causes_racines|length }} analyse(s)</span>
+                </div>
+                <div class="card-body">
+                    {% if causes_racines %}
+                    <div class="row">
+                        {% for cause in causes_racines %}
+                        <div class="col-md-6 mb-3">
+                            <div class="cause-card rounded p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <span class="badge {% if cause.statut == 'Terminé' %}bg-success{% elif cause.statut == 'En cours' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-2">
+                                            {{ cause.statut }}
+                                        </span>
+                                        {% if cause.methode %}
+                                        <span class="badge bg-info">{{ cause.methode }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">
+                                        <a href="{% url 'reclamations:detail_reclamation' cause.reclamation.id %}" class="text-decoration-none">
+                                            {{ cause.reclamation.numero_reclamation }}
+                                        </a>
+                                    </small>
+                                </div>
+                                <p class="mb-1">{{ cause.cause|truncatechars:200 }}</p>
+                                <small class="text-muted">
+                                    <i class="fas fa-box me-1"></i> {{ cause.produit.product_number }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        <p>Aucune cause racine identifiée pour ce défaut</p>
+                        <small>Les analyses sont disponibles depuis le détail de chaque réclamation</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== SECTION ACTIONS PDCA ========== -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white section-header">
+                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i> Actions PDCA mises en place</h5>
+                    <div>
+                        <span class="badge bg-light text-dark me-1">{{ actions_stats.total }} actions</span>
+                        <span class="badge bg-light text-success me-1">{{ actions_stats.terminees }} terminées</span>
+                        <span class="badge bg-light text-warning">{{ actions_stats.efficaces }} efficaces</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if actions_pdca %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Priorité</th>
+                                    <th>Statut</th>
+                                    <th>Responsable</th>
+                                    <th>Date cible</th>
+                                    <th>Réclamation</th>
+                                    <th>Produit</th>
+                                    <th>Avancement</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for action in actions_pdca %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ action.titre|truncatechars:80 }}</strong>
+                                        {% if action.efficacite != 'NON_EVALUE' %}
+                                        <br>
+                                        <small>
+                                            <i class="fas fa-{% if action.efficacite == 'EFFICACE' %}check-circle text-success{% elif action.efficacite == 'PARTIEL' %}adjust text-warning{% else %}times-circle text-danger{% endif %}"></i>
+                                            {{ action.get_efficacite_display }}
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ action.priorite }}">{{ action.get_priorite_display }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-statut-{{ action.statut }}">{{ action.get_statut_display }}</span>
+                                    </td>
+                                    <td><small>{{ action.responsable }}</small></td>
+                                    <td>
+                                        <small>
+                                            {{ action.date_cible|date:"d/m/Y" }}
+                                            {% if action.date_realisation %}
+                                            <br><span class="text-success">✓ {{ action.date_realisation|date:"d/m/Y" }}</span>
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'reclamations:detail_reclamation' action.analyse_nc.non_conformite.ligne_reclamation.reclamation.id %}" class="text-decoration-none">
+                                            <small>{{ action.analyse_nc.non_conformite.ligne_reclamation.reclamation.numero_reclamation }}</small>
+                                        </a>
+                                    </td>
+                                    <td><code>{{ action.analyse_nc.non_conformite.ligne_reclamation.produit.product_number }}</code></td>
+                                    <td>
+                                        <div class="progress" style="height: 6px; width: 60px;">
+                                            <div class="progress-bar bg-success" style="width: {{ action.pourcentage_avancement }}%"></div>
+                                        </div>
+                                        <small>{{ action.pourcentage_avancement }}%</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        <p>Aucune action PDCA définie pour ce défaut</p>
+                        <small>Les actions peuvent être ajoutées depuis le détail de chaque réclamation</small>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

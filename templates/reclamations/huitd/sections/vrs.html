@@ -1,0 +1,77 @@
+<!-- templates/reclamations/huitd/sections/vrs.html -->
+<div class="tab-pane fade" id="tab-vrs">
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">✅ VRS - Verification of Standards</h5>
+        </div>
+        <div class="card-body">
+            {% if huitd.vrs %}
+            <table class="table table-sm mb-3">
+                <tr>
+                    <td width="25%"><strong>Désignation :</strong></td>
+                    <td>{{ huitd.vrs.designation|default:"-" }}</td>
+                    <td width="15%"><strong>Nom :</strong></td>
+                    <td>{{ huitd.vrs.nom|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Site :</strong></td>
+                    <td>{{ huitd.vrs.site|default:"-" }}</td>
+                    <td><strong>Date :</strong></td>
+                    <td>{{ huitd.vrs.date|date:"d/m/Y"|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Suivant :</strong></td>
+                    <td colspan="3">{{ huitd.vrs.suivi|default:"PR-SM-06" }}</td>
+                </tr>
+            </table>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>6M</th>
+                            <th>Facteur probable</th>
+                            <th>Paramètre mesurable ?</th>
+                            <th>Standard / Exigence</th>
+                            <th>Données réelles (bonnes)</th>
+                            <th>Données réelles (mauvaises)</th>
+                            <th>Standard suivi ?</th>
+                            <th>Standard approprié ?</th>
+                            <th>Lien prouvé ?</th>
+                            <th>Facteur prouvé</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in huitd.ishikawa.facteurs.all %}
+                        <tr>
+                            <td><strong>{{ f.get_categorie_display }}</strong></td>
+                            <td>{{ f.facteur_probable|default:"-" }}</td>
+                            <td>{{ f.parametre_mesurable|default:"-" }}</td>
+                            <td>{{ f.standard_exigence|default:"-" }}</td>
+                            <td>{{ f.donnees_bonnes|default:"-" }}</td>
+                            <td>{{ f.donnees_mauvaises|default:"-" }}</td>
+                            <td class="text-center">
+                                {% if f.standard_suivi %}<span class="text-success">✅ Oui</span>{% else %}<span class="text-danger">❌ Non</span>{% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if f.standard_approprie %}<span class="text-success">✅ Oui</span>{% else %}<span class="text-danger">❌ Non</span>{% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if f.lien_prouve %}<span class="text-success">✅ Oui</span>{% else %}<span class="text-danger">❌ Non</span>{% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if f.facteur_prouve %}<span class="badge bg-success">✅ Prouvé</span>{% else %}<span class="badge bg-secondary">En cours</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="10" class="text-muted text-center">Aucun facteur VRS analysé</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-3">Aucune vérification des standards</p>
+            {% endif %}
+        </div>
+    </div>
+</div>

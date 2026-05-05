@@ -1,0 +1,156 @@
+<!-- templates/reclamations/huitd/huitd_detail.html -->
+{% extends 'base.html' %}
+
+{% block title %}8D - {{ huitd.reclamation.numero_reclamation }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nav-tabs .nav-link {
+        font-size: 0.85rem;
+        padding: 8px 15px;
+        border: none;
+        color: #666;
+        border-bottom: 3px solid transparent;
+    }
+    .nav-tabs .nav-link.active {
+        color: #2E86C1;
+        border-bottom: 3px solid #2E86C1;
+        font-weight: 600;
+        background: transparent;
+    }
+    .nav-tabs .nav-link:hover {
+        border-bottom-color: #ddd;
+    }
+    
+    .tab-content {
+        min-height: 400px;
+    }
+    
+    .huitd-header {
+        background: linear-gradient(135deg, #1a5276, #2e86c1);
+        color: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .badge-etat-OUVERT { background-color: #e74c3c; }
+    .badge-etat-EN_COURS { background-color: #f39c12; color: #333; }
+    .badge-etat-CLOTURE { background-color: #27ae60; }
+    
+    @media print {
+        .no-print { display: none !important; }
+        .tab-content > .tab-pane { display: block !important; opacity: 1 !important; }
+        .nav-tabs { display: none; }
+        .tab-pane { page-break-after: always; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="huitd-header">
+        <div class="row align-items-center">
+            <div class="col">
+                <h3 class="mb-1"> Démarche 8D</h3>
+                <p class="mb-0 opacity-75">
+                    {{ huitd.reclamation.numero_reclamation }} - {{ huitd.reclamation.client.nom }} |
+                    N° 8D : {{ huitd.numero_8d|default:"-" }}
+                </p>
+            </div>
+            <div class="col text-end">
+                <span class="badge badge-etat-{{ huitd.etat }} p-2 fs-6">{{ huitd.get_etat_display }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Boutons d'action -->
+    <div class="row mb-3 no-print">
+        <div class="col">
+            <a href="{% url 'reclamations:huitd_modifier' huitd.id %}" class="btn btn-warning me-2">
+                <i class="fas fa-edit"></i> Modifier
+            </a>
+            <button onclick="window.print()" class="btn btn-primary me-2">
+                <i class="fas fa-print"></i> Imprimer
+            </button>
+            <a href="{% url 'reclamations:detail_reclamation' huitd.reclamation.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+    
+    <!-- Navigation par onglets -->
+    <ul class="nav nav-tabs mb-3 no-print" id="huitdTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#tab-d0"> D0</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-d1"> D1</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-d2"> D2</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-5w2h"> 5W2H</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-ishikawa"> Ishikawa</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-vrs"> VRS</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-5p"> 5P</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-fh"> FH</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-causes"> Causes</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-actions"> Actions</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-alt"> Standard.</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-trans"> Leçons</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-decision"> Décision</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-evidences"> Preuves</a>
+        </li>
+    </ul>
+    
+    <!-- Contenu des onglets -->
+    <div class="tab-content">
+        {% include 'reclamations/huitd/sections/d0_identification.html' %}
+        {% include 'reclamations/huitd/sections/d1_equipe.html' %}
+        {% include 'reclamations/huitd/sections/d2_probleme.html' %}
+        {% include 'reclamations/huitd/sections/5w2h.html' %}
+        {% include 'reclamations/huitd/sections/ishikawa.html' %}
+        {% include 'reclamations/huitd/sections/vrs.html' %}
+        {% include 'reclamations/huitd/sections/5p.html' %}
+        {% include 'reclamations/huitd/sections/facteur_humain.html' %}
+        {% include 'reclamations/huitd/sections/causes_retenues.html' %}
+        {% include 'reclamations/huitd/sections/plan_action.html' %}
+        {% include 'reclamations/huitd/sections/alterations.html' %}
+        {% include 'reclamations/huitd/sections/transversalisation.html' %}
+        {% include 'reclamations/huitd/sections/decision.html' %}
+        {% include 'reclamations/huitd/sections/evidences.html' %}
+    </div>
+</div>
+{% endblock %}

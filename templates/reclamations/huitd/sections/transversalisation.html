@@ -1,0 +1,71 @@
+<!-- templates/reclamations/huitd/sections/transversalisation.html -->
+<div class="tab-pane fade" id="tab-trans">
+    <div class="card">
+        <div class="card-header" style="background-color:#16a085;color:white;">
+            <h5 class="mb-0">🔄 Leçons apprises - Transversalisation</h5>
+        </div>
+        <div class="card-body">
+            <!-- Question principale -->
+            <div class="mb-4">
+                <label class="fw-bold">
+                    Sur quels périmètres peut-on transversaliser les leçons apprises (process, produits…) ?
+                </label>
+                <div class="border rounded p-3 bg-light mt-2">
+                    {{ huitd.transversalisation|default:"Non défini"|linebreaksbr }}
+                </div>
+            </div>
+            
+            <!-- Actions de déploiement -->
+            <h6 class="fw-bold mb-3">Actions de déploiement :</h6>
+            
+            {% with actions_deploiement=huitd.actions.all %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Périmètre</th>
+                            <th>Action</th>
+                            <th>Pilote</th>
+                            <th>Échéance</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for action in actions_deploiement %}
+                            {% if action.type_action == 'AP' %}
+                            <tr>
+                                <td>{{ action.numero_cause|default:"-" }}</td>
+                                <td>{{ action.action }}</td>
+                                <td>{{ action.pilote|default:"-" }}</td>
+                                <td>{{ action.delai|date:"d/m/Y"|default:"-" }}</td>
+                                <td>
+                                    <span class="badge {% if action.statut == 'EFFICACE' %}bg-success{% elif action.statut == 'REALISE' %}bg-info{% else %}bg-warning{% endif %}">
+                                        {{ action.get_statut_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% empty %}
+                        <tr><td colspan="5" class="text-muted text-center">Aucune action de déploiement</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endwith %}
+            
+            <!-- Vérification efficacité -->
+            <hr>
+            <h6 class="fw-bold mb-3">
+                <i class="fas fa-check-double text-success"></i> 
+                Comment est vérifiée l'efficacité des actions (qui ? comment ?) ?
+            </h6>
+            <div class="border rounded p-3 bg-light">
+                {% if huitd.caracterisation.actions_suffisantes %}
+                <p class="text-success"><i class="fas fa-check-circle"></i> Actions jugées suffisantes pour éradiquer le problème</p>
+                {% else %}
+                <p class="text-warning"><i class="fas fa-exclamation-circle"></i> Actions en cours de validation</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

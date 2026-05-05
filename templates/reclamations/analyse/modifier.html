@@ -1,0 +1,207 @@
+<!-- templates/reclamations/analyse/modifier.html -->
+{% extends 'base.html' %}
+
+{% block title %}Analyse NC - {{ non_conformite.description|truncatechars:50 }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nc-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .action-row {
+        background-color: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+    }
+    
+    .btn-add-action {
+        border-style: dashed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-microscope text-primary"></i> Analyse de non-conformité</h1>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'reclamations:analyse_nc_detail' non_conformite.ligne_reclamation.reclamation.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+    
+    <!-- Info NC -->
+    <div class="nc-info">
+        <div class="row">
+            <div class="col-md-8">
+                <h5>{{ non_conformite.description }}</h5>
+                <p class="mb-0 opacity-75">
+                    Réclamation : {{ non_conformite.ligne_reclamation.reclamation.numero_reclamation }} | 
+                    Client : {{ non_conformite.ligne_reclamation.reclamation.client.nom }} |
+                    Produit : {{ non_conformite.ligne_reclamation.produit.product_number }}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-light text-dark">Qté : {{ non_conformite.quantite }} pcs</span>
+            </div>
+        </div>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Cause racine -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-search me-2"></i> Cause racine</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Cause racine identifiée</label>
+                    <textarea name="cause_racine" class="form-control" rows="4" 
+                              placeholder="Décrivez la cause racine identifiée...">{{ analyse.cause_racine }}</textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Méthode d'analyse</label>
+                        <select name="methode_analyse" class="form-select">
+                            <option value="">-- Choisir --</option>
+                            <option value="5P" {% if analyse.methode_analyse == '5P' %}selected{% endif %}>5 Pourquoi</option>
+                            <option value="ISHIKAWA" {% if analyse.methode_analyse == 'ISHIKAWA' %}selected{% endif %}>Ishikawa</option>
+                            <option value="PARETO" {% if analyse.methode_analyse == 'PARETO' %}selected{% endif %}>Pareto</option>
+                            <option value="AUTRE" {% if analyse.methode_analyse == 'AUTRE' %}selected{% endif %}>Autre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Statut de l'analyse</label>
+                        <select name="statut" class="form-select">
+                            <option value="A_FAIRE" {% if analyse.statut == 'A_FAIRE' %}selected{% endif %}>À faire</option>
+                            <option value="EN_COURS" {% if analyse.statut == 'EN_COURS' %}selected{% endif %}>En cours</option>
+                            <option value="TERMINE" {% if analyse.statut == 'TERMINE' %}selected{% endif %}>Terminé</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions proposées -->
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i> Actions proposées (suivies dans PDCA)</h5>
+            </div>
+            <div class="card-body">
+                <div id="actions-container">
+                    {% for action in analyse.actions_pdca.all %}
+                    <div class="action-row">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-primary">Action {{ forloop.counter }}</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    onclick="this.closest('.action-row').remove()">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" name="action_id[]" value="{{ action.id }}">
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small fw-bold">Titre</label>
+                                <input type="text" name="titre[]" class="form-control" value="{{ action.titre }}">
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label small fw-bold">Responsable</label>
+                                <input type="text" name="responsable[]" class="form-control" value="{{ action.responsable }}">
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label small fw-bold">Date cible</label>
+                                <input type="date" name="date_cible[]" class="form-control" value="{{ action.date_cible|date:'Y-m-d' }}">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold">Priorité</label>
+                                <select name="priorite[]" class="form-select form-select-sm">
+                                    {% for value, label in priorite_choices %}
+                                    <option value="{{ value }}" {% if action.priorite == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" class="btn btn-outline-primary btn-add-action w-100 mt-3" 
+                        onclick="ajouterAction()">
+                    <i class="fas fa-plus"></i> Ajouter une action
+                </button>
+            </div>
+        </div>
+        
+        <!-- Boutons -->
+        <div class="text-end mb-5">
+            <a href="{% url 'reclamations:analyse_nc_detail' non_conformite.ligne_reclamation.reclamation.id %}" 
+               class="btn btn-secondary btn-lg me-2">
+                <i class="fas fa-times"></i> Annuler
+            </a>
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-save"></i> Enregistrer l'analyse
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function ajouterAction() {
+    const container = document.getElementById('actions-container');
+    const timestamp = Date.now();
+    
+    const template = `
+        <div class="action-row">
+            <div class="d-flex justify-content-between mb-2">
+                <span class="badge bg-primary">Nouvelle action</span>
+                <button type="button" class="btn btn-sm btn-outline-danger" 
+                        onclick="this.closest('.action-row').remove()">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            <input type="hidden" name="action_id[]" value="new_${timestamp}">
+            <div class="row">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label small fw-bold">Titre</label>
+                    <input type="text" name="titre[]" class="form-control" required>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label class="form-label small fw-bold">Responsable</label>
+                    <input type="text" name="responsable[]" class="form-control">
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label class="form-label small fw-bold">Date cible</label>
+                    <input type="date" name="date_cible[]" class="form-control">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <label class="form-label small fw-bold">Priorité</label>
+                    <select name="priorite[]" class="form-select form-select-sm">
+                        {% for value, label in priorite_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', template);
+}
+</script>
+{% endblock %}

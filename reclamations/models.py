@@ -294,81 +294,422 @@ class Livraison(models.Model):
     
     def __str__(self):
         return f"{self.client.nom} - {self.date_livraison} - {self.quantite_livree} pcs"
-    
+
+#Gestion des 8d
+
 class HuitD(models.Model):
-    """Modèle pour la méthode 8D"""
+    """Modèle principal 8D"""
     ETAT_CHOICES = [
+        ('OUVERT', 'Ouvert'),
         ('EN_COURS', 'En cours'),
-        ('VALIDE', 'Validé'),
         ('CLOTURE', 'Clôturé'),
     ]
     
+    DECISION_8D_CHOICES = [
+        ('OUI', 'Oui'),
+        ('NON', 'Non - Exigé par le client'),
+    ]
+    
     reclamation = models.OneToOneField(Reclamation, on_delete=models.CASCADE, related_name='huitd')
-    numero_8d = models.CharField("N° 8D", max_length=50, blank=True, null=True)
     
-    # D0 - Préparation
-    d0_date = models.DateField("Date de démarrage", null=True, blank=True)
-    d0_equipe = models.TextField("Équipe 8D", blank=True, help_text="Membres de l'équipe")
+    # Références
+    numero_8d = models.CharField("N° 8D", max_length=50, blank=True)
+    ref = models.CharField("Réf", max_length=50, blank=True)
+    version = models.CharField("Version", max_length=20, blank=True)
     
-    # D1 - Établir l'équipe
-    d1_leader = models.CharField("Chef d'équipe", max_length=100, blank=True)
-    d1_membres = models.TextField("Membres de l'équipe", blank=True)
-    d1_competences = models.TextField("Compétences requises", blank=True)
+    # Informations générales
+    date_ouverture = models.DateField("Date d'ouverture", null=True, blank=True)
+    designation_piece = models.CharField("Désignation pièces", max_length=200, blank=True)
+    numero_article = models.CharField("N° article", max_length=50, blank=True)
+    numero_of = models.CharField("N° OF", max_length=50, blank=True)
+    numero_nc = models.CharField("N° NC", max_length=50, blank=True)
     
-    # D2 - Décrire le problème
-    d2_description = models.TextField("Description du problème", blank=True)
-    d2_impact = models.TextField("Impact client / interne", blank=True)
-    d2_quantification = models.TextField("Quantification (données)", blank=True)
-    d2_historique = models.TextField("Historique du problème", blank=True)
+    # Client / Détection
+    client = models.CharField("Client", max_length=100, blank=True)
+    lieu_detection = models.CharField("Lieu de détection", max_length=100, blank=True,
+        choices=[('QUALITE', 'Qualité'), ('PRODUCTION', 'Production'), ('CLIENT', 'Client'), ('FOURNISSEUR', 'Fournisseur')])
     
-    # D3 - Actions immédiates
-    d3_actions = models.TextField("Actions immédiates", blank=True)
-    d3_responsable = models.CharField("Responsable", max_length=100, blank=True)
-    d3_date = models.DateField("Date de réalisation", null=True, blank=True)
-    d3_efficacite = models.TextField("Efficacité des actions", blank=True)
+    # Décision 8D
+    decision_8d = models.CharField("Décision 8D", max_length=3, choices=DECISION_8D_CHOICES, default='OUI')
+    decision_hcim = models.CharField("Décision HCIM", max_length=50, blank=True)
+    huitd_accepte = models.BooleanField("8D accepté", default=False)
+    fin_huitd = models.DateField("Fin du 8D", null=True, blank=True)
+    fin_huitd_signature = models.CharField("Signature clôture", max_length=100, blank=True)
     
-    # D4 - Causes racines
-    d4_causes = models.TextField("Causes racines identifiées", blank=True)
-    d4_methodes = models.TextField("Méthodes d'analyse utilisées", blank=True)
-    d4_validation = models.TextField("Validation des causes", blank=True)
+    # Équipe
+    pilote = models.CharField("Pilote", max_length=100, blank=True)
+    animateur = models.CharField("Animateur", max_length=100, blank=True)
     
-    # D5 - Actions correctives
-    d5_actions = models.TextField("Actions correctives", blank=True)
-    d5_responsable = models.CharField("Responsable", max_length=100, blank=True)
-    d5_date_prevue = models.DateField("Date prévue", null=True, blank=True)
-    d5_date_reelle = models.DateField("Date réalisée", null=True, blank=True)
-    d5_validation = models.TextField("Validation des actions", blank=True)
+    # État
+    etat = models.CharField("État", max_length=20, choices=ETAT_CHOICES, default='OUVERT')
     
-    # D6 - Actions préventives
-    d6_actions = models.TextField("Actions préventives", blank=True)
-    d6_responsable = models.CharField("Responsable", max_length=100, blank=True)
-    d6_date = models.DateField("Date de réalisation", null=True, blank=True)
-    d6_standardisation = models.TextField("Standardisation", blank=True)
-    
-    # D7 - Prévention de la récurrence
-    d7_actions = models.TextField("Actions de prévention", blank=True)
-    d7_documentation = models.TextField("Documentation mise à jour", blank=True)
-    d7_formation = models.TextField("Formation réalisée", blank=True)
-    
-    # D8 - Félicitations
-    d8_equipe = models.TextField("Reconnaissance de l'équipe", blank=True)
-    d8_retour = models.TextField("Retour d'expérience", blank=True)
-    d8_amelioration = models.TextField("Améliorations identifiées", blank=True)
-    
-    # Validation
-    etat = models.CharField("État", max_length=20, choices=ETAT_CHOICES, default='EN_COURS')
-    date_validation = models.DateField("Date de validation", null=True, blank=True)
-    valide_par = models.CharField("Validé par", max_length=100, blank=True)
+    # Leçons apprises
+    transversalisation = models.TextField("Leçons apprises - Périmètres", blank=True)
     
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = "Démarche 8D"
-        verbose_name_plural = "Démarches 8D"
+        verbose_name = "8D"
+        verbose_name_plural = "8Ds"
     
     def __str__(self):
-        return f"8D - {self.reclamation.numero_reclamation}"
+        return f"8D - {self.numero_8d or self.reclamation.numero_reclamation}"
+
+class Participant8D(models.Model):
+    """Participants de l'équipe 8D"""
+    huitd = models.ForeignKey(HuitD, on_delete=models.CASCADE, related_name='participants')
+    nom = models.CharField("Nom", max_length=100)
+    fonction = models.CharField("Fonction", max_length=100, blank=True)
+    role = models.CharField("Rôle", max_length=100, blank=True)
+    ordre = models.IntegerField("Ordre", default=1)
+    
+    class Meta:
+        ordering = ['ordre']
+
+class CinqW2H(models.Model):
+    """Analyse 5W2H"""
+    huitd = models.OneToOneField(HuitD, on_delete=models.CASCADE, related_name='cinq_w2h')
+    
+    nom = models.CharField("Nom", max_length=100, blank=True)
+    site = models.CharField("Site", max_length=100, blank=True)
+    date = models.DateField("Date", null=True, blank=True)
+    
+    # Vue Client
+    quoi = models.TextField("Que s'est-il passé ?", blank=True)
+    qui = models.TextField("Qui a détecté ?", blank=True)
+    ou = models.TextField("Où a été détecté ?", blank=True)
+    quand = models.TextField("Quand a été détecté ?", blank=True)
+    comment = models.TextField("Comment a été détecté ?", blank=True)
+    combien = models.TextField("Combien détectés ?", blank=True)
+    pourquoi_probleme = models.TextField("Pourquoi est-ce un problème ?", blank=True)
+    impact_logistique = models.TextField("Impact logistique client ?", blank=True)
+    autres_clients_livres = models.TextField("Produit livré à autres clients ?", blank=True)
+    autres_clients_defaut = models.TextField("Défaut rapporté par autres clients ?", blank=True)
+    
+    # Vue Interne
+    symptomes = models.TextField("De quoi s'agit-il ?", blank=True)
+    defauts_ecartes = models.TextField("Défauts écartés d'emblée ?", blank=True)
+    ou_cree = models.TextField("Où le défaut a pu être créé ?", blank=True)
+    quand_genere = models.TextField("Quand généré en interne ?", blank=True)
+    rework = models.TextField("Pièces issues d'une gamme rework ?", blank=True)
+    detection_attendue = models.TextField("À quel stade détecté ?", blank=True)
+    reinjection = models.TextField("Détection lors réintroduction ?", blank=True)
+    probleme_connu = models.TextField("Problème connu / récurrent ?", blank=True)
+    dernier_cas = models.TextField("Date du dernier cas ?", blank=True)
+
+class Ishikawa(models.Model):
+    """Analyse Ishikawa (6M)"""
+    huitd = models.OneToOneField(HuitD, on_delete=models.CASCADE, related_name='ishikawa')
+    
+    designation = models.CharField("Désignation", max_length=200, blank=True)
+    nom = models.CharField("Nom", max_length=100, blank=True)
+    site = models.CharField("Site", max_length=100, blank=True)
+    date = models.DateField("Date", null=True, blank=True)
+
+class FacteurIshikawa(models.Model):
+    """Facteurs du diagramme Ishikawa"""
+    CATEGORIE_CHOICES = [
+        ('A', 'A - Milieu / Environment'),
+        ('B', 'B - Méthodes / Methods'),
+        ('C', 'C - Moyens / Resources'),
+        ('D', 'D - Main d\'œuvre / Personnel'),
+        ('E', 'E - Matières / Materials'),
+        ('F', 'F - Mesures / Measures'),
+    ]
+    
+    ishikawa = models.ForeignKey(Ishikawa, on_delete=models.CASCADE, related_name='facteurs')
+    categorie = models.CharField("Catégorie 6M", max_length=1, choices=CATEGORIE_CHOICES)
+    facteur_probable = models.TextField("Facteur probable", blank=True)
+    parametre_mesurable = models.TextField("Paramètre mesurable ?", blank=True)
+    standard_exigence = models.TextField("Standard ou exigence", blank=True)
+    donnees_bonnes = models.TextField("Données réelles (pièces bonnes)", blank=True)
+    donnees_mauvaises = models.TextField("Données réelles (pièces mauvaises)", blank=True)
+    standard_suivi = models.BooleanField("Standard suivi ?", default=False)
+    standard_approprie = models.BooleanField("Standard approprié ?", default=False)
+    lien_prouve = models.BooleanField("Lien prouvé ?", default=False)
+    facteur_prouve = models.BooleanField("Facteur prouvé", default=False)
+    
+    class Meta:
+        ordering = ['categorie']
+
+class CinqP(models.Model):
+    """Analyse 5 Pourquoi"""
+    CATEGORIE_CHOICES = [
+        ('OCCURRENCE', 'Occurrence'),
+        ('NON_DETECTION', 'Non détection'),
+    ]
+    
+    huitd = models.ForeignKey(HuitD, on_delete=models.CASCADE, related_name='cinq_p')
+    
+    designation = models.CharField("Désignation", max_length=200, blank=True)
+    nom = models.CharField("Nom", max_length=100, blank=True)
+    site = models.CharField("Site", max_length=100, blank=True)
+    date = models.DateField("Date", null=True, blank=True)
+    
+    categorie = models.CharField("Catégorie", max_length=15, choices=CATEGORIE_CHOICES, default='OCCURRENCE')
+    facteur_prouve = models.CharField("Facteur prouvé (B, E, C...)", max_length=10, blank=True)
+    pourquoi_1 = models.TextField("1. Pourquoi ?", blank=True)
+    pourquoi_2 = models.TextField("2. Pourquoi ?", blank=True)
+    pourquoi_3 = models.TextField("3. Pourquoi ?", blank=True)
+    pourquoi_4 = models.TextField("4. Pourquoi ?", blank=True)
+    pourquoi_5 = models.TextField("5. Pourquoi ?", blank=True)
+
+class FacteurHumain(models.Model):
+    """Analyse des facteurs humains"""
+    huitd = models.OneToOneField(HuitD, on_delete=models.CASCADE, related_name='facteur_humain')
+    description = models.TextField("Description", blank=True)
+    analyse = models.TextField("Analyse", blank=True)
+    actions = models.TextField("Actions", blank=True)
+
+class VRS(models.Model):
+    """Vérification des Standards (VRS)"""
+    huitd = models.OneToOneField(HuitD, on_delete=models.CASCADE, related_name='vrs')
+    
+    designation = models.CharField("Désignation", max_length=200, blank=True)
+    nom = models.CharField("Nom", max_length=100, blank=True)
+    site = models.CharField("Site", max_length=100, blank=True)
+    date = models.DateField("Date", null=True, blank=True)
+    suivi = models.CharField("Suivant", max_length=50, blank=True, default="PR-SM-06")
+
+class Action8D(models.Model):
+    """Plan d'actions 8D"""
+    TYPE_CHOICES = [
+        ('AC', 'Action Corrective'),
+        ('AP', 'Action Préventive'),
+        ('CONTAINMENT', 'Action de confinement'),
+    ]
+    
+    STATUT_CHOICES = [
+        ('PLANIFIE', 'Planifié'),
+        ('EN_COURS', 'En cours'),
+        ('REALISE', 'Réalisé'),
+        ('EFFICACE', 'Efficace'),
+        ('INEFFICACE', 'Inefficace'),
+    ]
+    
+    huitd = models.ForeignKey(HuitD, on_delete=models.CASCADE, related_name='actions')
+    
+    type_action = models.CharField("Type", max_length=15, choices=TYPE_CHOICES)
+    numero_cause = models.CharField("N° Cause (B, E, C...)", max_length=10, blank=True)
+    action = models.TextField("Action")
+    pilote = models.CharField("Pilote", max_length=100, blank=True)
+    delai = models.DateField("Délai / Deadline", null=True, blank=True)
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='PLANIFIE')
+    ordre = models.IntegerField("Ordre", default=1)
+    
+    class Meta:
+        ordering = ['ordre']
+
+class AlterationNecessaire(models.Model):
+    """Altérations nécessaires (standardisation)"""
+    huitd = models.ForeignKey(HuitD, on_delete=models.CASCADE, related_name='alterations')
+    
+    type_document = models.CharField("Type document", max_length=100, blank=True)
+    description = models.TextField("Description", blank=True)
+    remarque = models.TextField("Remarque", blank=True)
+    pilote = models.CharField("Pilote", max_length=100, blank=True)
+    deadline = models.DateField("Deadline", null=True, blank=True)
+    statut = models.CharField("Statut", max_length=50, blank=True)
+    ordre = models.IntegerField("Ordre", default=1)
+    
+    class Meta:
+        ordering = ['ordre']
+
+class CaracterisationDefaut(models.Model):
+    """Caractérisation du défaut"""
+    huitd = models.OneToOneField(HuitD, on_delete=models.CASCADE, related_name='caracterisation')
+    
+    description = models.TextField("Caractérisation du défaut", blank=True)
+    probleme_connu = models.BooleanField("Problème déjà connu ?", default=False)
+    risque_similaire = models.BooleanField("Risque sur produit/process similaire ?", default=False)
+    risque_similaire_detail = models.TextField("Si oui, lequel ?", blank=True)
+    
+    illustration_defectueux = models.ImageField("Photo produit défectueux", upload_to='8d/defectueux/', blank=True)
+    illustration_conforme = models.ImageField("Photo produit conforme", upload_to='8d/conforme/', blank=True)
+    
+    tri_necessaire = models.BooleanField("Tri nécessaire ?", default=False)
+    of_concernes = models.TextField("OF concernés", blank=True)
+    actions_suffisantes = models.BooleanField("Actions suffisantes ?", default=False)
+    quantite_rebutee = models.CharField("Qté rebutée", max_length=50, default="N/A")
+    quantite_retoucher = models.CharField("Qté à retoucher", max_length=50, default="N/A")
+
+class Evidence8D(models.Model):
+    """Évidences / Pièces jointes"""
+    huitd = models.ForeignKey(HuitD, on_delete=models.CASCADE, related_name='evidences')
+    
+    titre = models.CharField("Titre", max_length=200)
+    fichier = models.FileField("Fichier", upload_to='8d/evidences/')
+    description = models.TextField("Description", blank=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-date_ajout']
+
+#Gestion des actions
+class AnalyseNC(models.Model):
+    """Analyse des causes racines et actions par non-conformité"""
+    
+    non_conformite = models.OneToOneField(
+        NonConformite, 
+        on_delete=models.CASCADE, 
+        related_name='analyse'
+    )
+    
+    # Cause racine
+    cause_racine = models.TextField("Cause racine identifiée", blank=True)
+    methode_analyse = models.CharField(
+        "Méthode d'analyse", 
+        max_length=50, 
+        blank=True,
+        choices=[
+            ('5P', '5 Pourquoi'),
+            ('ISHIKAWA', 'Ishikawa'),
+            ('PARETO', 'Pareto'),
+            ('AUTRE', 'Autre'),
+        ]
+    )
+    
+    # Actions
+    actions_proposees = models.TextField("Actions proposées", blank=True, 
+        help_text="Actions qui seront suivies dans le PDCA")
+    
+    # Statut
+    statut = models.CharField(
+        "Statut de l'analyse", 
+        max_length=20,
+        choices=[
+            ('A_FAIRE', 'À faire'),
+            ('EN_COURS', 'En cours'),
+            ('TERMINE', 'Terminé'),
+        ],
+        default='A_FAIRE'
+    )
+    
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Analyse NC"
+        verbose_name_plural = "Analyses NC"
+    
+    def __str__(self):
+        return f"Analyse - {self.non_conformite.description[:50]}"
+    
+    @property
+    def reclamation(self):
+        return self.non_conformite.ligne_reclamation.reclamation
+
+class ActionPDCA(models.Model):
+    """Action PDCA issue de l'analyse des NC"""
+    
+    STATUT_CHOICES = [
+        ('PLAN', 'Planifié'),
+        ('DO', 'En cours'),
+        ('CHECK', 'En vérification'),
+        ('ACT', 'Standardisé'),
+        ('CLOTURE', 'Clôturé'),
+    ]
+    
+    PRIORITE_CHOICES = [
+        ('CRITIQUE', '🔴 Critique'),
+        ('ELEVEE', '🟠 Élevée'),
+        ('MOYENNE', '🟡 Moyenne'),
+        ('BASSE', '🟢 Basse'),
+    ]
+    
+    CATEGORIE_CHOICES = [
+        ('QUALITE', 'Qualité'),
+        ('PROCESS', 'Process'),
+        ('FORMATION', 'Formation'),
+        ('MAINTENANCE', 'Maintenance'),
+        ('FOURNISSEUR', 'Fournisseur'),
+        ('DOCUMENTATION', 'Documentation'),
+        ('CONTROLE', 'Contrôle'),
+        ('AUTRE', 'Autre'),
+    ]
+    
+    # Liens
+    analyse_nc = models.ForeignKey(
+        AnalyseNC, 
+        on_delete=models.CASCADE, 
+        related_name='actions_pdca'
+    )
+    
+    # Description
+    titre = models.CharField("Titre de l'action", max_length=200)
+    description = models.TextField("Description détaillée", blank=True)
+    categorie = models.CharField("Catégorie", max_length=20, choices=CATEGORIE_CHOICES, default='AUTRE')
+    
+    # Planification
+    responsable = models.CharField("Responsable", max_length=100)
+    date_debut = models.DateField("Date début", null=True, blank=True)
+    date_cible = models.DateField("Date cible")
+    date_realisation = models.DateField("Date réalisation", null=True, blank=True)
+    priorite = models.CharField("Priorité", max_length=20, choices=PRIORITE_CHOICES, default='MOYENNE')
+    
+    # Suivi
+    statut = models.CharField("Statut PDCA", max_length=20, choices=STATUT_CHOICES, default='PLAN')
+    pourcentage_avancement = models.IntegerField("% Avancement", default=0)
+    
+    # Évaluation
+    efficacite = models.CharField(
+        "Efficacité", 
+        max_length=20,
+        choices=[
+            ('EFFICACE', 'Efficace'),
+            ('PARTIEL', 'Partiellement efficace'),
+            ('INEFFICACE', 'Inefficace'),
+            ('NON_EVALUE', 'Non évaluée'),
+        ],
+        default='NON_EVALUE'
+    )
+    commentaire_efficacite = models.TextField("Commentaire sur l'efficacité", blank=True)
+    date_evaluation = models.DateField("Date d'évaluation", null=True, blank=True)
+    
+    # Vérification
+    critere_succes = models.TextField("Critères de succès", blank=True)
+    indicateur_avant = models.CharField("Indicateur avant", max_length=100, blank=True)
+    valeur_avant = models.CharField("Valeur avant", max_length=50, blank=True)
+    indicateur_apres = models.CharField("Indicateur après", max_length=100, blank=True)
+    valeur_apres = models.CharField("Valeur après", max_length=50, blank=True)
+    resultat_obtenu = models.TextField("Résultat obtenu", blank=True)
+    
+    # Standardisation
+    document_modifie = models.CharField("Document modifié", max_length=200, blank=True)
+    formation_realisee = models.BooleanField("Formation réalisée", default=False)
+    
+    # Commentaires
+    commentaires = models.TextField("Commentaires", blank=True)
+    blocage = models.TextField("Points de blocage", blank=True)
+    
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Action PDCA"
+        verbose_name_plural = "Actions PDCA"
+        ordering = ['priorite', 'date_cible']
+    
+    def __str__(self):
+        return f"[{self.get_priorite_display()}] {self.titre[:60]}"
+    
+    @property
+    def en_retard(self):
+        if self.date_realisation:
+            return False
+        return self.date_cible < timezone.now().date()
+    
+    @property
+    def delai_restant(self):
+        if self.date_realisation:
+            return 0
+        delta = self.date_cible - timezone.now().date()
+        return delta.days
+    
+    @property
+    def reclamation(self):
+        return self.analyse_nc.non_conformite.ligne_reclamation.reclamation
 
 #========= Gestion des FAIs =============
 

@@ -1,0 +1,31 @@
+<!-- templates/reclamations/huitd/sections/5p.html -->
+<div class="tab-pane fade" id="tab-5p">
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">❓ 5 Pourquoi</h5>
+        </div>
+        <div class="card-body">
+            {% for cinq_p in huitd.cinq_p.all %}
+            <div class="card mb-3">
+                <div class="card-header {% if cinq_p.categorie == 'OCCURRENCE' %}bg-danger{% else %}bg-primary{% endif %} text-white">
+                    <strong>{{ cinq_p.get_categorie_display }}</strong> - Facteur prouvé : {{ cinq_p.facteur_prouve|default:"-" }}
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr><td colspan="2" class="text-muted small">Désignation: {{ cinq_p.designation|default:"-" }} | Date: {{ cinq_p.date|date:"d/m/Y"|default:"-" }}</td></tr>
+                    </table>
+                    <ol class="list-group list-group-numbered">
+                        <li class="list-group-item">{{ cinq_p.pourquoi_1|default:"-" }}</li>
+                        <li class="list-group-item">{{ cinq_p.pourquoi_2|default:"-" }}</li>
+                        <li class="list-group-item">{{ cinq_p.pourquoi_3|default:"-" }}</li>
+                        <li class="list-group-item">{{ cinq_p.pourquoi_4|default:"-" }}</li>
+                        <li class="list-group-item">{{ cinq_p.pourquoi_5|default:"-" }}</li>
+                    </ol>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">Aucune analyse 5P</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>

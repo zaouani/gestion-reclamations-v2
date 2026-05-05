@@ -1,0 +1,143 @@
+<!-- templates/reclamations/huitd/sections/causes_retenues.html -->
+<div class="tab-pane fade" id="tab-causes">
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">🎯 Causes retenues</h5>
+        </div>
+        <div class="card-body">
+            <!-- Causes racines Occurrence -->
+            <h6 class="fw-bold text-danger mb-3">
+                <i class="fas fa-exclamation-triangle"></i> Causes racines de l'occurrence
+            </h6>
+            
+            {% if huitd.cinq_p.all %}
+            <div class="row mb-4">
+                {% for cinq_p in huitd.cinq_p.all %}
+                    {% if cinq_p.categorie == 'OCCURRENCE' and cinq_p.facteur_prouve %}
+                    <div class="col-md-6 mb-2">
+                        <div class="card border-danger">
+                            <div class="card-header bg-danger bg-opacity-10">
+                                <strong>Facteur {{ cinq_p.facteur_prouve }}</strong>
+                                {% if cinq_p.pourquoi_5 %}
+                                <span class="badge bg-danger float-end">Cause racine validée</span>
+                                {% endif %}
+                            </div>
+                            <div class="card-body">
+                                <ol class="list-group list-group-numbered list-group-flush">
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_1|default:"-" }}</li>
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_2|default:"-" }}</li>
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_3|default:"-" }}</li>
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_4|default:"-" }}</li>
+                                    <li class="list-group-item fw-bold">{{ cinq_p.pourquoi_5|default:"En attente" }}</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">Aucune cause d'occurrence identifiée</p>
+            {% endif %}
+            
+            <hr>
+            
+            <!-- Causes racines Non détection -->
+            <h6 class="fw-bold text-primary mb-3">
+                <i class="fas fa-eye-slash"></i> Causes racines de la non-détection
+            </h6>
+            
+            {% if huitd.cinq_p.all %}
+            <div class="row">
+                {% for cinq_p in huitd.cinq_p.all %}
+                    {% if cinq_p.categorie == 'NON_DETECTION' and cinq_p.facteur_prouve %}
+                    <div class="col-md-6 mb-2">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary bg-opacity-10">
+                                <strong>Facteur {{ cinq_p.facteur_prouve }}</strong>
+                                {% if cinq_p.pourquoi_5 %}
+                                <span class="badge bg-primary float-end">Cause racine validée</span>
+                                {% endif %}
+                            </div>
+                            <div class="card-body">
+                                <ol class="list-group list-group-numbered list-group-flush">
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_1|default:"-" }}</li>
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_2|default:"-" }}</li>
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_3|default:"-" }}</li>
+                                    <li class="list-group-item">{{ cinq_p.pourquoi_4|default:"-" }}</li>
+                                    <li class="list-group-item fw-bold">{{ cinq_p.pourquoi_5|default:"En attente" }}</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">Aucune cause de non-détection identifiée</p>
+            {% endif %}
+            
+            <!-- Facteurs prouvés Ishikawa -->
+            {% if huitd.ishikawa %}
+            <hr>
+            <h6 class="fw-bold text-warning mb-3">
+                <i class="fas fa-check-circle"></i> Facteurs prouvés (Ishikawa)
+            </h6>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Catégorie</th>
+                            <th>Facteur</th>
+                            <th>Actions Occurrence</th>
+                            <th>Actions Non-détection</th>
+                            <th>Pilote</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in huitd.ishikawa.facteurs.all %}
+                            {% if f.facteur_prouve %}
+                            <tr>
+                                <td><strong>{{ f.get_categorie_display }}</strong></td>
+                                <td>{{ f.facteur_probable|truncatechars:80 }}</td>
+                                <td>
+                                    {% for action in huitd.actions.all %}
+                                        {% if action.numero_cause == f.categorie and action.type_action == 'AC' %}
+                                        <small>{{ action.action|truncatechars:50 }}</small><br>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for action in huitd.actions.all %}
+                                        {% if action.numero_cause == f.categorie and action.type_action == 'AP' %}
+                                        <small>{{ action.action|truncatechars:50 }}</small><br>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for action in huitd.actions.all %}
+                                        {% if action.numero_cause == f.categorie %}
+                                        <small>{{ action.pilote }}</small><br>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for action in huitd.actions.all %}
+                                        {% if action.numero_cause == f.categorie %}
+                                        <span class="badge {% if action.statut == 'EFFICACE' %}bg-success{% else %}bg-warning{% endif %}">{{ action.get_statut_display }}</span><br>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% empty %}
+                        <tr><td colspan="6" class="text-muted">Aucun facteur prouvé</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

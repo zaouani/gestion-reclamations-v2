@@ -1,0 +1,107 @@
+<!-- templates/reclamations/huitd/sections/decision.html -->
+<div class="tab-pane fade" id="tab-decision">
+    <div class="card">
+        <div class="card-header {% if huitd.etat == 'CLOTURE' %}bg-success{% else %}bg-secondary{% endif %} text-white">
+            <h5 class="mb-0">✅ Décision & Clôture</h5>
+        </div>
+        <div class="card-body">
+            <!-- Décision 8D -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <strong>Décision : engager une recherche de causes racines avec un 8D ?</strong>
+                        </div>
+                        <div class="card-body text-center">
+                            {% if huitd.decision_8d == 'OUI' %}
+                            <span class="badge bg-success p-3 fs-5">✅ OUI</span>
+                            {% else %}
+                            <span class="badge bg-danger p-3 fs-5">❌ NON</span>
+                            <p class="mt-2 text-muted">Exigé par : {{ huitd.decision_hcim|default:"-" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <strong>Fin du 4D</strong>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="text-muted">Validation des actions de confinement</p>
+                            {% if huitd.caracterisation.tri_necessaire %}
+                            <p><strong>Tri nécessaire :</strong> Oui | OF concernés : {{ huitd.caracterisation.of_concernes|default:"-" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Acceptation 8D -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <strong>Décision HCIM</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 text-center">
+                                    <label class="fw-bold">8D accepté ?</label>
+                                    <div class="mt-2">
+                                        {% if huitd.huitd_accepte %}
+                                        <span class="badge bg-success p-3 fs-5">✅ OUI - 8D Report Accepted</span>
+                                        {% else %}
+                                        <span class="badge bg-warning p-3 fs-5">⏳ En attente de validation</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-center">
+                                    <label class="fw-bold">Fin du 8D</label>
+                                    <div class="mt-2">
+                                        {% if huitd.fin_huitd %}
+                                        <p><strong>Date :</strong> {{ huitd.fin_huitd|date:"d/m/Y" }}</p>
+                                        <p><strong>Signature :</strong> {{ huitd.fin_huitd_signature|default:"-" }}</p>
+                                        {% else %}
+                                        <span class="badge bg-secondary p-3 fs-5">🔄 En cours</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Résumé des quantités -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h6>Quantité rebutée</h6>
+                            <h3>{{ huitd.caracterisation.quantite_rebutee|default:"N/A" }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h6>Quantité à retoucher</h6>
+                            <h3>{{ huitd.caracterisation.quantite_retoucher|default:"N/A" }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Validation -->
+            {% if huitd.etat == 'CLOTURE' %}
+            <div class="alert alert-success mt-4">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong>8D clôturé</strong> - 
+                Date : {{ huitd.fin_huitd|date:"d/m/Y"|default:"-" }} | 
+                Signature : {{ huitd.fin_huitd_signature|default:"-" }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
