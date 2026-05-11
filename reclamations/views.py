@@ -5,9 +5,10 @@ import logging
 from django.conf import settings 
 from django.utils import timezone
 from .models import (Reclamation, Client, Produit, LigneReclamation, NonConformite, UAP, Site, ObjectifsAnnuel, 
-    Programme, SiteClient, Livraison, HuitD, Participant8D, CinqW2H, Ishikawa, FacteurIshikawa,
-    CinqP, FacteurHumain, VRS, Action8D, AlterationNecessaire, CaracterisationDefaut, Evidence8D, 
-    AnalyseNC, ActionPDCA, ArticleFAI, HistoriqueImportFAI)
+    Programme, SiteClient, Livraison, HuitD, Participant8D, CinqW2H, 
+    AnalyseNC, ActionPDCA, ArticleFAI, HistoriqueImportFAI, CauseIshikawa, 
+    VRS, FacteurVRS, CauseCinqP, FacteurHumain, 
+    EvaluationFacteurHumain, Action8D, Alteration8D, Evidence8D)
 from django.http import JsonResponse
 from django.db.models import Count, Q, F, Avg,Max, Sum, Prefetch
 from django.db.models.functions import TruncMonth, ExtractMonth
@@ -4661,21 +4662,105 @@ def envoyer_alertes_fai_email(request):
     return render(request, 'reclamations/fai/envoyer_alertes.html', context)
 
 #Gestion des 8d
+
+
+# ============================================================
+# VUES PRINCIPALES
+# ============================================================
+
+@login_required
+def huitd_creer(request, reclamation_id):
+    """Créer une fiche 8D avec toutes les méthodes initialisées"""
+    reclamation = get_object_or_404(Reclamation, pk=reclamation_id)
+    
+    # Vérifier si 8D existe déjà
+    if HuitD.objects.filter(reclamation=reclamation).exists():
+        huitd = HuitD.objects.get(reclamation=reclamation)
+        messages.warning(request, "⚠️ Un 8D existe déjà pour cette réclamation")
+        return redirect('reclamations:huitd_modifier', pk=huitd.id)
+    
+    try:
+        with transaction.atomic():
+            # Créer le 8D
+            huitd = HuitD.objects.create(
+                reclamation=reclamation,
+                ref=f"8D-{reclamation.numero_reclamation}",
+                date_ouverture=timezone.now().date(),
+                client=reclamation.client.nom,
+                designation_piece=reclamation.lignes.first().produit.designation if reclamation.lignes.exists() else '',
+                decision_8d='OUI',
+                etat='EN_COURS'
+            )
+            
+            # Créer 5W2H
+            CinqW2H.objects.create(huitd=huitd)
+            
+            # Créer VRS
+            vrs = VRS.objects.create(huitd=huitd)
+            for cat, label in FacteurVRS.CATEGORIE_CHOICES:
+                FacteurVRS.objects.create(vrs=vrs, categorie=cat)
+            
+            # Créer Facteur Humain
+            fh = FacteurHumain.objects.create(huitd=huitd)
+            _init_evaluations_fh(fh)
+            
+            # Créer 5P par défaut
+            CauseCinqP.objects.create(huitd=huitd, type_cause='OCCURRENCE', facteur_prouve='B')
+            CauseCinqP.objects.create(huitd=huitd, type_cause='OCCURRENCE', facteur_prouve='E')
+            CauseCinqP.objects.create(huitd=huitd, type_cause='NON_DETECTION', facteur_prouve='C')
+            
+            messages.success(request, f"✅ Fiche 8D créée pour {reclamation.numero_reclamation}")
+            return redirect('reclamations:huitd_modifier', pk=huitd.id)
+            
+    except Exception as e:
+        messages.error(request, f"❌ Erreur : {str(e)}")
+        return redirect('reclamations:detail_reclamation', pk=reclamation.id)
+
+
+def _init_evaluations_fh(fh):
+    """Initialise les 19 critères d'évaluation du facteur humain"""
+    criteres = [
+        # Catégorie 1
+        ('1', '1.1', '1.1 Are the references worked on the same as those previously planned? / Est-ce que les références travaillées sont celles planifiées auparavant ?'),
+        ('1', '1.2', '1.2 Are the tools used those requested in the GP/FI? / Est-ce que les outils utilisés sont ceux demandés dans la GP/FI ?'),
+        ('1', '1.3', '1.3 Is there a problem caused by a defective tool? / Y a-t-il un problème causé par un outil défectueux ?'),
+        ('1', '1.4', '1.4 Are there any blind operations that the operator must perform that are not described in the GP/FI? / Est-ce qu\'il y a des opérations à l\'aveugle que l\'opérateur doit réaliser et qui ne sont pas décrites dans la GP/FI ?'),
+        ('1', '1.5', '1.5 Are there any components handled that represent quality problems? / Y a-t-il un composant manipulé qui représente des problèmes de qualité ?'),
+        # Catégorie 2
+        ('2', '2.1', '2.1 Are temperature, lighting, noise and cleaning appropriate and monitored? / Est-ce que la température, l\'éclairage, le bruit et le nettoyage sont appropriés et suivis ?'),
+        ('2', '2.2', '2.2 Are the PPE suitable for the job? / Est-ce que les EPI sont adaptés au poste ?'),
+        ('2', '2.3', '2.3 Is the layout adequate for all the operations involved in the job? / Est-ce que le layout est adéquat pour toutes les opérations prévues au poste ?'),
+        ('2', '2.4', '2.4 Does the operator encounter any ergonomic problems when performing the operation? / Est-ce que l\'opérateur en réalisant l\'opération rencontre un problème ergonomique ?'),
+        ('2', '2.5', '2.5 Is the flow of incoming and outgoing parts well defined? / Est-ce que le flux des pièces entrant et sortant est bien défini ?'),
+        # Catégorie 3
+        ('3', '3.1', '3.1 Is the operator overloaded? / Est-ce que l\'opérateur est surchargé ?'),
+        ('3', '3.2', '3.2 Is the operator stressed? / Est-ce que l\'opérateur est stressé ?'),
+        ('3', '3.3', '3.3 Is the operator motivated? / Est-ce que l\'opérateur est motivé ?'),
+        ('3', '3.4', '3.4 Is the operator tired? / Est-ce que l\'opérateur est fatigué ?'),
+        ('3', '3.5', '3.5 Is the operator in good health? / Est-ce que l\'opérateur est en bonne santé ?'),
+        ('3', '3.6', '3.6 Is the operator suitable for this job? / Est-ce que l\'opérateur est approprié à ce poste ?'),
+        ('3', '3.7', '3.7 Has the operator worked for the last 6 months in this position? / Est-ce que l\'opérateur a travaillé durant les 6 derniers mois à ce poste ?'),
+        ('3', '3.8', '3.8 Is the operator aware of the consequences of this error? / Est-ce que l\'opérateur est conscient des conséquences de cette erreur ?'),
+        ('3', '3.9', '3.9 Does the operator have any other problems? / Est-ce que l\'opérateur n\'a pas d\'autres problèmes ?'),
+    ]
+    for cat, num, critere in criteres:
+        EvaluationFacteurHumain.objects.create(
+            facteur_humain=fh, categorie=cat, numero_critere=num, critere=critere
+        )
+
+
 @login_required
 def huitd_detail(request, pk):
-    """Affiche la fiche 8D complète"""
+    """Afficher la fiche 8D complète"""
     huitd = get_object_or_404(
         HuitD.objects.select_related(
-            'reclamation__client',
-            'caracterisation',
-            'cinq_w2h',
-            'ishikawa',
-            'vrs',
-            'facteur_humain',
+            'reclamation__client', 'cinq_w2h', 'vrs', 'facteur_humain'
         ).prefetch_related(
             'participants',
-            'ishikawa__facteurs',
-            'cinq_p',
+            'causes_ishikawa',
+            Prefetch('vrs__facteurs', queryset=FacteurVRS.objects.order_by('categorie')),
+            'causes_5p',
+            Prefetch('facteur_humain__evaluations', queryset=EvaluationFacteurHumain.objects.order_by('categorie', 'numero_critere')),
             'actions',
             'alterations',
             'evidences',
@@ -4683,74 +4768,18 @@ def huitd_detail(request, pk):
         pk=pk
     )
     
-    context = {
-        'huitd': huitd,
-    }
+    context = {'huitd': huitd}
     return render(request, 'reclamations/huitd/huitd_detail.html', context)
 
-@login_required
-def huitd_creer(request, reclamation_id):
-    """Créer une fiche 8D pour une réclamation"""
-    reclamation = get_object_or_404(Reclamation, pk=reclamation_id)
-    
-    # Vérifier si un 8D existe déjà
-    if HuitD.objects.filter(reclamation=reclamation).exists():
-        huitd = HuitD.objects.get(reclamation=reclamation)
-        messages.warning(request, "Un 8D existe déjà pour cette réclamation")
-        return redirect('reclamations:huitd_modifier', pk=huitd.id)
-    
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                huitd = HuitD.objects.create(
-                    reclamation=reclamation,
-                    numero_8d=f"8D-{reclamation.numero_reclamation}",
-                    ref=request.POST.get('ref', ''),
-                    version=request.POST.get('version', ''),
-                    date_ouverture=request.POST.get('date_ouverture') or timezone.now().date(),
-                    designation_piece=request.POST.get('designation_piece', ''),
-                    numero_article=request.POST.get('numero_article', ''),
-                    numero_of=request.POST.get('numero_of', ''),
-                    numero_nc=request.POST.get('numero_nc', ''),
-                    client=request.POST.get('client', reclamation.client.nom),
-                    lieu_detection=request.POST.get('lieu_detection', 'QUALITE'),
-                    decision_8d=request.POST.get('decision_8d', 'OUI'),
-                    decision_hcim=request.POST.get('decision_hcim', ''),
-                    pilote=request.POST.get('pilote', ''),
-                    animateur=request.POST.get('animateur', ''),
-                )
-                
-                # Créer la caractérisation défaut
-                CaracterisationDefaut.objects.create(huitd=huitd)
-                
-                # Créer les analyses vides
-                CinqW2H.objects.create(huitd=huitd)
-                Ishikawa.objects.create(huitd=huitd)
-                VRS.objects.create(huitd=huitd)
-                FacteurHumain.objects.create(huitd=huitd)
-                
-                # Créer les facteurs Ishikawa par défaut
-                for cat, label in FacteurIshikawa.CATEGORIE_CHOICES:
-                    FacteurIshikawa.objects.create(ishikawa=huitd.ishikawa, categorie=cat)
-                
-                messages.success(request, "✅ Fiche 8D créée avec succès !")
-                return redirect('reclamations:huitd_modifier', pk=huitd.id)
-                
-        except Exception as e:
-            messages.error(request, f"❌ Erreur : {str(e)}")
-    
-    context = {
-        'reclamation': reclamation,
-    }
-    return render(request, 'reclamations/huitd/huitd_creer.html', context)
 
 @login_required
 def huitd_modifier(request, pk):
-    """Modifier la fiche 8D complète"""
+    """Modifier la fiche 8D"""
     huitd = get_object_or_404(
-        HuitD.objects.select_related(
-            'caracterisation', 'cinq_w2h', 'ishikawa', 'vrs', 'facteur_humain'
-        ).prefetch_related('participants', 'ishikawa__facteurs', 'cinq_p', 'actions', 'alterations'),
+        HuitD.objects.select_related('cinq_w2h', 'vrs', 'facteur_humain').prefetch_related(
+            'participants', 'causes_ishikawa', 'vrs__facteurs',
+            'causes_5p', 'facteur_humain__evaluations', 'actions', 'alterations'
+        ),
         pk=pk
     )
     
@@ -4759,12 +4788,18 @@ def huitd_modifier(request, pk):
         
         try:
             with transaction.atomic():
-                if section == 'd0':
-                    return _save_d0(request, huitd)
+                if section == 'general':
+                    return _save_general(request, huitd)
                 elif section == 'd1':
                     return _save_d1(request, huitd)
                 elif section == 'd2':
                     return _save_d2(request, huitd)
+                elif section == 'd3':
+                    return _save_d3(request, huitd)
+                elif section == 'd4':
+                    return _save_d4(request, huitd)
+                elif section == 'd5':
+                    return _save_d5(request, huitd)
                 elif section == '5w2h':
                     return _save_5w2h(request, huitd)
                 elif section == 'ishikawa':
@@ -4775,25 +4810,24 @@ def huitd_modifier(request, pk):
                     return _save_5p(request, huitd)
                 elif section == 'fh':
                     return _save_fh(request, huitd)
-                elif section == 'actions':
-                    return _save_actions(request, huitd)
-                elif section == 'alterations':
-                    return _save_alterations(request, huitd)
-                elif section == 'transversalisation':
-                    return _save_transversalisation(request, huitd)
+                elif section == 'd6':
+                    return _save_d6(request, huitd)
+                elif section == 'd7':
+                    return _save_d7(request, huitd)
+                elif section == 'd8':
+                    return _save_d8(request, huitd)
                 elif section == 'decision':
                     return _save_decision(request, huitd)
-                elif section == 'evidences':
-                    return _save_evidences(request, huitd)
                     
         except Exception as e:
             messages.error(request, f"❌ Erreur : {str(e)}")
     
     context = {
         'huitd': huitd,
-        'lieu_choices': HuitD._meta.get_field('lieu_detection').choices,
+        'lieu_choices': HuitD.LIEU_CHOICES,
     }
     return render(request, 'reclamations/huitd/huitd_modifier.html', context)
+
 
 @login_required
 def huitd_supprimer_evidence(request, pk):
@@ -4803,4 +4837,3 @@ def huitd_supprimer_evidence(request, pk):
     evidence.delete()
     messages.success(request, "✅ Évidence supprimée")
     return redirect('reclamations:huitd_modifier', pk=huitd_id)
-

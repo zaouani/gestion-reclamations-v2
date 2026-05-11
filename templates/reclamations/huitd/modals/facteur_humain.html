@@ -1,0 +1,77 @@
+<!-- templates/reclamations/huitd/modals/facteur_humain.html -->
+<div class="method-modal" id="modal-fh">
+    <div class="method-modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>👤 Human Factors Cause Analysis</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('fh')"></button>
+        </div>
+        
+        <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="section" value="fh">
+            
+            <table class="table table-bordered table-sm mb-3">
+                <tr><th width="30%">Designation</th><td><input type="text" name="fh_designation" class="form-control form-control-sm" value="{{ huitd.facteur_humain.designation }}"></td></tr>
+                <tr><th>Nom / Name</th><td><input type="text" name="fh_nom" class="form-control form-control-sm" value="{{ huitd.facteur_humain.nom }}"></td></tr>
+                <tr><th>Site</th><td><input type="text" name="fh_site" class="form-control form-control-sm" value="{{ huitd.facteur_humain.site }}"></td></tr>
+                <tr><th>Date</th><td><input type="date" name="fh_date" class="form-control form-control-sm" value="{{ huitd.facteur_humain.date|date:'Y-m-d' }}"></td></tr>
+                <tr><th>Suivant</th><td><input type="text" class="form-control form-control-sm" value="PR-SM-06" disabled></td></tr>
+            </table>
+            
+            <!-- Section 1 -->
+            <h6 class="fw-bold text-primary">1. Do the means and tools used comply with the rules? / Est-ce que les moyens et outils de travail respectent les règles ?</h6>
+            <table class="table table-bordered table-sm mb-3">
+                <thead class="table-light"><tr><th>Criteria / Critères</th><th width="15%">Evaluation</th><th width="30%">Comments / Commentaires</th></tr></thead>
+                <tbody>
+                    {% for ev in huitd.facteur_humain.evaluations.all %}
+                    {% if ev.categorie == '1' %}
+                    <tr>
+                        <td>{{ ev.critere }}</td>
+                        <td><input type="text" name="fh_eval_{{ ev.categorie }}_{{ ev.numero_critere }}" class="form-control form-control-sm" value="{{ ev.evaluation }}"></td>
+                        <td><input type="text" name="fh_eval_{{ ev.categorie }}_{{ ev.numero_critere }}_comment" class="form-control form-control-sm" value="{{ ev.commentaire }}"></td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <!-- Section 2 -->
+            <h6 class="fw-bold text-primary">2. Are the working conditions appropriate? / Est-ce que les conditions de travail sont appropriées ?</h6>
+            <table class="table table-bordered table-sm mb-3">
+                <thead class="table-light"><tr><th>Criteria / Critères</th><th width="15%">Evaluation</th><th width="30%">Comments / Commentaires</th></tr></thead>
+                <tbody>
+                    {% for ev in huitd.facteur_humain.evaluations.all %}
+                    {% if ev.categorie == '2' %}
+                    <tr>
+                        <td>{{ ev.critere }}</td>
+                        <td><input type="text" name="fh_eval_{{ ev.categorie }}_{{ ev.numero_critere }}" class="form-control form-control-sm" value="{{ ev.evaluation }}"></td>
+                        <td><input type="text" name="fh_eval_{{ ev.categorie }}_{{ ev.numero_critere }}_comment" class="form-control form-control-sm" value="{{ ev.commentaire }}"></td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <!-- Section 3 -->
+            <h6 class="fw-bold text-primary">3. Doesn't the operator have problems stemming from other factors? / Est-ce que l'opérateur n'a pas de problèmes provenant d'autres facteurs ?</h6>
+            <table class="table table-bordered table-sm">
+                <thead class="table-light"><tr><th>Criteria / Critères</th><th width="15%">Evaluation</th><th width="30%">Comments / Commentaires</th></tr></thead>
+                <tbody>
+                    {% for ev in huitd.facteur_humain.evaluations.all %}
+                    {% if ev.categorie == '3' %}
+                    <tr>
+                        <td>{{ ev.critere }}</td>
+                        <td><input type="text" name="fh_eval_{{ ev.categorie }}_{{ ev.numero_critere }}" class="form-control form-control-sm" value="{{ ev.evaluation }}"></td>
+                        <td><input type="text" name="fh_eval_{{ ev.categorie }}_{{ ev.numero_critere }}_comment" class="form-control form-control-sm" value="{{ ev.commentaire }}"></td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="text-end mt-3">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer Facteur Humain</button>
+            </div>
+        </form>
+    </div>
+</div>

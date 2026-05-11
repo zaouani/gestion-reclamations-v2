@@ -1,0 +1,157 @@
+<!-- templates/reclamations/huitd/modals/ishikawa.html -->
+<div class="method-modal" id="modal-ishikawa">
+    <div class="method-modal-content" style="max-width:1100px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>🐟 Diagramme Ishikawa 6M - Arêtes de Poisson</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('ishikawa')"></button>
+        </div>
+        
+        <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="section" value="ishikawa">
+            
+            <style>
+                #modal-ishikawa .ishikawa-canvas {
+                    position: relative; width: 100%; min-width: 850px; height: 520px; margin: 10px auto; overflow: visible;
+                }
+                #modal-ishikawa .spine {
+                    position: absolute; top: 50%; left: 20px; right: 160px; height: 4px; background: #2c3e50;
+                    border-radius: 2px; transform: translateY(-50%); z-index: 1;
+                }
+                #modal-ishikawa .spine::after {
+                    content: ''; position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+                    width: 0; height: 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+                    border-left: 14px solid #2c3e50;
+                }
+                #modal-ishikawa .effect-box {
+                    position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 140px; z-index: 2;
+                }
+                #modal-ishikawa .effect-box label {
+                    display: block; font-size: 0.65rem; font-weight: bold; color: #e74c3c;
+                    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;
+                }
+                #modal-ishikawa .effect-box input {
+                    width: 100%; border: 2px solid #e74c3c; border-radius: 6px; padding: 6px 8px;
+                    font-size: 0.75rem; font-weight: bold; color: #2c3e50; background: #fff5f5; text-align: center;
+                }
+                #modal-ishikawa .branches-svg {
+                    position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;
+                }
+                #modal-ishikawa .branch-box {
+                    position: absolute; background: white; border: 2px solid; border-radius: 6px;
+                    padding: 10px; width: 230px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); z-index: 3;
+                    max-height: 220px; overflow-y: auto;
+                }
+                #modal-ishikawa .box-top-1 { top: 10px; left: 5%; border-color: #e74c3c; }
+                #modal-ishikawa .box-top-2 { top: 10px; left: 35%; border-color: #3498db; }
+                #modal-ishikawa .box-top-3 { top: 10px; left: 65%; border-color: #2ecc71; }
+                #modal-ishikawa .box-bottom-1 { bottom: 10px; left: 5%; border-color: #f39c12; }
+                #modal-ishikawa .box-bottom-2 { bottom: 10px; left: 35%; border-color: #9b59b6; }
+                #modal-ishikawa .box-bottom-3 { bottom: 10px; left: 65%; border-color: #1abc9c; }
+                #modal-ishikawa .branch-title {
+                    font-weight: bold; font-size: 0.78rem; margin-bottom: 8px; display: flex; align-items: center;
+                    gap: 6px; position: sticky; top: 0; background: white; padding-bottom: 5px;
+                    border-bottom: 1px solid #eee; z-index: 1;
+                }
+                #modal-ishikawa .branch-title .letter {
+                    width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center;
+                    justify-content: center; color: white; font-size: 0.7rem; font-weight: bold;
+                }
+                #modal-ishikawa .cause-lignes { display: flex; flex-direction: column; gap: 6px; }
+                #modal-ishikawa .cause-row {
+                    background: #f8f9fa; border-radius: 4px; padding: 6px; border: 1px solid #eee;
+                }
+                #modal-ishikawa .cause-row input[type="text"] {
+                    width: 100%; border: 1px solid #e0e0e0; border-radius: 3px; padding: 4px 6px;
+                    font-size: 0.7rem; background: white;
+                }
+                #modal-ishikawa .cause-row .cause-type {
+                    display: flex; gap: 8px; font-size: 0.65rem; color: #666; margin-top: 4px;
+                    justify-content: space-between;
+                }
+                #modal-ishikawa .cause-row .cause-type label {
+                    display: flex; align-items: center; gap: 3px; cursor: pointer; padding: 2px 5px;
+                    border-radius: 3px; flex: 1; justify-content: center;
+                }
+                #modal-ishikawa .btn-remove-cause {
+                    width: 20px; height: 20px; border-radius: 50%; border: none; background: #e74c3c;
+                    color: white; font-size: 0.7rem; cursor: pointer; margin-left: auto; margin-top: 3px;
+                }
+                #modal-ishikawa .btn-add-cause {
+                    width: 100%; border: 1px dashed #ccc; background: transparent; color: #666;
+                    font-size: 0.7rem; padding: 4px; border-radius: 4px; cursor: pointer; margin-top: 6px;
+                }
+            </style>
+            
+            <div class="ishikawa-canvas">
+                <div class="spine"></div>
+                <div class="effect-box">
+                    <label>Effet / Problème</label>
+                    <input type="text" value="{{ huitd.d1_caracterisation|truncatechars:50 }}" placeholder="Défaut...">
+                </div>
+                <svg class="branches-svg" viewBox="0 0 780 520" preserveAspectRatio="none">
+                    <line x1="112" y1="135" x2="160" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                    <line x1="332" y1="135" x2="380" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                    <line x1="552" y1="135" x2="600" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                    <line x1="112" y1="385" x2="160" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                    <line x1="332" y1="385" x2="380" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                    <line x1="552" y1="385" x2="600" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                </svg>
+                
+                {% for cat, color, label in categories_ishikawa %}
+                <div class="branch-box {% if forloop.counter <= 3 %}box-top-{{ forloop.counter }}{% else %}box-bottom-{{ forloop.counter|add:'-3' }}{% endif %}" id="box-{{ cat }}">
+                    <div class="branch-title" style="color:{{ color }};">
+                        <span class="letter" style="background:{{ color }};">{{ cat }}</span> {{ label }}
+                    </div>
+                    <div class="cause-lignes" id="causes-{{ cat }}">
+                        {% for cause in huitd.causes_ishikawa.all %}
+                            {% if cause.categorie == cat %}
+                            <div class="cause-row">
+                                <input type="text" name="ishikawa_{{ cat }}_cause[]" value="{{ cause.cause }}">
+                                <div class="cause-type">
+                                    <label><input type="radio" name="ishikawa_{{ cat }}_type_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="OCCURRENCE" {% if cause.type_cause == 'OCCURRENCE' %}checked{% endif %}> Occurrence</label>
+                                    <label><input type="radio" name="ishikawa_{{ cat }}_type_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="NON_DETECTION" {% if cause.type_cause == 'NON_DETECTION' %}checked{% endif %}> No Detection</label>
+                                </div>
+                                <button type="button" class="btn-remove-cause" onclick="this.closest('.cause-row').remove()">×</button>
+                            </div>
+                            {% endif %}
+                        {% empty %}
+                        <div class="cause-row">
+                            <input type="text" name="ishikawa_{{ cat }}_cause[]" placeholder="Facteur...">
+                            <div class="cause-type">
+                                <label><input type="radio" name="ishikawa_{{ cat }}_type_0_0" value="OCCURRENCE"> Occurrence</label>
+                                <label><input type="radio" name="ishikawa_{{ cat }}_type_0_0" value="NON_DETECTION"> No Detection</label>
+                            </div>
+                            <button type="button" class="btn-remove-cause" onclick="this.closest('.cause-row').remove()">×</button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-add-cause" onclick="ajouterCauseIshikawa('{{ cat }}')">+ Ajouter cause</button>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="text-end mt-3">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer Ishikawa</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function ajouterCauseIshikawa(cat) {
+    const container = document.getElementById('causes-' + cat);
+    const count = container.querySelectorAll('.cause-row').length;
+    const row = document.createElement('div');
+    row.className = 'cause-row';
+    row.innerHTML = `
+        <input type="text" name="ishikawa_${cat}_cause[]" placeholder="Facteur...">
+        <div class="cause-type">
+            <label><input type="radio" name="ishikawa_${cat}_type_${count}_0" value="OCCURRENCE"> Occurrence</label>
+            <label><input type="radio" name="ishikawa_${cat}_type_${count}_0" value="NON_DETECTION"> No Detection</label>
+        </div>
+        <button type="button" class="btn-remove-cause" onclick="this.closest('.cause-row').remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+</script>

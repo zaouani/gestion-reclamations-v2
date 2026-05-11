@@ -1,0 +1,73 @@
+<!-- templates/reclamations/huitd/modals/5p.html -->
+<div class="method-modal" id="modal-5p">
+    <div class="method-modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>❓ Analyse 5 WHY</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('5p')"></button>
+        </div>
+        
+        <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="section" value="5p">
+            
+            <div id="5p-container">
+                {% for cp in huitd.causes_5p.all %}
+                <div class="card mb-3">
+                    <div class="card-header {% if cp.type_cause == 'OCCURRENCE' %}bg-danger{% else %}bg-primary{% endif %} text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <select name="5p_type[]" class="form-select form-select-sm d-inline w-auto">
+                                <option value="OCCURRENCE" {% if cp.type_cause == 'OCCURRENCE' %}selected{% endif %}>Occurrence</option>
+                                <option value="NON_DETECTION" {% if cp.type_cause == 'NON_DETECTION' %}selected{% endif %}>No Detection</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-light" onclick="this.closest('.card').remove()">×</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2"><label class="form-label small">Facteur prouvé</label><input type="text" name="5p_facteur[]" class="form-control form-control-sm" value="{{ cp.facteur_prouve }}"></div>
+                        <div class="mb-2"><label class="form-label small">1. Pourquoi ?</label><textarea name="5p_p1[]" class="form-control form-control-sm" rows="1">{{ cp.pourquoi_1 }}</textarea></div>
+                        <div class="mb-2"><label class="form-label small">2. Pourquoi ?</label><textarea name="5p_p2[]" class="form-control form-control-sm" rows="1">{{ cp.pourquoi_2 }}</textarea></div>
+                        <div class="mb-2"><label class="form-label small">3. Pourquoi ?</label><textarea name="5p_p3[]" class="form-control form-control-sm" rows="1">{{ cp.pourquoi_3 }}</textarea></div>
+                        <div class="mb-2"><label class="form-label small">4. Pourquoi ?</label><textarea name="5p_p4[]" class="form-control form-control-sm" rows="1">{{ cp.pourquoi_4 }}</textarea></div>
+                        <div class="mb-2"><label class="form-label small">5. Pourquoi ?</label><textarea name="5p_p5[]" class="form-control form-control-sm" rows="1">{{ cp.pourquoi_5 }}</textarea></div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="card mb-3"><div class="card-header bg-danger text-white"><select name="5p_type[]" class="form-select form-select-sm d-inline w-auto"><option value="OCCURRENCE">Occurrence</option><option value="NON_DETECTION">No Detection</option></select></div><div class="card-body"><input type="text" name="5p_facteur[]" class="form-control form-control-sm mb-2" value="B"><textarea name="5p_p1[]" class="form-control form-control-sm mb-2" rows="1"></textarea><textarea name="5p_p2[]" class="form-control form-control-sm mb-2" rows="1"></textarea><textarea name="5p_p3[]" class="form-control form-control-sm mb-2" rows="1"></textarea><textarea name="5p_p4[]" class="form-control form-control-sm mb-2" rows="1"></textarea><textarea name="5p_p5[]" class="form-control form-control-sm mb-2" rows="1"></textarea></div></div>
+                {% endfor %}
+            </div>
+            
+            <button type="button" class="btn btn-outline-warning btn-sm" onclick="ajouter5P()">
+                <i class="fas fa-plus"></i> Ajouter 5P
+            </button>
+            
+            <div class="text-end mt-3">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer 5P</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function ajouter5P() {
+    const container = document.getElementById('5p-container');
+    const card = document.createElement('div');
+    card.className = 'card mb-3';
+    card.innerHTML = `
+        <div class="card-header bg-danger text-white">
+            <div class="d-flex justify-content-between">
+                <select name="5p_type[]" class="form-select form-select-sm d-inline w-auto"><option value="OCCURRENCE">Occurrence</option><option value="NON_DETECTION">No Detection</option></select>
+                <button type="button" class="btn btn-sm btn-outline-light" onclick="this.closest('.card').remove()">×</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <input type="text" name="5p_facteur[]" class="form-control form-control-sm mb-2" placeholder="Facteur (B,E,C...)">
+            <textarea name="5p_p1[]" class="form-control form-control-sm mb-2" rows="1" placeholder="1. Pourquoi ?"></textarea>
+            <textarea name="5p_p2[]" class="form-control form-control-sm mb-2" rows="1" placeholder="2. Pourquoi ?"></textarea>
+            <textarea name="5p_p3[]" class="form-control form-control-sm mb-2" rows="1" placeholder="3. Pourquoi ?"></textarea>
+            <textarea name="5p_p4[]" class="form-control form-control-sm mb-2" rows="1" placeholder="4. Pourquoi ?"></textarea>
+            <textarea name="5p_p5[]" class="form-control form-control-sm mb-2" rows="1" placeholder="5. Pourquoi ?"></textarea>
+        </div>
+    `;
+    container.appendChild(card);
+}
+</script>

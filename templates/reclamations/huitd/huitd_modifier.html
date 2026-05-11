@@ -434,86 +434,1098 @@
         <div class="separator"></div>
         
         <!-- ==================== D5 : Causes racines ==================== -->
-        <div class="section-title">D5 : Analyse des causes racines / Root Cause Analysis (Ishikawa, 5 Why, FTA...)</div>
-        
-        <table class="huitd-table">
-            <tr>
-                <th>
-                    Causes racines de l'occurrence ? Voir Ishikawa et 5P<br>
-                    Root causes of occurrence? See Ishikawa and 5P
-                    <br><br>
-                    <span class="method-link no-print" onclick="ouvrirMethode('ishikawa')">
-                        📊 Voir Ishikawa
-                    </span>
-                    &nbsp;|&nbsp;
-                    <span class="method-link no-print" onclick="ouvrirMethode('5p')">
-                        ❓ Voir 5P
-                    </span>
-                </th>
-                <td><textarea name="d5_causes_occurrence" rows="5"></textarea></td>
-            </tr>
-            <tr>
-                <th>
-                    Causes racines de la non détection ? Voir Ishikawa et 5P<br>
-                    Root causes of non-detection? See Ishikawa and 5P
-                    <br><br>
-                    <span class="method-link no-print" onclick="ouvrirMethode('ishikawa')">
-                        📊 Voir Ishikawa
-                    </span>
-                    &nbsp;|&nbsp;
-                    <span class="method-link no-print" onclick="ouvrirMethode('5p')">
-                        ❓ Voir 5P
-                    </span>
-                </th>
-                <td><textarea name="d5_causes_non_detection" rows="5"></textarea></td>
-            </tr>
+<div class="section-title">D5 : Analyse des causes racines / Root Cause Analysis (Ishikawa, 5 Why, FTA...)</div>
+
+<table class="huitd-table">
+    <tr>
+        <th>
+            Causes racines de l'occurrence ?<br>
+            Root causes of occurrence?
+            <br><br>
+            
+        </th>
+        <td><span class="method-link no-print" onclick="ouvrirMethode('5w2h')">
+                Remplir 5W2H
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('ishikawa')">
+                Remplir Ishikawa
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('vrs')">
+                Remplir VRS
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('5p')">
+                Remplir 5P
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('fh')">
+                Remplir Facteur Humain
+            </span></td>
+    </tr>
+    <tr>
+        <th>
+            Causes racines de la non détection ?<br>
+            Root causes of non-detection?
+            <br><br>
+            
+        </th>
+        <td><span class="method-link no-print" onclick="ouvrirMethode('5w2h')">
+                Remplir 5W2H
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('ishikawa')">
+                Remplir Ishikawa
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('vrs')">
+                Remplir VRS
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('5p')">
+                Remplir 5P
+            </span>
+            &nbsp;|&nbsp;
+            <span class="method-link no-print" onclick="ouvrirMethode('fh')">
+                Remplir Facteur Humain
+            </span></td>
+    </tr>
+</table>
+
+<!-- ==================== MODALS DES MÉTHODES ==================== -->
+
+<!-- Modal 5W2H -->
+<div class="method-modal" id="modal-5w2h">
+    <div class="method-modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>5W2H / CARACTERISATION</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('5w2h')"></button>
+        </div>
+      
+        <!-- Customer View -->
+        <h5 class="fw-bold text-primary">CUSTOMER VIEW / CARACTERISATION CLIENT</h5>
+        <table class="table table-bordered table-sm mb-4">
+            <tr><th width="50%">What happened ? / Que s'est-il passé ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.quoi }}</textarea></td></tr>
+            <tr><th>Who detected it? / Qui a détecté le problème ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.qui }}</textarea></td></tr>
+            <tr><th>Where was it detected? / Où a-t-il été détecté ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.ou }}</textarea></td></tr>
+            <tr><th>When did it happen? / Quand a-t-il été détecté ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.quand }}</textarea></td></tr>
+            <tr><th>How was it detected? / Comment a-t-il été détecté ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.comment }}</textarea></td></tr>
+            <tr><th>How many were detected? / Combien de cas ont été détectés ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.combien }}</textarea></td></tr>
+            <tr><th>Why is it a problem ? / Pourquoi est-ce un problème ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.pourquoi_probleme }}</textarea></td></tr>
+            <tr><th>What is the logistic impact on the customer ? / Quel est l'impact logistique sur le client ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.impact_logistique }}</textarea></td></tr>
+            <tr><th>Was the product delivered to other customer ? / A quels autres Client le produit a-t-il été livré ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.autres_clients_livres }}</textarea></td></tr>
+            <tr><th>Was the defect reported by other customers ? / Le défaut a-t-il été rapporté par d'autres clients ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.autres_clients_defaut }}</textarea></td></tr>
         </table>
         
-        <!-- ==================== D6 : Actions ==================== -->
-        <div class="section-title">D6 : Actions correctives et préventives / Corrective and Preventive Actions</div>
+        <!-- HCIM View -->
+        <h5 class="fw-bold text-success">HCIM VIEW / CARACTERISATION INTERNE</h5>
+        <table class="table table-bordered table-sm">
+            <tr><th width="50%">What are the symtoms ? / De quoi s'agit-il ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.symptomes }}</textarea></td></tr>
+            <tr><th>Which defects can be crossed out straightaway ? / Quel type de défaut peut être écarté d'emblée ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.defauts_ecartes }}</textarea></td></tr>
+            <tr><th>Where was the defect created amongst the operations ? / Où le défaut a-t-il pu être créé ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.ou_cree }}</textarea></td></tr>
+            <tr><th>When was the problem internally generated ? / Quand le problème a-t-il été généré en interne ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.quand_genere }}</textarea></td></tr>
+            <tr><th>Are the bad parts from a reworked process? / Les pièces mauvaises sont-elles issues d'une gamme rework ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.rework }}</textarea></td></tr>
+            <tr><th>At which operation should the problem have been detected ? / A quel stade le défaut est-il censé être détecté ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.detection_attendue }}</textarea></td></tr>
+            <tr><th>Are we capturing the defect when reinjecting products in the normal process ? / Le produit non conforme ré-introduit dans le processus est-il détecté par celui-ci ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.reinjection }}</textarea></td></tr>
+            <tr><th>Is the non conformity a known problem, a recurrent problem, internally and/or externally ? / La non-conformité est-elle connue, récurrente en externe ou en interne ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.probleme_connu }}</textarea></td></tr>
+            <tr><th>When was the last reported problem? / A quelle date remonte le dernier cas ?</th><td><textarea class="form-control form-control-sm" rows="2">{{ huitd.cinq_w2h.dernier_cas }}</textarea></td></tr>
+        </table>
+        <p class="text-muted mt-2">Suivant : PR-SM-06</p>
+    </div>
+</div>
+
+<!-- Modal Ishikawa - Diagramme en Arêtes de Poisson -->
+<div class="method-modal" id="modal-ishikawa">
+    <div class="method-modal-content" style="max-width:1100px;">
         
-        <table class="huitd-table">
-            <thead>
+        <!-- ==================== EN-TÊTE ==================== -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Diagramme Ishikawa 6M - Arêtes de Poisson</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('ishikawa')"></button>
+        </div>
+
+        <!-- ==================== STYLES ==================== -->
+        <style>
+            #modal-ishikawa .ishikawa-canvas {
+                position: relative;
+                width: 100%;
+                min-width: 850px;
+                height: 520px;
+                margin: 10px auto;
+                overflow: visible;
+            }
+
+            #modal-ishikawa .spine {
+                position: absolute;
+                top: 50%;
+                left: 20px;
+                right: 160px;
+                height: 4px;
+                background: #2c3e50;
+                border-radius: 2px;
+                transform: translateY(-50%);
+                z-index: 1;
+            }
+
+            #modal-ishikawa .spine::after {
+                content: '';
+                position: absolute;
+                right: -12px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 0;
+                height: 0;
+                border-top: 8px solid transparent;
+                border-bottom: 8px solid transparent;
+                border-left: 14px solid #2c3e50;
+            }
+
+            #modal-ishikawa .effect-box {
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 140px;
+                z-index: 2;
+            }
+
+            #modal-ishikawa .effect-box label {
+                display: block;
+                font-size: 0.65rem;
+                font-weight: bold;
+                color: #e74c3c;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 4px;
+            }
+
+            #modal-ishikawa .effect-box input {
+                width: 100%;
+                border: 2px solid #e74c3c;
+                border-radius: 6px;
+                padding: 6px 8px;
+                font-size: 0.75rem;
+                font-family: inherit;
+                font-weight: bold;
+                color: #2c3e50;
+                background: #fff5f5;
+                box-sizing: border-box;
+                text-align: center;
+            }
+
+            #modal-ishikawa .effect-box input:focus {
+                outline: none;
+                border-color: #c0392b;
+                background: #fff;
+            }
+
+            #modal-ishikawa .branches-svg {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 1;
+            }
+
+            #modal-ishikawa .branch-box {
+                position: absolute;
+                background: white;
+                border: 2px solid;
+                border-radius: 6px;
+                padding: 10px;
+                width: 230px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+                z-index: 3;
+                box-sizing: border-box;
+                max-height: 220px;
+                overflow-y: auto;
+            }
+
+            #modal-ishikawa .box-top-1 { top: 10px;  left: 5%; border-color: #e74c3c; }
+            #modal-ishikawa .box-top-2 { top: 10px;  left: 35%; border-color: #3498db; }
+            #modal-ishikawa .box-top-3 { top: 10px;  left: 65%; border-color: #2ecc71; }
+            #modal-ishikawa .box-bottom-1 { bottom: 10px; left: 5%; border-color: #f39c12; }
+            #modal-ishikawa .box-bottom-2 { bottom: 10px; left: 35%; border-color: #9b59b6; }
+            #modal-ishikawa .box-bottom-3 { bottom: 10px; left: 65%; border-color: #1abc9c; }
+
+            #modal-ishikawa .branch-title {
+                font-weight: bold;
+                font-size: 0.78rem;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                position: sticky;
+                top: 0;
+                background: white;
+                padding-bottom: 5px;
+                border-bottom: 1px solid #eee;
+                z-index: 1;
+            }
+
+            #modal-ishikawa .branch-title .letter {
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 0.7rem;
+                font-weight: bold;
+                flex-shrink: 0;
+            }
+
+            /* Lignes de causes */
+            #modal-ishikawa .cause-lignes {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            #modal-ishikawa .cause-row {
+                background: #f8f9fa;
+                border-radius: 4px;
+                padding: 6px;
+                border: 1px solid #eee;
+            }
+
+            #modal-ishikawa .cause-row input[type="text"] {
+                width: 100%;
+                border: 1px solid #e0e0e0;
+                border-radius: 3px;
+                padding: 4px 6px;
+                font-size: 0.7rem;
+                font-family: inherit;
+                background: white;
+                box-sizing: border-box;
+            }
+
+            #modal-ishikawa .cause-row input[type="text"]:focus {
+                outline: none;
+                border-color: #3498db;
+            }
+
+            #modal-ishikawa .cause-row .cause-type {
+                display: flex;
+                gap: 8px;
+                font-size: 0.65rem;
+                color: #666;
+                margin-top: 4px;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            #modal-ishikawa .cause-row .cause-type label {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                cursor: pointer;
+                padding: 2px 5px;
+                border-radius: 3px;
+                transition: background 0.2s;
+                flex: 1;
+                justify-content: center;
+            }
+
+            #modal-ishikawa .cause-row .cause-type label:hover {
+                background: #e9ecef;
+            }
+
+            #modal-ishikawa .cause-row .cause-type input[type="radio"] {
+                width: 12px;
+                height: 12px;
+                margin: 0;
+                cursor: pointer;
+                accent-color: #3498db;
+            }
+
+            #modal-ishikawa .cause-row .btn-remove-cause {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                border: none;
+                background: #e74c3c;
+                color: white;
+                font-size: 0.7rem;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                padding: 0;
+                line-height: 1;
+                margin-left: auto;
+                margin-top: 3px;
+            }
+
+            #modal-ishikawa .cause-row .btn-remove-cause:hover {
+                background: #c0392b;
+            }
+
+            #modal-ishikawa .btn-add-cause {
+                width: 100%;
+                border: 1px dashed #ccc;
+                background: transparent;
+                color: #666;
+                font-size: 0.7rem;
+                padding: 4px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-top: 6px;
+                transition: all 0.2s;
+            }
+
+            #modal-ishikawa .btn-add-cause:hover {
+                border-color: #3498db;
+                color: #3498db;
+                background: #f0f7ff;
+            }
+
+            @media (max-width: 900px) {
+                #modal-ishikawa .ishikawa-canvas { display: none; }
+                #modal-ishikawa .ishikawa-mobile { display: block !important; }
+            }
+
+            #modal-ishikawa .ishikawa-mobile {
+                display: none;
+            }
+
+            #modal-ishikawa .mobile-card {
+                background: white;
+                border-radius: 8px;
+                padding: 14px;
+                margin-bottom: 10px;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+                border-left: 3px solid;
+            }
+
+            #modal-ishikawa .mobile-card h5 {
+                font-size: 0.85rem;
+                margin: 0 0 8px 0;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            #modal-ishikawa .mobile-card .cause-row {
+                background: #f8f9fa;
+                border-radius: 4px;
+                padding: 6px;
+                margin-bottom: 4px;
+                border: 1px solid #eee;
+            }
+
+            #modal-ishikawa .mobile-card .cause-row input[type="text"] {
+                width: 100%;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                padding: 6px;
+                font-size: 0.8rem;
+                box-sizing: border-box;
+            }
+
+            #modal-ishikawa .mobile-card .cause-row .cause-type {
+                display: flex;
+                gap: 8px;
+                font-size: 0.7rem;
+                margin-top: 4px;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            #modal-ishikawa .mobile-card .btn-add-cause {
+                width: 100%;
+                border: 1px dashed #ccc;
+                background: transparent;
+                color: #666;
+                font-size: 0.8rem;
+                padding: 6px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-top: 6px;
+            }
+        </style>
+
+        <!-- ==================== VERSION DESKTOP ==================== -->
+        <div class="ishikawa-canvas">
+
+            <!-- Épine dorsale -->
+            <div class="spine"></div>
+
+            <!-- Effet / Problème -->
+            <div class="effect-box">
+                <label for="ishikawa-effet">Effet / Problème</label>
+                <input type="text" id="ishikawa-effet" name="ishikawa_effet"
+                       value="{{ huitd.caracterisation.description|truncatechars:50 }}"
+                       placeholder="Ex: Défaut qualité...">
+            </div>
+
+            <!-- SVG des arêtes -->
+            <svg class="branches-svg" viewBox="0 0 780 520" preserveAspectRatio="none">
+                <line x1="112" y1="135" x2="160" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                <line x1="332" y1="135" x2="380" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                <line x1="552" y1="135" x2="600" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                <line x1="112" y1="385" x2="160" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                <line x1="332" y1="385" x2="380" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+                <line x1="552" y1="385" x2="600" y2="260" stroke="#2c3e50" stroke-width="2.5"/>
+            </svg>
+
+            <!-- ===== BOXES HAUT ===== -->
+
+            <!-- Branche A - Milieu -->
+            <div class="branch-box box-top-1" id="box-A">
+                <div class="branch-title" style="color:#e74c3c;">
+                    <span class="letter" style="background:#e74c3c;">A</span>
+                    Milieu / Environment
+                </div>
+                <div class="cause-lignes" id="causes-A">
+                    <div class="cause-row">
+                        <input type="text" name="ishikawa_A_cause[]" placeholder="Facteur environnemental...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="ishikawa_A_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="ishikawa_A_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCause('A')">+ Ajouter cause</button>
+            </div>
+
+            <!-- Branche B - Méthodes -->
+            <div class="branch-box box-top-2" id="box-B">
+                <div class="branch-title" style="color:#3498db;">
+                    <span class="letter" style="background:#3498db;">B</span>
+                    Méthodes / Methods
+                </div>
+                <div class="cause-lignes" id="causes-B">
+                    <div class="cause-row">
+                        <input type="text" name="ishikawa_B_cause[]" placeholder="Facteur méthodologique...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="ishikawa_B_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="ishikawa_B_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCause('B')">+ Ajouter cause</button>
+            </div>
+
+            <!-- Branche C - Moyens -->
+            <div class="branch-box box-top-3" id="box-C">
+                <div class="branch-title" style="color:#2ecc71;">
+                    <span class="letter" style="background:#2ecc71;">C</span>
+                    Moyens / Resources
+                </div>
+                <div class="cause-lignes" id="causes-C">
+                    <div class="cause-row">
+                        <input type="text" name="ishikawa_C_cause[]" placeholder="Facteur de moyens...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="ishikawa_C_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="ishikawa_C_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCause('C')">+ Ajouter cause</button>
+            </div>
+
+            <!-- ===== BOXES BAS ===== -->
+
+            <!-- Branche D - Main d'œuvre -->
+            <div class="branch-box box-bottom-1" id="box-D">
+                <div class="branch-title" style="color:#f39c12;">
+                    <span class="letter" style="background:#f39c12;">D</span>
+                    Main d'œuvre / Personnel
+                </div>
+                <div class="cause-lignes" id="causes-D">
+                    <div class="cause-row">
+                        <input type="text" name="ishikawa_D_cause[]" placeholder="Facteur humain...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="ishikawa_D_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="ishikawa_D_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCause('D')">+ Ajouter cause</button>
+            </div>
+
+            <!-- Branche E - Matières -->
+            <div class="branch-box box-bottom-2" id="box-E">
+                <div class="branch-title" style="color:#9b59b6;">
+                    <span class="letter" style="background:#9b59b6;">E</span>
+                    Matières / Materials
+                </div>
+                <div class="cause-lignes" id="causes-E">
+                    <div class="cause-row">
+                        <input type="text" name="ishikawa_E_cause[]" placeholder="Facteur matériel...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="ishikawa_E_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="ishikawa_E_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCause('E')">+ Ajouter cause</button>
+            </div>
+
+            <!-- Branche F - Mesures -->
+            <div class="branch-box box-bottom-3" id="box-F">
+                <div class="branch-title" style="color:#1abc9c;">
+                    <span class="letter" style="background:#1abc9c;">F</span>
+                    Mesures / Measures
+                </div>
+                <div class="cause-lignes" id="causes-F">
+                    <div class="cause-row">
+                        <input type="text" name="ishikawa_F_cause[]" placeholder="Facteur de mesure...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="ishikawa_F_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="ishikawa_F_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCause('F')">+ Ajouter cause</button>
+            </div>
+
+        </div><!-- Fin ishikawa-canvas -->
+
+        <!-- ==================== VERSION MOBILE ==================== -->
+        <div class="ishikawa-mobile">
+            <div class="mobile-card" style="border-color:#e74c3c;" id="mobile-A">
+                <h5 style="color:#e74c3c;"><span style="background:#e74c3c;color:white;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">A</span> Milieu / Environment</h5>
+                <div class="cause-lignes" id="mcauses-A">
+                    <div class="cause-row">
+                        <input type="text" placeholder="Facteur...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="mishikawa_A_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="mishikawa_A_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCauseMobile('A')">+ Ajouter cause</button>
+            </div>
+            <div class="mobile-card" style="border-color:#3498db;" id="mobile-B">
+                <h5 style="color:#3498db;"><span style="background:#3498db;color:white;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">B</span> Méthodes / Methods</h5>
+                <div class="cause-lignes" id="mcauses-B">
+                    <div class="cause-row">
+                        <input type="text" placeholder="Facteur...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="mishikawa_B_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="mishikawa_B_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCauseMobile('B')">+ Ajouter cause</button>
+            </div>
+            <div class="mobile-card" style="border-color:#2ecc71;" id="mobile-C">
+                <h5 style="color:#2ecc71;"><span style="background:#2ecc71;color:white;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">C</span> Moyens / Resources</h5>
+                <div class="cause-lignes" id="mcauses-C">
+                    <div class="cause-row">
+                        <input type="text" placeholder="Facteur...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="mishikawa_C_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="mishikawa_C_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCauseMobile('C')">+ Ajouter cause</button>
+            </div>
+            <div class="mobile-card" style="border-color:#f39c12;" id="mobile-D">
+                <h5 style="color:#f39c12;"><span style="background:#f39c12;color:white;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">D</span> Main d'œuvre / Personnel</h5>
+                <div class="cause-lignes" id="mcauses-D">
+                    <div class="cause-row">
+                        <input type="text" placeholder="Facteur...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="mishikawa_D_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="mishikawa_D_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCauseMobile('D')">+ Ajouter cause</button>
+            </div>
+            <div class="mobile-card" style="border-color:#9b59b6;" id="mobile-E">
+                <h5 style="color:#9b59b6;"><span style="background:#9b59b6;color:white;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">E</span> Matières / Materials</h5>
+                <div class="cause-lignes" id="mcauses-E">
+                    <div class="cause-row">
+                        <input type="text" placeholder="Facteur...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="mishikawa_E_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="mishikawa_E_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCauseMobile('E')">+ Ajouter cause</button>
+            </div>
+            <div class="mobile-card" style="border-color:#1abc9c;" id="mobile-F">
+                <h5 style="color:#1abc9c;"><span style="background:#1abc9c;color:white;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">F</span> Mesures / Measures</h5>
+                <div class="cause-lignes" id="mcauses-F">
+                    <div class="cause-row">
+                        <input type="text" placeholder="Facteur...">
+                        <div class="cause-type">
+                            <label><input type="radio" name="mishikawa_F_type_0" value="OCCURRENCE"> Occurrence</label>
+                            <label><input type="radio" name="mishikawa_F_type_0" value="NON_DETECTION"> No Detection</label>
+                        </div>
+                        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-cause" onclick="ajouterCauseMobile('F')">+ Ajouter cause</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function ajouterCause(categorie) {
+    const container = document.getElementById('causes-' + categorie);
+    const count = container.querySelectorAll('.cause-row').length;
+    
+    const row = document.createElement('div');
+    row.className = 'cause-row';
+    row.innerHTML = `
+        <input type="text" name="ishikawa_${categorie}_cause[]" placeholder="Facteur...">
+        <div class="cause-type">
+            <label><input type="radio" name="ishikawa_${categorie}_type_${count}" value="OCCURRENCE"> Occurrence</label>
+            <label><input type="radio" name="ishikawa_${categorie}_type_${count}" value="NON_DETECTION"> No Detection</label>
+        </div>
+        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+    `;
+    container.appendChild(row);
+}
+
+function ajouterCauseMobile(categorie) {
+    const container = document.getElementById('mcauses-' + categorie);
+    const count = container.querySelectorAll('.cause-row').length;
+    
+    const row = document.createElement('div');
+    row.className = 'cause-row';
+    row.innerHTML = `
+        <input type="text" name="mishikawa_${categorie}_cause[]" placeholder="Facteur...">
+        <div class="cause-type">
+            <label><input type="radio" name="mishikawa_${categorie}_type_${count}" value="OCCURRENCE"> Occurrence</label>
+            <label><input type="radio" name="mishikawa_${categorie}_type_${count}" value="NON_DETECTION"> No Detection</label>
+        </div>
+        <button type="button" class="btn-remove-cause" onclick="supprimerCause(this)">×</button>
+    `;
+    container.appendChild(row);
+}
+
+function supprimerCause(btn) {
+    const row = btn.closest('.cause-row');
+    const container = row.parentElement;
+    if (container.querySelectorAll('.cause-row').length > 1) {
+        row.remove();
+    }
+}
+</script>
+<!-- Modal VRS (séparé de Ishikawa) -->
+<div class="method-modal" id="modal-vrs">
+    <div class="method-modal-content" style="max-width:1100px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4> Verification of Standards (VRS)</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('vrs')"></button>
+        </div>
+        
+        <!-- Tableau VRS -->
+        <h5 class="fw-bold mb-3">Tableau de Vérification des Standards (VRS)</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>6M</th>
+                        <th>Facteur probable / Probable factor</th>
+                        <th>Paramètre mesurable / Is there a measurable parameter</th>
+                        <th>Standard ou exigences / What is the standard or requirement</th>
+                        <th>Données réelles (bonnes) / Real data (good parts)</th>
+                        <th>Données réelles (mauvaises) / Real data (bad parts)</th>
+                        <th>Standard suivi ? / Is the standard followed?</th>
+                        <th>Standard approprié ? / Is the standard appropriate</th>
+                        <th>Lien prouvé ? / Proven location</th>
+                        <th>Facteur prouvé / Proven factor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in huitd.ishikawa.facteurs.all %}
+                    <tr>
+                        <td><strong>{{ f.get_categorie_display }}</strong></td>
+                        <td><textarea class="form-control form-control-sm" rows="1">{{ f.facteur_probable }}</textarea></td>
+                        <td><textarea class="form-control form-control-sm" rows="1">{{ f.parametre_mesurable }}</textarea></td>
+                        <td><textarea class="form-control form-control-sm" rows="1">{{ f.standard_exigence }}</textarea></td>
+                        <td><textarea class="form-control form-control-sm" rows="1">{{ f.donnees_bonnes }}</textarea></td>
+                        <td><textarea class="form-control form-control-sm" rows="1">{{ f.donnees_mauvaises }}</textarea></td>
+                        <td class="text-center"><input type="checkbox" {% if f.standard_suivi %}checked{% endif %}></td>
+                        <td class="text-center"><input type="checkbox" {% if f.standard_approprie %}checked{% endif %}></td>
+                        <td class="text-center"><input type="checkbox" {% if f.lien_prouve %}checked{% endif %}></td>
+                        <td class="text-center"><input type="checkbox" {% if f.facteur_prouve %}checked{% endif %}></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td><strong>A - Milieu / Environment</strong></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td></tr>
+                    <tr><td><strong>B - Méthodes / Methods</strong></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td></tr>
+                    <tr><td><strong>C - Moyens / Resources</strong></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td></tr>
+                    <tr><td><strong>D - Main d'œuvre / Personnel</strong></td><td colspan="9" class="text-muted fst-italic">Merci de renseigner l'onglet Facteur humain / Please fill in the Human Factor tab</td></tr>
+                    <tr><td><strong>E - Matières / Materials</strong></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td></tr>
+                    <tr><td><strong>F - Mesures / Measures</strong></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td><textarea class="form-control form-control-sm" rows="1"></textarea></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td><td class="text-center"><input type="checkbox"></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 5P -->
+<div class="method-modal" id="modal-5p">
+    <div class="method-modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Analyse 5 WHY</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('5p')"></button>
+        </div>
+        
+        <table class="table table-bordered table-sm">
+            <thead class="table-light">
                 <tr>
-                    <th>Causes retenues / Causes retained</th>
-                    <th>Actions : occurrence - non détection</th>
-                    <th>Pilote</th>
-                    <th>Statut / Status</th>
+                    <th>Type</th>
+                    <th>Facteur prouvé / Proven factor</th>
+                    <th>1. Pourquoi ? / Why?</th>
+                    <th>2. Pourquoi ? / Why?</th>
+                    <th>3. Pourquoi ? / Why?</th>
+                    <th>4. Pourquoi ? / Why?</th>
+                    <th>5. Pourquoi ? / Why?</th>
                 </tr>
             </thead>
             <tbody>
-                {% for action in huitd.actions.all %}
+                {% for cp in huitd.cinq_p.all %}
                 <tr>
-                    <td><input type="text" name="action_cause_{{ action.id }}" value="{{ action.numero_cause }}"></td>
-                    <td><textarea name="action_desc_{{ action.id }}" rows="2">{{ action.action }}</textarea></td>
-                    <td><input type="text" name="action_pilote_{{ action.id }}" value="{{ action.pilote }}"></td>
                     <td>
-                        <select name="action_statut_{{ action.id }}">
-                            <option value="PLANIFIE" {% if action.statut == 'PLANIFIE' %}selected{% endif %}>Planifié</option>
-                            <option value="EN_COURS" {% if action.statut == 'EN_COURS' %}selected{% endif %}>En cours</option>
-                            <option value="REALISE" {% if action.statut == 'REALISE' %}selected{% endif %}>Réalisé</option>
-                            <option value="EFFICACE" {% if action.statut == 'EFFICACE' %}selected{% endif %}>Efficace</option>
+                        <select class="form-select form-select-sm">
+                            <option value="OCCURRENCE" {% if cp.categorie == 'OCCURRENCE' %}selected{% endif %}>Occurrence - {{ cp.facteur_prouve|default:'B' }}</option>
+                            <option value="NON_DETECTION" {% if cp.categorie == 'NON_DETECTION' %}selected{% endif %}>No Detection - {{ cp.facteur_prouve|default:'C' }}</option>
                         </select>
                     </td>
+                    <td><input type="text" class="form-control form-control-sm" value="{{ cp.facteur_prouve }}" style="width:60px;"></td>
+                    <td><textarea class="form-control form-control-sm" rows="1">{{ cp.pourquoi_1 }}</textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1">{{ cp.pourquoi_2 }}</textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1">{{ cp.pourquoi_3 }}</textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1">{{ cp.pourquoi_4 }}</textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1">{{ cp.pourquoi_5 }}</textarea></td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td><input type="text" name="action_cause_new" placeholder="Ex: B"></td>
-                    <td><textarea name="action_desc_new" rows="2" placeholder="Action..."></textarea></td>
-                    <td><input type="text" name="action_pilote_new" placeholder="Pilote"></td>
-                    <td>
-                        <select name="action_statut_new">
-                            <option>Planifié</option>
-                            <option>En cours</option>
-                            <option>Réalisé</option>
-                            <option>Efficace</option>
-                        </select>
-                    </td>
+                    <td><select class="form-select form-select-sm"><option>Occurrence - B</option><option>No Detection - C</option></select></td>
+                    <td><input type="text" class="form-control form-control-sm" style="width:60px;" value="B"></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                </tr>
+                <tr>
+                    <td><select class="form-select form-select-sm"><option>Occurrence - E</option><option>No Detection - C</option></select></td>
+                    <td><input type="text" class="form-control form-control-sm" style="width:60px;" value="E"></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                </tr>
+                <tr>
+                    <td><select class="form-select form-select-sm"><option>No Detection - C</option></select></td>
+                    <td><input type="text" class="form-control form-control-sm" style="width:60px;" value="C"></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
+                    <td><textarea class="form-control form-control-sm" rows="1"></textarea></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal Facteur Humain -->
+<div class="method-modal" id="modal-fh">
+    <div class="method-modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Human Factors Cause Analysis</h4>
+            <button type="button" class="btn-close" onclick="fermerMethode('fh')"></button>
+        </div>
         
+        
+        <!-- Tableau Facteurs Humains -->
+        <h5 class="fw-bold mb-3">Tableau d'Analyse des Facteurs Humains</h5>
+        
+        <!-- Section 1 -->
+        <h6 class="fw-bold text-primary">1. Do the means and tools used comply with the rules? / Est-ce que les moyens et outils de travail respectent les règles ?</h6>
+        <table class="table table-bordered table-sm mb-3">
+            <thead class="table-light">
+                <tr><th>Criteria / Critères</th><th width="10%">Evaluation</th><th>Comments / Commentaires</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>1.1 Are the references worked on the same as those previously planned? / Est-ce que les références travaillées sont celles planifiées auparavant ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>1.2 Are the tools used those requested in the GP/FI? / Est-ce que les outils utilisés sont ceux demandés dans la GP/FI ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>1.3 Is there a problem caused by a defective tool? / Y a-t-il un problème causé par un outil défectueux ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>1.4 Are there any blind operations that the operator must perform that are not described in the GP/FI? / Est-ce qu'il y a des opérations à l'aveugle que l'opérateur doit réaliser et qui ne sont pas décrites dans la GP/FI ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>1.5 Are there any components handled that represent quality problems? / Y a-t-il un composant manipulé qui représente des problèmes de qualité ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+            </tbody>
+        </table>
+        
+        <!-- Section 2 -->
+        <h6 class="fw-bold text-primary">2. Are the working conditions appropriate? / Est-ce que les conditions de travail sont appropriées ?</h6>
+        <table class="table table-bordered table-sm mb-3">
+            <thead class="table-light">
+                <tr><th>Criteria / Critères</th><th width="10%">Evaluation</th><th>Comments / Commentaires</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>2.1 Are temperature, lighting, noise and cleaning appropriate and monitored? / Est-ce que la température, l'éclairage, le bruit et le nettoyage sont appropriés et suivis ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>2.2 Are the PPE suitable for the job? / Est-ce que les EPI sont adaptés au poste ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>2.3 Is the layout adequate for all the operations involved in the job? / Est-ce que le layout est adéquat pour toutes les opérations prévues au poste ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>2.4 Does the operator encounter any ergonomic problems when performing the operation? / Est-ce que l'opérateur en réalisant l'opération rencontre un problème ergonomique ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>2.5 Is the flow of incoming and outgoing parts well defined? / Est-ce que le flux des pièces entrant et sortant est bien défini ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+            </tbody>
+        </table>
+        
+        <!-- Section 3 -->
+        <h6 class="fw-bold text-primary">3. Doesn't the operator have problems stemming from other factors? / Est-ce que l'opérateur n'a pas de problèmes provenant d'autres facteurs ?</h6>
+        <table class="table table-bordered table-sm">
+            <thead class="table-light">
+                <tr><th>Criteria / Critères</th><th width="10%">Evaluation</th><th>Comments / Commentaires</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>3.1 Is the operator overloaded? / Est-ce que l'opérateur est surchargé ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.2 Is the operator stressed? / Est-ce que l'opérateur est stressé ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.3 Is the operator motivated? / Est-ce que l'opérateur est motivé ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.4 Is the operator tired? / Est-ce que l'opérateur est fatigué ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.5 Is the operator in good health? / Est-ce que l'opérateur est en bonne santé ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.6 Is the operator suitable for this job? / Est-ce que l'opérateur est approprié à ce poste ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.7 Has the operator worked for the last 6 months in this position? / Est-ce que l'opérateur a travaillé durant les 6 derniers mois à ce poste ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.8 Is the operator aware of the consequences of this error? / Est-ce que l'opérateur est conscient des conséquences de cette erreur ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+                <tr><td>3.9 Does the operator have any other problems? / Est-ce que l'opérateur n'a pas d'autres problèmes ?</td><td><input type="text" class="form-control form-control-sm"></td><td><input type="text" class="form-control form-control-sm"></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+        
+<!-- ==================== D6 : Actions ==================== -->
+<div class="section-title">D6 : Actions correctives et préventives / Corrective and Preventive Actions</div>
+
+    <table class="" id="table-actions">
+        <thead>
+            <tr>
+                <th style="width:10%;">Type</th>
+                <th style="width:20%;">Causes retenues / Causes retained</th>
+                <th style="width:30%;">Actions : occurrence - non détection</th>
+                <th style="width:10%;">Pilote</th>
+                <th style="width:10%;">Délai/Deadline</th>
+                <th style="width:15%;">Statut / Status</th>
+                <th style="width:5%;"></th>
+            </tr>
+        </thead>
+        <tbody id="actions-body">
+            
+            <tr class="action-row">
+                <td>
+                    <select name="action_type[]" class="form-select form-select-sm">
+                        <option value="CORRECTIVE">AC</option>
+                        <option value="PREVENTIVE">AP</option>
+                    </select>
+                </td>
+                <td><input type="text" name="action_cause[]" class="form-control form-control-sm" placeholder="Ex: B"></td>
+                <td><textarea name="action_desc[]" rows="2" class="form-control form-control-sm" placeholder="Action..."></textarea></td>
+                <td><input type="text" name="action_pilote[]" class="form-control form-control-sm" placeholder="Pilote"></td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" name="action_delai[]" class="form-control form-control-sm" min="1" max="52" placeholder="Ex: week 22">
+                    </div>
+                </td>
+                <td>
+                    <select name="action_statut[]" class="form-select form-select-sm">
+                        <option value="PLANIFIE">Planifié</option>
+                        <option value="EN_COURS">En cours</option>
+                        <option value="REALISE">Réalisé</option>
+                        <option value="EFFICACE">Efficace</option>
+                    </select>
+                </td>
+                <td class="text-center align-middle">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="supprimerAction(this)" title="Supprimer">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Résumé des actions -->
+    <div class="row mt-3 mb-2">
+        <div class="col-md-12">
+            <small class="text-muted">
+                <span id="count-actions">1</span> action(s) | 
+                <span class="text-primary fw-bold">AC</span> = Action Corrective | 
+                <span class="text-warning fw-bold">AP</span> = Action Préventive
+            </small>
+        </div>
+    </div>
+
+    <!-- Bouton ajouter -->
+    <div class="text-end mt-2 no-print">
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="ajouterAction()">
+            <i class="fas fa-plus"></i> Ajouter une action
+        </button>
+    </div>
+
+    <style>
+        #table-actions {
+            border-collapse: collapse;
+        }
+        #table-actions thead th {
+            background-color: #e9ecef;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-align: center;
+            vertical-align: middle;
+            padding: 10px 8px;
+            border: 1px solid #999;
+        }
+        #table-actions tbody td {
+            vertical-align: middle;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+        }
+        #table-actions .action-row {
+            transition: background-color 0.3s;
+        }
+        #table-actions .action-row:hover {
+            background-color: #f8f9fa;
+        }
+        #table-actions .action-row:only-child .btn-outline-danger {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        #table-actions .action-row input,
+        #table-actions .action-row textarea,
+        #table-actions .action-row select {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            width: 100%;
+        }
+        #table-actions .action-row textarea {
+            resize: vertical;
+            min-height: 40px;
+        }
+        #table-actions .action-row input:focus,
+        #table-actions .action-row textarea:focus,
+        #table-actions .action-row select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52,152,219,0.1);
+        }
+        
+        /* Badge pour le type d'action */
+        .badge-ac {
+            background-color: #3498db;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+        .badge-ap {
+            background-color: #f39c12;
+            color: #333;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+    </style>
+
+    <script>
+    function ajouterAction() {
+        const tbody = document.getElementById('actions-body');
+        
+        const tr = document.createElement('tr');
+        tr.className = 'action-row';
+        tr.innerHTML = `
+            <td>
+                <select name="action_type[]" class="form-select form-select-sm">
+                    <option value="CORRECTIVE">AC</option>
+                    <option value="PREVENTIVE">AP</option>
+                </select>
+            </td>
+            <td><input type="text" name="action_cause[]" class="form-control form-control-sm" placeholder="Ex: B, E, C..."></td>
+            <td><textarea name="action_desc[]" rows="2" class="form-control form-control-sm" placeholder="Décrire l'action..."></textarea></td>
+            <td><input type="text" name="action_pilote[]" class="form-control form-control-sm" placeholder="Nom du pilote"></td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="number" name="action_delai[]" class="form-control form-control-sm" min="1" max="52" placeholder="Ex: week 4">
+                </div>
+            </td>
+            <td>
+                <select name="action_statut[]" class="form-select form-select-sm">
+                    <option value="PLANIFIE">Planifié</option>
+                    <option value="EN_COURS">En cours</option>
+                    <option value="REALISE">Réalisé</option>
+                    <option value="EFFICACE">Efficace</option>
+                </select>
+            </td>
+            <td class="text-center align-middle">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="supprimerAction(this)" title="Supprimer">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        
+        // Mettre à jour le compteur
+        mettreAJourCompteur();
+        
+        // Focus sur le champ cause
+        tr.querySelector('input[name="action_cause[]"]').focus();
+        
+        // Animation d'apparition
+        tr.style.opacity = '0';
+        tr.style.transition = 'opacity 0.3s';
+        setTimeout(() => tr.style.opacity = '1', 10);
+    }
+
+    function supprimerAction(btn) {
+        const tbody = document.getElementById('actions-body');
+        const rows = tbody.querySelectorAll('.action-row');
+        
+        // Ne pas supprimer si c'est la dernière ligne
+        if (rows.length > 1) {
+            const row = btn.closest('tr');
+            row.style.opacity = '0';
+            row.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+                row.remove();
+                mettreAJourCompteur();
+            }, 300);
+        }
+    }
+
+    function mettreAJourCompteur() {
+        const tbody = document.getElementById('actions-body');
+        const count = tbody.querySelectorAll('.action-row').length;
+        const compteur = document.getElementById('count-actions');
+        if (compteur) {
+            compteur.textContent = count;
+        }
+    }
+
+    // Initialiser le compteur au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        mettreAJourCompteur();
+    });
+    </script>
         <!-- ==================== D7 : Vérification ==================== -->
         <div class="section-title">D7 : Vérification de l'efficacité des actions / Checking the Effectiveness of Actions</div>
         
@@ -672,7 +1684,7 @@
 <div class="method-modal" id="modal-ishikawa">
     <div class="method-modal-content">
         <div class="d-flex justify-content-between mb-3">
-            <h4>🐟 Diagramme Ishikawa 6M</h4>
+            <h4>Diagramme Ishikawa 6M</h4>
             <button type="button" class="btn-close" onclick="fermerMethode('ishikawa')"></button>
         </div>
         <p>Utilisez cet espace pour analyser les causes par catégorie 6M :</p>
@@ -720,7 +1732,6 @@ function fermerMethode(methode) {
     document.getElementById('modal-' + methode).style.display = 'none';
 }
 
-// Fermer en cliquant en dehors
 window.onclick = function(event) {
     if (event.target.classList.contains('method-modal')) {
         event.target.style.display = 'none';
