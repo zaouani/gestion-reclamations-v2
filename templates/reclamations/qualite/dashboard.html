@@ -1,0 +1,185 @@
+<!-- templates/reclamations/qualite/dashboard.html -->
+{% extends 'base.html' %}
+
+{% block title %}Qualité Produit - 8D{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border-radius: 12px;
+        padding: 20px;
+        color: white;
+        transition: transform 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .stats-card:hover { transform: translateY(-3px); }
+    .stats-card .stats-number { font-size: 2.5rem; font-weight: bold; }
+    .stats-card .stats-label { font-size: 0.9rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; }
+    .stats-card.ouvertes { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .stats-card.sans-8d { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
+    .stats-card.avec-8d { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
+    .stats-card.clotures { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); }
+    
+    .reclamation-card {
+        border-radius: 10px;
+        border-left: 4px solid #e74c3c;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    .reclamation-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); transform: translateX(3px); }
+    .reclamation-card.avec-8d { border-left-color: #3498db; }
+    
+    .btn-creer-8d {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    .btn-creer-8d:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(231,76,60,0.4); color: white; }
+    
+    .badge-urgence { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-clipboard-check text-primary"></i> Qualité Produit</h1>
+            <p class="text-muted">Création et suivi des 8D pour les réclamations ouvertes</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'reclamations:liste' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> Toutes les réclamations
+            </a>
+            <a href="{% url 'reclamations:dashboard_pdca' %}" class="btn btn-outline-primary ms-2">
+                <i class="fas fa-tasks"></i> Dashboard PDCA
+            </a>
+        </div>
+    </div>
+
+    <!-- Réclamations SANS 8D -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Réclamations en attente de 8D</h5>
+            <span class="badge bg-light text-danger">{{ stats.sans_8d }} réclamation(s)</span>
+        </div>
+        <div class="card-body">
+            {% if reclamations_sans_8d %}
+            <div class="row">
+                {% for rec in reclamations_sans_8d %}
+                <div class="col-md-6 mb-3">
+                    <div class="reclamation-card border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <a href="{% url 'reclamations:detail_reclamation' rec.id %}" class="text-decoration-none">
+                                        {{ rec.numero_reclamation }}
+                                    </a>
+                                    <span class="badge badge-urgence bg-danger ms-2">8D requis</span>
+                                </h6>
+                                <p class="mb-1"><strong>{{ rec.client.nom }}</strong></p>
+                                <small class="text-muted">
+                                    <i class="far fa-calendar-alt"></i> {{ rec.date_reclamation|date:"d/m/Y" }} |
+                                    <i class="fas fa-tag"></i> {{ rec.get_imputation_display }}
+                                </small>
+                                <br>
+                                {% for ligne in rec.lignes.all|slice:":2" %}
+                                <span class="badge bg-secondary me-1">{{ ligne.produit.product_number }}</span>
+                                {% endfor %}
+                                {% if rec.lignes.all.count > 2 %}
+                                <span class="badge bg-light text-dark">+{{ rec.lignes.all.count|add:"-2" }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <a href="{% url 'reclamations:huitd_creer' rec.id %}" class="btn-creer-8d">
+                                    <i class="fas fa-plus-circle me-1"></i> Créer 8D
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h5>Toutes les réclamations ouvertes ont un 8D</h5>
+                <p class="text-muted">Aucune réclamation en attente</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Réclamations AVEC 8D en cours -->
+    <div class="card">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>8D en cours de traitement</h5>
+            <span class="badge bg-light text-info">{{ stats.avec_8d }} réclamation(s)</span>
+        </div>
+        <div class="card-body">
+            {% if reclamations_avec_8d %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° Réclamation</th>
+                            <th>Client</th>
+                            <th>Date</th>
+                            <th>N° 8D</th>
+                            <th>État 8D</th>
+                            <th>Actions 8D</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in reclamations_avec_8d %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'reclamations:detail_reclamation' rec.id %}" class="text-decoration-none fw-bold">
+                                    {{ rec.numero_reclamation }}
+                                </a>
+                            </td>
+                            <td>{{ rec.client.nom }}</td>
+                            <td>{{ rec.date_reclamation|date:"d/m/Y" }}</td>
+                            <td>{{ rec.huitd.numero_8d|default:"-" }}</td>
+                            <td>
+                                <span class="badge {% if rec.huitd.etat == 'CLOTURE' %}bg-success{% elif rec.huitd.etat == 'EN_COURS' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {{ rec.huitd.get_etat_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% with nb=rec.huitd.actions.count %}
+                                {% if nb > 0 %}
+                                <span class="badge bg-primary">{{ nb }} action(s)</span>
+                                {% else %}
+                                <span class="text-muted">Aucune</span>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <a href="{% url 'reclamations:huitd_modifier' rec.huitd.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i> Modifier 8D
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <h5>Aucun 8D en cours</h5>
+                <p class="text-muted">Tous les 8D sont clôturés</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

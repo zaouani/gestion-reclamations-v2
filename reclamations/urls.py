@@ -103,7 +103,8 @@ urlpatterns = [
     path('8d/<int:pk>/', views.huitd_detail, name='huitd_detail'),
     path('8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
     path('8d/evidence/<int:pk>/supprimer/', views.huitd_supprimer_evidence, name='huitd_supprimer_evidence'),
-
+    path('qualite/', views.qualite_dashboard, name='qualite_dashboard'),
+    
     # ========== PDCA ==========
     path('pdca/dashboard/', views.dashboard_pdca, name='dashboard_pdca'),
     path('pdca/<int:pk>/modifier/', views.pdca_modifier, name='pdca_modifier'),

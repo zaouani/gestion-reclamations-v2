@@ -1,7 +1,7 @@
 <!-- templates/reclamations/pdca/pdca_edit.html -->
 {% extends 'base.html' %}
 
-{% block title %}Modifier Action PDCA - {{ action.titre|truncatechars:50 }}{% endblock %}
+{% block title %}Modifier Action PDCA - {{ action.action|truncatechars:50 }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -12,30 +12,6 @@
         padding: 20px;
         margin-bottom: 25px;
     }
-    
-    .pdca-step {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    
-    .pdca-step-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        color: white;
-        margin-right: 15px;
-        flex-shrink: 0;
-    }
-    
-    .pdca-step-icon.plan { background: linear-gradient(135deg, #667eea, #764ba2); }
-    .pdca-step-icon.do { background: linear-gradient(135deg, #f093fb, #f5576c); }
-    .pdca-step-icon.check { background: linear-gradient(135deg, #4facfe, #00f2fe); }
-    .pdca-step-icon.act { background: linear-gradient(135deg, #43e97b, #38f9d7); }
     
     .card-section {
         border-radius: 12px;
@@ -51,178 +27,35 @@
         border: none;
     }
     
-    .card-section .card-body {
-        padding: 25px;
-    }
+    .card-section .card-body { padding: 25px; }
     
     .header-plan { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
     .header-do { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
     .header-check { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #333; }
     .header-act { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: #333; }
     
-    .form-label {
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: #555;
-        margin-bottom: 5px;
-    }
+    .form-label { font-weight: 600; font-size: 0.85rem; color: #555; margin-bottom: 5px; }
+    .form-control, .form-select { border-radius: 8px; border: 1px solid #dee2e6; padding: 10px 15px; }
+    .form-control:focus, .form-select:focus { border-color: #667eea; box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15); }
     
-    .form-control, .form-select {
-        border-radius: 8px;
-        border: 1px solid #dee2e6;
-        padding: 10px 15px;
-        transition: all 0.3s ease;
-    }
+    .progress-indicator { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .progress-step { text-align: center; flex: 1; position: relative; }
+    .progress-step::before { content: ''; position: absolute; top: 15px; left: 50%; right: -50%; height: 3px; background-color: #dee2e6; z-index: 0; }
+    .progress-step:last-child::before { display: none; }
+    .progress-step.active::before { background-color: #667eea; }
+    .progress-dot { width: 30px; height: 30px; border-radius: 50%; background-color: #dee2e6; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; color: white; position: relative; z-index: 1; font-weight: bold; }
+    .progress-dot.active { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .progress-dot.completed { background-color: #43e97b; }
+    .progress-label { font-size: 0.7rem; margin-top: 5px; color: #999; }
+    .progress-label.active { color: #667eea; font-weight: 600; }
     
-    .form-control:focus, .form-select:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
-    }
+    .btn-save { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 30px; border-radius: 10px; font-weight: 600; }
+    .btn-save:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); color: white; }
+    .btn-cancel { padding: 12px 30px; border-radius: 10px; font-weight: 600; }
     
-    .info-badge {
-        display: inline-block;
-        padding: 5px 12px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-        font-weight: 500;
-    }
+    .link-8d { background-color: #f8f9fa; border-radius: 8px; padding: 12px 15px; border-left: 4px solid #667eea; }
     
-    .info-badge.retard {
-        background-color: #fadbd8;
-        color: #922b21;
-    }
-    
-    .info-badge.ok {
-        background-color: #d5f5e3;
-        color: #1e8449;
-    }
-    
-    .link-8d {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 12px 15px;
-        border-left: 4px solid #667eea;
-    }
-    
-    .progress-indicator {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
-    }
-    
-    .progress-step {
-        text-align: center;
-        flex: 1;
-        position: relative;
-    }
-    
-    .progress-step::before {
-        content: '';
-        position: absolute;
-        top: 15px;
-        left: 50%;
-        right: -50%;
-        height: 3px;
-        background-color: #dee2e6;
-        z-index: 0;
-    }
-    
-    .progress-step:last-child::before {
-        display: none;
-    }
-    
-    .progress-step.active::before {
-        background-color: #667eea;
-    }
-    
-    .progress-dot {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background-color: #dee2e6;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.8rem;
-        color: white;
-        position: relative;
-        z-index: 1;
-        font-weight: bold;
-    }
-    
-    .progress-dot.active {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-    }
-    
-    .progress-dot.completed {
-        background-color: #43e97b;
-    }
-    
-    .progress-label {
-        font-size: 0.7rem;
-        margin-top: 5px;
-        color: #999;
-    }
-    
-    .progress-label.active {
-        color: #667eea;
-        font-weight: 600;
-    }
-    
-    .efficacite-selector {
-        display: flex;
-        gap: 10px;
-    }
-    
-    .efficacite-option {
-        flex: 1;
-        text-align: center;
-        padding: 12px;
-        border: 2px solid #dee2e6;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .efficacite-option:hover {
-        border-color: #667eea;
-    }
-    
-    .efficacite-option.selected {
-        border-color: #667eea;
-        background-color: #f0f4ff;
-    }
-    
-    .efficacite-option i {
-        font-size: 1.5rem;
-        margin-bottom: 5px;
-    }
-    
-    .btn-save {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 12px 30px;
-        border-radius: 10px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-save:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        color: white;
-    }
-    
-    .btn-cancel {
-        padding: 12px 30px;
-        border-radius: 10px;
-        font-weight: 600;
-    }
-    
-    @media print {
-        .no-print { display: none; }
-    }
+    @media print { .no-print { display: none; } }
 </style>
 {% endblock %}
 
@@ -233,40 +66,36 @@
         <div class="row align-items-center">
             <div class="col">
                 <h4 class="mb-1"><i class="fas fa-edit me-2"></i> Fiche Action PDCA</h4>
-                <p class="mb-0 opacity-75">{{ action.titre }}</p>
+                <p class="mb-0 opacity-75">{{ action.action|truncatechars:100 }}</p>
             </div>
             <div class="col text-end">
-                <span class="badge bg-light text-dark p-2">
-                    Créée le {{ action.date_creation|date:"d/m/Y H:i" }}
-                </span>
-                {% if action.action_8d %}
-                <a href="{% url 'reclamations:huitd_detail' action.huitd.reclamation.id %}" class="btn btn-sm btn-light ms-2">
+                <span class="badge bg-light text-dark p-2">Créée le {{ action.date_creation|date:"d/m/Y H:i" }}</span>
+                <a href="{% url 'reclamations:huitd_detail' action.huitd.id %}" class="btn btn-sm btn-light ms-2">
                     <i class="fas fa-external-link-alt"></i> Voir 8D
                 </a>
-                {% endif %}
             </div>
         </div>
     </div>
     
-    <!-- Indicateur de progression PDCA -->
+    <!-- Indicateur de progression -->
     <div class="card card-section no-print">
         <div class="card-body">
             <div class="progress-indicator">
                 <div class="progress-step">
-                    <div class="progress-dot {% if action.statut in 'PLAN,DO,CHECK,ACT,CLOTURE' %}active{% endif %}">P</div>
-                    <div class="progress-label {% if action.statut == 'PLAN' %}active{% endif %}">Planifier</div>
+                    <div class="progress-dot {% if action.statut in 'PLANIFIE,EN_COURS,REALISE,EFFICACE' %}active{% endif %}">P</div>
+                    <div class="progress-label {% if action.statut == 'PLANIFIE' %}active{% endif %}">Planifier</div>
                 </div>
                 <div class="progress-step">
-                    <div class="progress-dot {% if action.statut in 'DO,CHECK,ACT,CLOTURE' %}active{% endif %}">D</div>
-                    <div class="progress-label {% if action.statut == 'DO' %}active{% endif %}">Dérouler</div>
+                    <div class="progress-dot {% if action.statut in 'EN_COURS,REALISE,EFFICACE' %}active{% endif %}">D</div>
+                    <div class="progress-label {% if action.statut == 'EN_COURS' %}active{% endif %}">Dérouler</div>
                 </div>
                 <div class="progress-step">
-                    <div class="progress-dot {% if action.statut in 'CHECK,ACT,CLOTURE' %}active{% endif %}">C</div>
-                    <div class="progress-label {% if action.statut == 'CHECK' %}active{% endif %}">Checker</div>
+                    <div class="progress-dot {% if action.statut in 'REALISE,EFFICACE' %}active{% endif %}">C</div>
+                    <div class="progress-label {% if action.statut == 'REALISE' %}active{% endif %}">Checker</div>
                 </div>
                 <div class="progress-step">
-                    <div class="progress-dot {% if action.statut in 'ACT,CLOTURE' %}active{% endif %}">A</div>
-                    <div class="progress-label {% if action.statut == 'ACT' or action.statut == 'CLOTURE' %}active{% endif %}">Agir</div>
+                    <div class="progress-dot {% if action.statut == 'EFFICACE' %}active{% endif %}">A</div>
+                    <div class="progress-label {% if action.statut == 'EFFICACE' %}active{% endif %}">Agir</div>
                 </div>
             </div>
         </div>
@@ -282,74 +111,60 @@
                 <!-- ========== PLAN ========== -->
                 <div class="card card-section">
                     <div class="card-header header-plan">
-                        <div class="pdca-step" style="margin-bottom:0;">
-                            <div class="pdca-step-icon plan" style="width:40px;height:40px;font-size:1.2rem;">
-                                <i class="fas fa-clipboard-list"></i>
-                            </div>
-                            <span>PLAN - Planification</span>
-                        </div>
+                        <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i> PLAN - Planification</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">Titre de l'action *</label>
-                            <input type="text" name="titre" class="form-control" value="{{ action.titre }}" required>
+                            <label class="form-label">Type d'action</label>
+                            <select name="type_action" class="form-select">
+                                {% for value, label in type_choices %}
+                                <option value="{{ value }}" {% if action.type_action == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label">Description détaillée</label>
-                            <textarea name="description" class="form-control" rows="3">{{ action.description }}</textarea>
+                            <label class="form-label">Action *</label>
+                            <textarea name="action" class="form-control" rows="3" required>{{ action.action }}</textarea>
                         </div>
                         
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Catégorie</label>
-                                <select name="categorie" class="form-select">
-                                    {% for value, label in categorie_choices %}
-                                    <option value="{{ value }}" {% if action.categorie == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
+                                <label class="form-label">Cause retenue</label>
+                                <input type="text" name="numero_cause" class="form-control" value="{{ action.numero_cause }}" placeholder="Ex: B, E, C...">
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Priorité</label>
-                                <select name="priorite" class="form-select">
-                                    {% for value, label in priorite_choices %}
-                                    <option value="{{ value }}" {% if action.priorite == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
+                                <label class="form-label">Pilote *</label>
+                                <input type="text" name="pilote" class="form-control" value="{{ action.pilote }}" required>
                             </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Responsable *</label>
-                            <input type="text" name="responsable" class="form-control" value="{{ action.responsable }}" required>
                         </div>
                         
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="form-label">Date début</label>
-                                <input type="date" name="date_debut" class="form-control" value="{{ action.date_debut|date:'Y-m-d' }}">
+                                <label class="form-label">Date prévue</label>
+                                <input type="date" name="date_prevue" class="form-control" value="{{ action.date_prevue|date:'Y-m-d' }}">
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label">Date cible *</label>
-                                <input type="date" name="date_cible" class="form-control" value="{{ action.date_cible|date:'Y-m-d' }}" required>
+                                <label class="form-label">Délai (semaines)</label>
+                                <input type="text" name="delai_semaines" class="form-control" value="{{ action.delai_semaines }}" placeholder="Ex: Week 22">
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label">Date réalisation</label>
-                                <input type="date" name="date_realisation" class="form-control" value="{{ action.date_realisation|date:'Y-m-d' }}">
+                                <label class="form-label">Date réalisée</label>
+                                <input type="date" name="date_realisee" class="form-control" value="{{ action.date_realisee|date:'Y-m-d' }}">
                             </div>
                         </div>
                         
                         {% if action.en_retard %}
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Action en retard de {{ action.delai_restant }} jours !</strong>
+                            <strong>Action en retard !</strong> Date prévue : {{ action.date_prevue|date:"d/m/Y" }}
                         </div>
                         {% endif %}
                         
-                        {% if action.date_realisation %}
+                        {% if action.date_realisee %}
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle me-2"></i>
-                            Action réalisée le {{ action.date_realisation|date:"d/m/Y" }}
+                            Action réalisée le {{ action.date_realisee|date:"d/m/Y" }}
                         </div>
                         {% endif %}
                     </div>
@@ -358,17 +173,12 @@
                 <!-- ========== DO ========== -->
                 <div class="card card-section">
                     <div class="card-header header-do">
-                        <div class="pdca-step" style="margin-bottom:0;">
-                            <div class="pdca-step-icon do" style="width:40px;height:40px;font-size:1.2rem;">
-                                <i class="fas fa-play-circle"></i>
-                            </div>
-                            <span>DO - Exécution</span>
-                        </div>
+                        <h5 class="mb-0"><i class="fas fa-play-circle me-2"></i> DO - Exécution</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Statut PDCA</label>
+                                <label class="form-label">Statut</label>
                                 <select name="statut" class="form-select" onchange="updateProgressIndicator()">
                                     {% for value, label in statut_choices %}
                                     <option value="{{ value }}" {% if action.statut == value %}selected{% endif %}>{{ label }}</option>
@@ -377,21 +187,14 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">% Avancement</label>
-                                <input type="range" name="pourcentage_avancement" class="form-range" min="0" max="100" value="{{ action.pourcentage_avancement }}" oninput="document.getElementById('avancement-value').textContent = this.value + '%'">
-                                <div class="text-center">
-                                    <span id="avancement-value" class="badge bg-primary">{{ action.pourcentage_avancement }}%</span>
-                                </div>
+                                <input type="range" name="avancement" class="form-range" min="0" max="100" value="{{ action.avancement }}" oninput="document.getElementById('avancement-value').textContent = this.value + '%'">
+                                <div class="text-center"><span id="avancement-value" class="badge bg-primary">{{ action.avancement }}%</span></div>
                             </div>
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label">Points de blocage</label>
-                            <textarea name="blocage" class="form-control" rows="2" placeholder="Difficultés rencontrées...">{{ action.blocage }}</textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Commentaires</label>
-                            <textarea name="commentaires" class="form-control" rows="2">{{ action.commentaires }}</textarea>
+                            <label class="form-label">Remarque / Action suivante</label>
+                            <textarea name="remarque" class="form-control" rows="2" placeholder="Remarques, actions suivantes...">{{ action.remarque }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -401,181 +204,85 @@
             <div class="col-md-6">
                 
                 <!-- ========== CHECK ========== -->
-                <div class="card card-section">
-                    <div class="card-header header-check">
-                        <div class="pdca-step" style="margin-bottom:0;">
-                            <div class="pdca-step-icon check" style="width:40px;height:40px;font-size:1.2rem;">
-                                <i class="fas fa-search"></i>
-                            </div>
-                            <span>CHECK - Vérification</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Critères de succès</label>
-                            <textarea name="critere_succes" class="form-control" rows="2" placeholder="Comment mesurer le succès ?">{{ action.critere_succes }}</textarea>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Indicateur avant</label>
-                                <input type="text" name="indicateur_avant" class="form-control" value="{{ action.indicateur_avant }}" placeholder="Ex: Taux de rebut">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Valeur avant</label>
-                                <input type="text" name="valeur_avant" class="form-control" value="{{ action.valeur_avant }}" placeholder="Ex: 5%">
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Indicateur après</label>
-                                <input type="text" name="indicateur_apres" class="form-control" value="{{ action.indicateur_apres }}" placeholder="Ex: Taux de rebut">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Valeur après</label>
-                                <input type="text" name="valeur_apres" class="form-control" value="{{ action.valeur_apres }}" placeholder="Ex: 1%">
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Résultat obtenu</label>
-                            <textarea name="resultat_obtenu" class="form-control" rows="2" placeholder="Quel est le résultat constaté ?">{{ action.resultat_obtenu }}</textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Évaluation de l'efficacité</label>
-                            <div class="efficacite-selector">
-                                <div class="efficacite-option {% if action.efficacite == 'EFFICACE' %}selected{% endif %}" onclick="selectEfficacite('EFFICACE')">
-                                    <i class="fas fa-check-circle text-success"></i>
-                                    <div class="small">Efficace</div>
-                                </div>
-                                <div class="efficacite-option {% if action.efficacite == 'PARTIEL' %}selected{% endif %}" onclick="selectEfficacite('PARTIEL')">
-                                    <i class="fas fa-adjust text-warning"></i>
-                                    <div class="small">Partiel</div>
-                                </div>
-                                <div class="efficacite-option {% if action.efficacite == 'INEFFICACE' %}selected{% endif %}" onclick="selectEfficacite('INEFFICACE')">
-                                    <i class="fas fa-times-circle text-danger"></i>
-                                    <div class="small">Inefficace</div>
-                                </div>
-                                <div class="efficacite-option {% if action.efficacite == 'NON_EVALUE' %}selected{% endif %}" onclick="selectEfficacite('NON_EVALUE')">
-                                    <i class="fas fa-question-circle text-muted"></i>
-                                    <div class="small">Non évalué</div>
-                                </div>
-                            </div>
-                            <input type="hidden" name="efficacite" id="efficacite-input" value="{{ action.efficacite }}">
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Commentaire sur l'efficacité</label>
-                            <textarea name="commentaire_efficacite" class="form-control" rows="2">{{ action.commentaire_efficacite }}</textarea>
-                        </div>
-                    </div>
-                </div>
+<div class="card card-section">
+    <div class="card-header header-check">
+        <h5 class="mb-0"><i class="fas fa-search me-2"></i> CHECK - Vérification de l'efficacité</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Niveau d'efficacité</label>
+            <select name="efficacite" class="form-select">
+                <option value="0" {% if action.efficacite == '0' %}selected{% endif %}>0% - Aucune efficacité</option>
+                <option value="25" {% if action.efficacite == '25' %}selected{% endif %}>25% - Très faible</option>
+                <option value="50" {% if action.efficacite == '50' %}selected{% endif %}>50% - Partielle</option>
+                <option value="75" {% if action.efficacite == '75' %}selected{% endif %}>75% - Bonne</option>
+                <option value="100" {% if action.efficacite == '100' %}selected{% endif %}>100% - Très bonne / Complète</option>
+            </select>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Commentaire</label>
+            <textarea name="comment_verification" class="form-control" rows="2" placeholder="Qui ? Comment ? Quand ?">{{ action.comment_verification }}</textarea>
+        </div>
+    </div>
+</div>
                 
                 <!-- ========== ACT ========== -->
                 <div class="card card-section">
                     <div class="card-header header-act">
-                        <div class="pdca-step" style="margin-bottom:0;">
-                            <div class="pdca-step-icon act" style="width:40px;height:40px;font-size:1.2rem;">
-                                <i class="fas fa-check-double"></i>
-                            </div>
-                            <span>ACT - Standardisation</span>
-                        </div>
+                        <h5 class="mb-0"><i class="fas fa-check-double me-2"></i> ACT - Déploiement</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">Document modifié / Créé</label>
-                            <input type="text" name="document_modifie" class="form-control" value="{{ action.document_modifie }}" placeholder="Ex: Procédure PR-001, Instruction IT-002...">
+                            <label class="form-label">Déploiement</label>
+                            <textarea name="deploiement" class="form-control" rows="3" placeholder="Déploiement sur autres produits/process...">{{ action.deploiement }}</textarea>
                         </div>
                         
-                        <div class="mb-3">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="formation_realisee" name="formation_realisee" {% if action.formation_realisee %}checked{% endif %}>
-                                <label class="form-check-label" for="formation_realisee">
-                                    <strong>Formation réalisée</strong>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        {% if action.date_evaluation %}
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            Dernière évaluation : {{ action.date_evaluation|date:"d/m/Y" }}
-                        </div>
-                        {% endif %}
-                        
-                        <!-- Lien vers le 8D d'origine -->
-                        {% if action.action_8d %}
+                        <!-- Lien vers le 8D -->
                         <div class="link-8d mt-3">
-                            <small class="text-muted">Action liée à :</small>
-                            <br>
+                            <small class="text-muted">Action liée au 8D :</small><br>
                             <strong>
                                 <i class="fas fa-link me-1"></i>
-                                8D - {{ action.action_8d.huitd.reclamation.numero_reclamation }}
+                                8D - {{ action.huitd.reclamation.numero_reclamation }}
                             </strong>
-                            <span class="badge bg-secondary ms-2">{{ action.action_8d.get_etape_display }}</span>
+                            <span class="badge {% if action.type_action == 'CORRECTIVE' %}bg-primary{% else %}bg-warning{% endif %} ms-2">
+                                {{ action.get_type_action_display }}
+                            </span>
                             <br>
-                            <small class="text-muted">{{ action.action_8d.action|truncatechars:100 }}</small>
+                            <small class="text-muted">{{ action.action|truncatechars:100 }}</small>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Boutons d'action -->
+        <!-- Boutons -->
         <div class="text-center mb-5 no-print">
             <a href="{% url 'reclamations:dashboard_pdca' %}" class="btn btn-secondary btn-cancel me-3">
                 <i class="fas fa-times"></i> Annuler
             </a>
             <button type="submit" class="btn btn-save">
-                <i class="fas fa-save me-2"></i> Enregistrer les modifications
+                <i class="fas fa-save me-2"></i> Enregistrer
             </button>
         </div>
     </form>
 </div>
 
 <script>
-// Sélection de l'efficacité
-function selectEfficacite(value) {
-    document.querySelectorAll('.efficacite-option').forEach(el => {
-        el.classList.remove('selected');
-    });
-    event.currentTarget.classList.add('selected');
-    document.getElementById('efficacite-input').value = value;
-}
-
-// Mise à jour de l'indicateur de progression
 function updateProgressIndicator() {
     const statut = document.querySelector('select[name="statut"]').value;
     const dots = document.querySelectorAll('.progress-dot');
     const labels = document.querySelectorAll('.progress-label');
-    
-    const statuts = ['PLAN', 'DO', 'CHECK', 'ACT', 'CLOTURE'];
+    const statuts = ['PLANIFIE', 'EN_COURS', 'REALISE', 'EFFICACE'];
     const currentIndex = statuts.indexOf(statut);
-    
     dots.forEach((dot, index) => {
         dot.classList.remove('active', 'completed');
-        if (index <= currentIndex) {
-            dot.classList.add('active');
-        }
+        if (index <= currentIndex) dot.classList.add('active');
     });
-    
     labels.forEach((label, index) => {
         label.classList.remove('active');
-        if (index === currentIndex) {
-            label.classList.add('active');
-        }
+        if (index === currentIndex) label.classList.add('active');
     });
 }
-
-// Tooltips
-document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-});
 </script>
 {% endblock %}

@@ -5,10 +5,10 @@ import logging
 from django.conf import settings 
 from django.utils import timezone
 from .models import (Reclamation, Client, Produit, LigneReclamation, NonConformite, UAP, Site, ObjectifsAnnuel, 
-    Programme, SiteClient, Livraison, HuitD, Participant8D, CinqW2H, 
-    AnalyseNC, ActionPDCA, ArticleFAI, HistoriqueImportFAI, CauseIshikawa, 
+    Programme, SiteClient, Livraison, HuitD, Participant8D, ArticleFAI, HistoriqueImportFAI, CauseIshikawa, 
     VRS, FacteurVRS, CauseCinqP, FacteurHumain, 
-    EvaluationFacteurHumain, Action8D, Alteration8D, Evidence8D)
+    EvaluationFacteurHumain, Action8D, Alteration8D, Evidence8D, CinqW2H,
+       )
 from django.http import JsonResponse
 from django.db.models import Count, Q, F, Avg,Max, Sum, Prefetch
 from django.db.models.functions import TruncMonth, ExtractMonth
@@ -40,7 +40,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from urllib.parse import unquote
 from .services.fai_service import FAIService
-from ._save_8d import *
+
 # CONFIGURATION LOGGER
 logger = logging.getLogger(__name__)
 ollama_service = OllamaService(model="phi3:mini") 
@@ -1951,7 +1951,7 @@ def detail_reclamation(request, pk):
             'lignes__produit',
             'lignes__site',
             'lignes__uap_concernee',
-            'lignes__non_conformites__analyse__actions_pdca'  # ← AJOUT : précharger analyses et actions
+              # ← AJOUT : précharger analyses et actions
         ).select_related(
             'client',
             'site_client',
@@ -3367,7 +3367,6 @@ def import_clients_excel(request):
     return render(request, 'reclamations/import/clients.html')
 
 # ================ IMPORT RÉCLAMATIONS DEPUIS EXCEL ================
-
 def extraire_produits(produits_raw):
     """Extrait la liste des produits à partir d'une chaîne"""
     if not produits_raw or produits_raw == 'nan':
@@ -3926,79 +3925,86 @@ def analyse_nc_modifier(request, pk):
 
 @login_required
 def dashboard_pdca(request):
-    """Dashboard centralisé des actions PDCA"""
+    """Dashboard centralisé des actions PDCA (basé sur Action8D)"""
     
     # Filtres
     statut = request.GET.get('statut', '')
-    priorite = request.GET.get('priorite', '')
-    categorie = request.GET.get('categorie', '')
-    responsable = request.GET.get('responsable', '')
+    type_action = request.GET.get('type_action', '')
+    pilote = request.GET.get('pilote', '')
     search = request.GET.get('search', '')
+    en_retard_only = request.GET.get('en_retard', '')
     
-    # Requête de base - MODIFIÉE pour le nouveau modèle ActionPDCA
-    actions = ActionPDCA.objects.select_related(
-        'analyse_nc__non_conformite__ligne_reclamation__reclamation__client',
-        'analyse_nc__non_conformite__ligne_reclamation__produit'
+    # Requête de base sur Action8D
+    actions = Action8D.objects.select_related(
+        'huitd__reclamation__client',
     ).all()
     
-    # Appliquer les filtres
+    # Filtres
     if statut:
         actions = actions.filter(statut=statut)
-    if priorite:
-        actions = actions.filter(priorite=priorite)
-    if categorie:
-        actions = actions.filter(categorie=categorie)
-    if responsable:
-        actions = actions.filter(responsable__icontains=responsable)
+    if type_action:
+        actions = actions.filter(type_action=type_action)
+    if pilote:
+        actions = actions.filter(pilote__icontains=pilote)
     if search:
         actions = actions.filter(
-            Q(titre__icontains=search) |
-            Q(description__icontains=search) |
-            Q(responsable__icontains=search)
+            Q(action__icontains=search) |
+            Q(pilote__icontains=search) |
+            Q(verification_efficacite__icontains=search) |
+            Q(remarque__icontains=search)
         )
     
-    actions = actions.order_by('-priorite', 'date_cible')
+    # Actions en retard (date prévue dépassée, non réalisée)
+    if en_retard_only:
+        actions = actions.filter(
+            date_prevue__lt=timezone.now().date(),
+            date_realisee__isnull=True
+        ).exclude(statut__in=['EFFICACE', 'ABANDONNE'])
+    
+    actions = actions.order_by('statut', 'date_prevue')
     
     # Statistiques
     total = actions.count()
+    if total > 0:
+        # Moyenne des pourcentages d'efficacité pour les actions RÉALISÉES
+        taux_efficacite = actions.filter(statut='REALISE').aggregate(
+            Avg('efficacite')
+        )['efficacite__avg'] or 0
     stats = {
         'total': total,
-        'planifies': actions.filter(statut='PLAN').count(),
-        'en_cours': actions.filter(statut='DO').count(),
-        'verification': actions.filter(statut='CHECK').count(),
-        'standardises': actions.filter(statut='ACT').count(),
-        'clotures': actions.filter(statut='CLOTURE').count(),
+        'planifies': actions.filter(statut='PLANIFIE').count(),
+        'en_cours': actions.filter(statut='EN_COURS').count(),
+        'realises': actions.filter(statut='REALISE').count(),
+        'efficaces': actions.filter(statut='EFFICACE').count(),
+        'abandonnes': actions.filter(statut='ABANDONNE').count(),
         'en_retard': sum(1 for a in actions if a.en_retard),
-        'critiques': actions.filter(priorite='CRITIQUE', statut__in=['PLAN', 'DO']).count(),
-        'taux_cloture': round((actions.filter(statut__in=['CLOTURE', 'ACT']).count() / total * 100), 1) if total > 0 else 0,
+        'taux_efficacite': taux_efficacite,
+        'taux_avancement_moyen': round(actions.aggregate(Avg('avancement'))['avancement__avg'] or 0, 1),
     }
     
-    # Regroupement par catégorie
-    categories_stats = actions.values('categorie').annotate(
-        count=Count('id')
-    ).order_by('-count')
+    # Regroupement par type
+    type_stats = actions.values('type_action').annotate(count=Count('id')).order_by('-count')
     
-    # Actions critiques en retard
+    # Actions critiques (en retard et planifiées)
     actions_critiques = actions.filter(
-        priorite='CRITIQUE', 
-        statut__in=['PLAN', 'DO'],
-        date_cible__lt=timezone.now().date()
+        statut__in=['PLANIFIE', 'EN_COURS'],
+        date_prevue__lt=timezone.now().date(),
+        date_realisee__isnull=True
     )
     
     context = {
         'actions': actions,
         'stats': stats,
-        'categories_stats': categories_stats,
+        'type_stats': type_stats,
         'actions_critiques': actions_critiques,
-        'statut_choices': ActionPDCA.STATUT_CHOICES,
-        'priorite_choices': ActionPDCA.PRIORITE_CHOICES,
-        'categorie_choices': ActionPDCA.CATEGORIE_CHOICES,
+        'statut_choices': Action8D.STATUT_CHOICES,
+        'type_choices': Action8D.TYPE_CHOICES,
         'filtres': {
             'statut': statut,
-            'priorite': priorite,
-            'categorie': categorie,
-            'responsable': responsable,
+            'type_action': type_action,
+            'pilote': pilote,
             'search': search,
+            'en_retard': en_retard_only,
         }
     }
     
@@ -4006,59 +4012,59 @@ def dashboard_pdca(request):
 
 @login_required
 def pdca_modifier(request, pk):
-    """Modifier une action PDCA"""
+    """Modifier une action PDCA (Action8D)"""
     action = get_object_or_404(
-        ActionPDCA.objects.select_related(
-            'analyse_nc__non_conformite__ligne_reclamation__reclamation__client',
-            'analyse_nc__non_conformite__ligne_reclamation__produit'
+        Action8D.objects.select_related(
+            'huitd__reclamation__client'
         ),
         pk=pk
     )
     
     if request.method == 'POST':
-        action.titre = request.POST.get('titre', '')
-        action.description = request.POST.get('description', '')
-        action.categorie = request.POST.get('categorie', 'AUTRE')
-        action.responsable = request.POST.get('responsable', '')
-        action.date_debut = request.POST.get('date_debut') or None
-        action.date_cible = request.POST.get('date_cible') or timezone.now().date()
-        action.date_realisation = request.POST.get('date_realisation') or None
-        action.priorite = request.POST.get('priorite', 'MOYENNE')
-        action.statut = request.POST.get('statut', 'PLAN')
-        action.pourcentage_avancement = int(request.POST.get('pourcentage_avancement', 0))
-        action.efficacite = request.POST.get('efficacite', 'NON_EVALUE')
-        action.commentaire_efficacite = request.POST.get('commentaire_efficacite', '')
+        # Identification
+        action.type_action = request.POST.get('type_action', 'CORRECTIVE')
+        action.numero_cause = request.POST.get('numero_cause', '')
+        action.action = request.POST.get('action', '')
+        action.pilote = request.POST.get('pilote', '')
         
-        # CHECK
-        action.critere_succes = request.POST.get('critere_succes', '')
-        action.indicateur_avant = request.POST.get('indicateur_avant', '')
-        action.valeur_avant = request.POST.get('valeur_avant', '')
-        action.indicateur_apres = request.POST.get('indicateur_apres', '')
-        action.valeur_apres = request.POST.get('valeur_apres', '')
-        action.resultat_obtenu = request.POST.get('resultat_obtenu', '')
+        # Planification
+        action.date_prevue = request.POST.get('date_prevue') or None
+        action.delai_semaines = request.POST.get('delai_semaines', '')
         
-        # ACT
-        action.document_modifie = request.POST.get('document_modifie', '')
-        action.formation_realisee = request.POST.get('formation_realisee') == 'on'
-        action.commentaires = request.POST.get('commentaires', '')
-        action.blocage = request.POST.get('blocage', '')
+        # Suivi
+        action.date_realisee = request.POST.get('date_realisee') or None
         
-        # Date d'évaluation automatique si efficacité renseignée
-        if action.efficacite != 'NON_EVALUE' and not action.date_evaluation:
-            action.date_evaluation = timezone.now().date()
+        # Vérification
+        action.efficacite = request.POST.get('efficacite', '0')  # ← CORRIGÉ
+        action.comment_verification = request.POST.get('comment_verification', '')
+        
+        # Statut
+        action.statut = request.POST.get('statut', 'PLANIFIE')
+        action.avancement = 100 if action.statut == 'REALISE' else  int(request.POST.get('avancement', 0))
+        # Remarque et déploiement
+        action.remarque = request.POST.get('remarque', '')
+        action.deploiement = request.POST.get('deploiement', '')
+        
+        # Si statut passé à REALISE et pas de date, mettre la date du jour
+        if action.statut == 'REALISE' and not action.date_realisee:
+            action.date_realisee = timezone.now().date()
         
         action.save()
-        messages.success(request, "✅ Action PDCA mise à jour avec succès !")
+        reclamation = action.huitd.reclamation
+        if reclamation.verifier_et_cloturer():
+            messages.success(request, "✅ Action mise à jour - Réclamation clôturée automatiquement (toutes les actions sont terminées)")
+        else:
+            messages.success(request, "✅ Action PDCA mise à jour avec succès !")
+        
+        return redirect('reclamations:dashboard_pdca')
         return redirect('reclamations:dashboard_pdca')
     
     context = {
         'action': action,
-        'statut_choices': ActionPDCA.STATUT_CHOICES,
-        'priorite_choices': ActionPDCA.PRIORITE_CHOICES,
-        'categorie_choices': ActionPDCA.CATEGORIE_CHOICES,
+        'statut_choices': Action8D.STATUT_CHOICES,
+        'type_choices': Action8D.TYPE_CHOICES,
     }
     return render(request, 'reclamations/pdca/pdca_edit.html', context)
-
 
 # ====================== CHATBOT VIEWS ======================
  
@@ -4662,26 +4668,18 @@ def envoyer_alertes_fai_email(request):
     return render(request, 'reclamations/fai/envoyer_alertes.html', context)
 
 #Gestion des 8d
-
-
-# ============================================================
-# VUES PRINCIPALES
-# ============================================================
-
 @login_required
 def huitd_creer(request, reclamation_id):
     """Créer une fiche 8D avec toutes les méthodes initialisées"""
     reclamation = get_object_or_404(Reclamation, pk=reclamation_id)
-    
-    # Vérifier si 8D existe déjà
+
     if HuitD.objects.filter(reclamation=reclamation).exists():
         huitd = HuitD.objects.get(reclamation=reclamation)
-        messages.warning(request, "⚠️ Un 8D existe déjà pour cette réclamation")
+        messages.warning(request, "⚠️ Un 8D existe déjà")
         return redirect('reclamations:huitd_modifier', pk=huitd.id)
-    
+
     try:
         with transaction.atomic():
-            # Créer le 8D
             huitd = HuitD.objects.create(
                 reclamation=reclamation,
                 ref=f"8D-{reclamation.numero_reclamation}",
@@ -4691,90 +4689,77 @@ def huitd_creer(request, reclamation_id):
                 decision_8d='OUI',
                 etat='EN_COURS'
             )
-            
-            # Créer 5W2H
+
+            # 5W2H
             CinqW2H.objects.create(huitd=huitd)
-            
-            # Créer VRS
+
+            # VRS + facteurs
             vrs = VRS.objects.create(huitd=huitd)
-            for cat, label in FacteurVRS.CATEGORIE_CHOICES:
+            for cat in ['A', 'B', 'C', 'E', 'F']:
                 FacteurVRS.objects.create(vrs=vrs, categorie=cat)
-            
-            # Créer Facteur Humain
+
+            # Facteur Humain + 19 critères
             fh = FacteurHumain.objects.create(huitd=huitd)
             _init_evaluations_fh(fh)
-            
-            # Créer 5P par défaut
+
+            # 5P par défaut
             CauseCinqP.objects.create(huitd=huitd, type_cause='OCCURRENCE', facteur_prouve='B')
             CauseCinqP.objects.create(huitd=huitd, type_cause='OCCURRENCE', facteur_prouve='E')
             CauseCinqP.objects.create(huitd=huitd, type_cause='NON_DETECTION', facteur_prouve='C')
-            
+
             messages.success(request, f"✅ Fiche 8D créée pour {reclamation.numero_reclamation}")
             return redirect('reclamations:huitd_modifier', pk=huitd.id)
-            
+
     except Exception as e:
         messages.error(request, f"❌ Erreur : {str(e)}")
         return redirect('reclamations:detail_reclamation', pk=reclamation.id)
 
-
 def _init_evaluations_fh(fh):
-    """Initialise les 19 critères d'évaluation du facteur humain"""
+    """Initialise les 19 critères du facteur humain"""
     criteres = [
-        # Catégorie 1
-        ('1', '1.1', '1.1 Are the references worked on the same as those previously planned? / Est-ce que les références travaillées sont celles planifiées auparavant ?'),
-        ('1', '1.2', '1.2 Are the tools used those requested in the GP/FI? / Est-ce que les outils utilisés sont ceux demandés dans la GP/FI ?'),
-        ('1', '1.3', '1.3 Is there a problem caused by a defective tool? / Y a-t-il un problème causé par un outil défectueux ?'),
-        ('1', '1.4', '1.4 Are there any blind operations that the operator must perform that are not described in the GP/FI? / Est-ce qu\'il y a des opérations à l\'aveugle que l\'opérateur doit réaliser et qui ne sont pas décrites dans la GP/FI ?'),
-        ('1', '1.5', '1.5 Are there any components handled that represent quality problems? / Y a-t-il un composant manipulé qui représente des problèmes de qualité ?'),
-        # Catégorie 2
-        ('2', '2.1', '2.1 Are temperature, lighting, noise and cleaning appropriate and monitored? / Est-ce que la température, l\'éclairage, le bruit et le nettoyage sont appropriés et suivis ?'),
-        ('2', '2.2', '2.2 Are the PPE suitable for the job? / Est-ce que les EPI sont adaptés au poste ?'),
-        ('2', '2.3', '2.3 Is the layout adequate for all the operations involved in the job? / Est-ce que le layout est adéquat pour toutes les opérations prévues au poste ?'),
-        ('2', '2.4', '2.4 Does the operator encounter any ergonomic problems when performing the operation? / Est-ce que l\'opérateur en réalisant l\'opération rencontre un problème ergonomique ?'),
-        ('2', '2.5', '2.5 Is the flow of incoming and outgoing parts well defined? / Est-ce que le flux des pièces entrant et sortant est bien défini ?'),
-        # Catégorie 3
-        ('3', '3.1', '3.1 Is the operator overloaded? / Est-ce que l\'opérateur est surchargé ?'),
-        ('3', '3.2', '3.2 Is the operator stressed? / Est-ce que l\'opérateur est stressé ?'),
-        ('3', '3.3', '3.3 Is the operator motivated? / Est-ce que l\'opérateur est motivé ?'),
-        ('3', '3.4', '3.4 Is the operator tired? / Est-ce que l\'opérateur est fatigué ?'),
-        ('3', '3.5', '3.5 Is the operator in good health? / Est-ce que l\'opérateur est en bonne santé ?'),
-        ('3', '3.6', '3.6 Is the operator suitable for this job? / Est-ce que l\'opérateur est approprié à ce poste ?'),
-        ('3', '3.7', '3.7 Has the operator worked for the last 6 months in this position? / Est-ce que l\'opérateur a travaillé durant les 6 derniers mois à ce poste ?'),
-        ('3', '3.8', '3.8 Is the operator aware of the consequences of this error? / Est-ce que l\'opérateur est conscient des conséquences de cette erreur ?'),
-        ('3', '3.9', '3.9 Does the operator have any other problems? / Est-ce que l\'opérateur n\'a pas d\'autres problèmes ?'),
+        ('1', '1.1', '1.1 Are the references worked on the same as those previously planned?'),
+        ('1', '1.2', '1.2 Are the tools used those requested in the GP/FI?'),
+        ('1', '1.3', '1.3 Is there a problem caused by a defective tool?'),
+        ('1', '1.4', '1.4 Are there any blind operations not described in the GP/FI?'),
+        ('1', '1.5', '1.5 Are there any components handled that represent quality problems?'),
+        ('2', '2.1', '2.1 Are temperature, lighting, noise and cleaning appropriate?'),
+        ('2', '2.2', '2.2 Are the PPE suitable for the job?'),
+        ('2', '2.3', '2.3 Is the layout adequate for all the operations?'),
+        ('2', '2.4', '2.4 Does the operator encounter any ergonomic problems?'),
+        ('2', '2.5', '2.5 Is the flow of incoming and outgoing parts well defined?'),
+        ('3', '3.1', '3.1 Is the operator overloaded?'),
+        ('3', '3.2', '3.2 Is the operator stressed?'),
+        ('3', '3.3', '3.3 Is the operator motivated?'),
+        ('3', '3.4', '3.4 Is the operator tired?'),
+        ('3', '3.5', '3.5 Is the operator in good health?'),
+        ('3', '3.6', '3.6 Is the operator suitable for this job?'),
+        ('3', '3.7', '3.7 Has the operator worked last 6 months in this position?'),
+        ('3', '3.8', '3.8 Is the operator aware of the consequences of this error?'),
+        ('3', '3.9', '3.9 Does the operator have any other problems?'),
     ]
     for cat, num, critere in criteres:
         EvaluationFacteurHumain.objects.create(
             facteur_humain=fh, categorie=cat, numero_critere=num, critere=critere
         )
 
-
 @login_required
 def huitd_detail(request, pk):
-    """Afficher la fiche 8D complète"""
+    """Afficher la fiche 8D"""
     huitd = get_object_or_404(
         HuitD.objects.select_related(
             'reclamation__client', 'cinq_w2h', 'vrs', 'facteur_humain'
         ).prefetch_related(
-            'participants',
-            'causes_ishikawa',
-            Prefetch('vrs__facteurs', queryset=FacteurVRS.objects.order_by('categorie')),
-            'causes_5p',
-            Prefetch('facteur_humain__evaluations', queryset=EvaluationFacteurHumain.objects.order_by('categorie', 'numero_critere')),
-            'actions',
-            'alterations',
-            'evidences',
+            'participants', 'causes_ishikawa', 'vrs__facteurs',
+            'causes_5p', 'facteur_humain__evaluations',
+            'actions', 'alterations', 'evidences',
         ),
         pk=pk
     )
-    
-    context = {'huitd': huitd}
-    return render(request, 'reclamations/huitd/huitd_detail.html', context)
-
+    return render(request, 'reclamations/huitd/huitd_detail.html', {'huitd': huitd})
 
 @login_required
 def huitd_modifier(request, pk):
-    """Modifier la fiche 8D"""
+    """Modifier la fiche 8D - dispatch selon section"""
     huitd = get_object_or_404(
         HuitD.objects.select_related('cinq_w2h', 'vrs', 'facteur_humain').prefetch_related(
             'participants', 'causes_ishikawa', 'vrs__facteurs',
@@ -4782,58 +4767,320 @@ def huitd_modifier(request, pk):
         ),
         pk=pk
     )
-    
+
     if request.method == 'POST':
         section = request.POST.get('section', '')
-        
+
         try:
             with transaction.atomic():
-                if section == 'general':
-                    return _save_general(request, huitd)
-                elif section == 'd1':
-                    return _save_d1(request, huitd)
-                elif section == 'd2':
-                    return _save_d2(request, huitd)
-                elif section == 'd3':
-                    return _save_d3(request, huitd)
-                elif section == 'd4':
-                    return _save_d4(request, huitd)
-                elif section == 'd5':
-                    return _save_d5(request, huitd)
-                elif section == '5w2h':
-                    return _save_5w2h(request, huitd)
-                elif section == 'ishikawa':
-                    return _save_ishikawa(request, huitd)
-                elif section == 'vrs':
-                    return _save_vrs(request, huitd)
-                elif section == '5p':
-                    return _save_5p(request, huitd)
-                elif section == 'fh':
-                    return _save_fh(request, huitd)
-                elif section == 'd6':
-                    return _save_d6(request, huitd)
-                elif section == 'd7':
-                    return _save_d7(request, huitd)
-                elif section == 'd8':
-                    return _save_d8(request, huitd)
-                elif section == 'decision':
-                    return _save_decision(request, huitd)
-                    
+                if section == 'general': return _save_general(request, huitd)
+                if section == 'd1': return _save_d1(request, huitd)
+                if section == 'd2': return _save_d2(request, huitd)
+                if section == 'd3': return _save_d3(request, huitd)
+                if section == 'd4': return _save_d4(request, huitd)
+                if section == 'd5': return _save_d5(request, huitd)
+                if section == 'd6': return _save_d6(request, huitd)
+                if section == 'd7': return _save_d7(request, huitd)
+                if section == 'd8': return _save_d8(request, huitd)
+                if section == 'decision': return _save_decision(request, huitd)
+                if section == '5w2h': return _save_5w2h(request, huitd)
+                if section == 'ishikawa': return _save_ishikawa(request, huitd)
+                if section == 'vrs': return _save_vrs(request, huitd)
+                if section == '5p': return _save_5p(request, huitd)
+                if section == 'fh': return _save_fh(request, huitd)
+                if section == 'evidences': return _save_evidences(request, huitd)
+
         except Exception as e:
             messages.error(request, f"❌ Erreur : {str(e)}")
-    
-    context = {
-        'huitd': huitd,
-        'lieu_choices': HuitD.LIEU_CHOICES,
-    }
-    return render(request, 'reclamations/huitd/huitd_modifier.html', context)
 
+    return render(request, 'reclamations/huitd/huitd_formulaire.html', {'huitd': huitd})
 
 @login_required
 def huitd_supprimer_evidence(request, pk):
-    """Supprimer une évidence"""
     evidence = get_object_or_404(Evidence8D, pk=pk)
     huitd_id = evidence.huitd.id
     evidence.delete()
     messages.success(request, "✅ Évidence supprimée")
     return redirect('reclamations:huitd_modifier', pk=huitd_id)
+
+@login_required
+def qualite_dashboard(request):
+    """
+    Dashboard pour l'équipe Qualité Produit
+    Affiche les réclamations ouvertes sans 8D
+    """
+    # Réclamations ouvertes SANS 8D
+    reclamations_sans_8d = Reclamation.objects.filter(
+        cloture=False
+    ).exclude(
+        huitd__isnull=False
+    ).select_related(
+        'client', 'programme', 'site_client'
+    ).prefetch_related(
+        'lignes__produit',
+        'lignes__non_conformites'
+    ).order_by('-date_reclamation')
+    
+    # Réclamations ouvertes AVEC 8D en cours
+    reclamations_avec_8d = Reclamation.objects.filter(
+        cloture=False,
+        huitd__isnull=False
+    ).select_related(
+        'client', 'huitd'
+    ).order_by('-date_reclamation')
+    
+    # Statistiques
+    stats = {
+        'total_ouvertes': Reclamation.objects.filter(cloture=False).count(),
+        'sans_8d': reclamations_sans_8d.count(),
+        'avec_8d': reclamations_avec_8d.count(),
+        '8d_en_cours': HuitD.objects.filter(etat='EN_COURS').count(),
+        '8d_clotures': HuitD.objects.filter(etat='CLOTURE').count(),
+    }
+    
+    context = {
+        'reclamations_sans_8d': reclamations_sans_8d,
+        'reclamations_avec_8d': reclamations_avec_8d,
+        'stats': stats,
+    }
+    return render(request, 'reclamations/qualite/dashboard.html', context)
+
+
+
+def _save_general(request, huitd):
+    huitd.numero_of = request.POST.get('numero_of', '')
+    huitd.date_ouverture = request.POST.get('date_ouverture') or None
+    huitd.designation_piece = request.POST.get('designation_piece', '')
+    huitd.numero_article = request.POST.get('numero_article', '')
+    huitd.numero_nc = request.POST.get('numero_nc', '')
+    huitd.client = request.POST.get('client', '')
+    huitd.lieu_detection = request.POST.get('lieu_detection', 'QUALITE')
+    huitd.interne = request.POST.get('interne', '')
+    huitd.save()
+    messages.success(request, "✅ Infos générales enregistrées")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d1(request, huitd):
+    huitd.d1_qui = request.POST.get('d1_qui', '')
+    huitd.d1_quoi = request.POST.get('d1_quoi', '')
+    huitd.d1_ou = request.POST.get('d1_ou', '')
+    huitd.d1_quand = request.POST.get('d1_quand', '')
+    huitd.d1_comment = request.POST.get('d1_comment', '')
+    huitd.d1_combien = request.POST.get('d1_combien', '')
+    huitd.d1_pourquoi = request.POST.get('d1_pourquoi', '')
+    huitd.d1_caracterisation = request.POST.get('d1_caracterisation', '')
+    huitd.d1_probleme_connu = request.POST.get('d1_probleme_connu') == 'oui'
+    huitd.d1_risque = request.POST.get('d1_risque') == 'oui'
+    huitd.d1_risque_detail = request.POST.get('d1_risque_detail', '')
+    if request.FILES.get('illustration_defectueux'): huitd.d1_illustration_defectueux = request.FILES['illustration_defectueux']
+    if request.FILES.get('illustration_conforme'): huitd.d1_illustration_conforme = request.FILES['illustration_conforme']
+    huitd.save()
+    messages.success(request, "✅ D1 enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d2(request, huitd):
+    huitd.d2_date = request.POST.get('d2_date') or None
+    huitd.d2_actions = request.POST.get('d2_actions', '')
+    huitd.d2_tri = request.POST.get('d2_tri') == 'oui'
+    huitd.d2_of_concernes = request.POST.get('of_concernes', '')
+    huitd.d2_quantite_rebutee = request.POST.get('quantite_rebutee', 'N/A')
+    huitd.d2_quantite_retoucher = request.POST.get('quantite_retoucher', 'N/A')
+    huitd.save()
+    messages.success(request, "✅ D2 enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d3(request, huitd):
+    huitd.d3_date = request.POST.get('d3_date') or None
+    huitd.pilote = request.POST.get('pilote', '')
+    huitd.pilote_fonction = request.POST.get('pilote_fonction', '')
+    huitd.animateur = request.POST.get('animateur', '')
+    huitd.animateur_fonction = request.POST.get('animateur_fonction', '')
+    huitd.save()
+    messages.success(request, "✅ D3 enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d4(request, huitd):
+    huitd.d4_date = request.POST.get('d4_date') or None
+    huitd.d4_causes_apparition = request.POST.get('d4_causes_apparition', '')
+    huitd.d4_causes_non_detection = request.POST.get('d4_causes_non_detection', '')
+    huitd.decision_8d = request.POST.get('decision_8d', 'OUI')
+    huitd.save()
+    messages.success(request, "✅ D4 enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d5(request, huitd):
+    huitd.d5_causes_occurrence = request.POST.get('d5_causes_occurrence', '')
+    huitd.d5_causes_non_detection = request.POST.get('d5_causes_non_detection', '')
+    huitd.save()
+    messages.success(request, "✅ D5 enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d6(request, huitd):
+    """Sauvegarde D6 - Plan d'actions et vérification clôture"""
+    huitd.actions.all().delete()
+    
+    types_action = request.POST.getlist('action_type[]')
+    causes = request.POST.getlist('action_cause[]')
+    actions = request.POST.getlist('action_desc[]')
+    pilotes = request.POST.getlist('action_pilote[]')
+    dates_prevues = request.POST.getlist('action_date_prevue[]')
+    avancements = request.POST.getlist('action_avancement[]')
+    dates_realisees = request.POST.getlist('action_date_realisee[]')
+    efficacites = request.POST.getlist('action_efficacite[]')
+    comments_verif = request.POST.getlist('action_comment_verif[]')
+    statuts = request.POST.getlist('action_statut[]')
+    remarques = request.POST.getlist('action_remarque[]')
+    
+    for i in range(len(actions)):
+        if actions[i].strip():
+            Action8D.objects.create(
+                huitd=huitd,
+                type_action=types_action[i] if i < len(types_action) else 'CORRECTIVE',
+                numero_cause=causes[i] if i < len(causes) else '',
+                action=actions[i],
+                pilote=pilotes[i] if i < len(pilotes) else '',
+                date_prevue=dates_prevues[i] if i < len(dates_prevues) and dates_prevues[i] else None,
+                avancement=int(avancements[i]) if i < len(avancements) and avancements[i] else 0,
+                date_realisee=dates_realisees[i] if i < len(dates_realisees) and dates_realisees[i] else None,
+                efficacite=efficacites[i] if i < len(efficacites) else '0',
+                comment_verification=comments_verif[i] if i < len(comments_verif) else '',
+                statut=statuts[i] if i < len(statuts) else 'PLANIFIE',
+                remarque=remarques[i] if i < len(remarques) else '',
+                ordre=i+1
+            )
+    
+    # Vérifier si la réclamation peut être clôturée
+    reclamation = huitd.reclamation
+    if reclamation.verifier_et_cloturer():
+        messages.success(request, "✅ D6 enregistré - Réclamation clôturée automatiquement (toutes les actions sont terminées)")
+    else:
+        messages.success(request, "✅ D6 enregistré")
+    
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d7(request, huitd):
+    huitd.d7_verification = request.POST.get('d7_verification', '')
+    huitd.d7_suffisant = request.POST.get('d7_suffisant', '')
+    huitd.save()
+    messages.success(request, "✅ D7 enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_d8(request, huitd):
+    huitd.d8_transversalisation = request.POST.get('transversalisation', '')
+    huitd.save()
+    huitd.alterations.all().delete()
+    docs = ['Inspection Sheet (PV)','Control Plan','Instruction Sheet (FI)','Maintenance Plan','Audit Frequency','Workstation Documents Updated','Process Improvement','PFMEA','Standardization of Tools and Equipment','Training Plan','Deploy to Similar Products/Processes (Other Program)','Deploy to Similar Products/Processes (Other APU)']
+    for i, doc in enumerate(docs):
+        r = request.POST.get(f'alt_remark_{i}', '')
+        p = request.POST.get(f'alt_pilote_{i}', '')
+        d = request.POST.get(f'alt_deadline_{i}') or None
+        if r or p or d:
+            Alteration8D.objects.create(huitd=huitd, type_document=doc, remarque=r, pilote=p, deadline=d, ordre=i+1)
+    messages.success(request, "✅ D8 enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_decision(request, huitd):
+    huitd.huitd_accepte = request.POST.get('huitd_accepte') == 'oui'
+    huitd.decision_hcim = request.POST.get('decision_hcim', '')
+    huitd.fin_huitd = request.POST.get('fin_huitd') or None
+    huitd.fin_huitd_signature = request.POST.get('fin_huitd_signature', '')
+    huitd.save()
+    messages.success(request, "✅ Décision enregistrée")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_5w2h(request, huitd):
+    w = huitd.cinq_w2h
+    w.c_what_happened = request.POST.get('c_what_happened', '')
+    w.c_who_detected = request.POST.get('c_who_detected', '')
+    w.c_where_detected = request.POST.get('c_where_detected', '')
+    w.c_when_detected = request.POST.get('c_when_detected', '')
+    w.c_how_detected = request.POST.get('c_how_detected', '')
+    w.c_how_many = request.POST.get('c_how_many', '')
+    w.c_why_problem = request.POST.get('c_why_problem', '')
+    w.c_logistic_impact = request.POST.get('c_logistic_impact', '')
+    w.c_other_customers_delivered = request.POST.get('c_other_customers_delivered', '')
+    w.c_other_customers_defect = request.POST.get('c_other_customers_defect', '')
+    w.h_symptoms = request.POST.get('h_symptoms', '')
+    w.h_defects_ruled_out = request.POST.get('h_defects_ruled_out', '')
+    w.h_where_created = request.POST.get('h_where_created', '')
+    w.h_when_generated = request.POST.get('h_when_generated', '')
+    w.h_rework = request.POST.get('h_rework', '')
+    w.h_detection_expected = request.POST.get('h_detection_expected', '')
+    w.h_reinjection = request.POST.get('h_reinjection', '')
+    w.h_known_problem = request.POST.get('h_known_problem', '')
+    w.h_last_reported = request.POST.get('h_last_reported', '')
+    w.save()
+    messages.success(request, "✅ 5W2H enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+
+def _save_ishikawa(request, huitd):
+    huitd.causes_ishikawa.all().delete()
+    for cat in ['A','B','C','D','E','F']:
+        causes = request.POST.getlist(f'ishikawa_{cat}_cause[]')
+        for i, cause in enumerate(causes):
+            if cause.strip():
+                type_key = f'ishikawa_{cat}_type_{i}'
+                type_cause = request.POST.get(type_key, 'OCCURRENCE')
+                CauseIshikawa.objects.create(huitd=huitd, categorie=cat, cause=cause, type_cause=type_cause, ordre=i+1)
+    messages.success(request, "✅ Ishikawa enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_vrs(request, huitd):
+    for f in huitd.vrs.facteurs.all():
+        f.facteur_probable = request.POST.get(f'vrs_facteur_{f.categorie}', '')
+        f.parametre_mesurable = request.POST.get(f'vrs_parametre_{f.categorie}', '')
+        f.standard_exigence = request.POST.get(f'vrs_standard_{f.categorie}', '')
+        f.donnees_bonnes = request.POST.get(f'vrs_bonnes_{f.categorie}', '')
+        f.donnees_mauvaises = request.POST.get(f'vrs_mauvaises_{f.categorie}', '')
+        f.standard_suivi = request.POST.get(f'vrs_suivi_{f.categorie}') == 'on'
+        f.standard_approprie = request.POST.get(f'vrs_appro_{f.categorie}') == 'on'
+        f.lien_prouve = request.POST.get(f'vrs_lien_{f.categorie}') == 'on'
+        f.facteur_prouve = request.POST.get(f'vrs_prouve_{f.categorie}') == 'on'
+        f.save()
+    messages.success(request, "✅ VRS enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_5p(request, huitd):
+    huitd.causes_5p.all().delete()
+    types_cause = request.POST.getlist('5p_type[]')
+    facteurs = request.POST.getlist('5p_facteur[]')
+    p1s = request.POST.getlist('5p_p1[]')
+    p2s = request.POST.getlist('5p_p2[]')
+    p3s = request.POST.getlist('5p_p3[]')
+    p4s = request.POST.getlist('5p_p4[]')
+    p5s = request.POST.getlist('5p_p5[]')
+    for i in range(len(types_cause)):
+        if any([p1s[i].strip() if i < len(p1s) else '', p2s[i].strip() if i < len(p2s) else '', p3s[i].strip() if i < len(p3s) else '', p4s[i].strip() if i < len(p4s) else '', p5s[i].strip() if i < len(p5s) else '']):
+            CauseCinqP.objects.create(
+                huitd=huitd,
+                type_cause=types_cause[i] if i < len(types_cause) else 'OCCURRENCE',
+                facteur_prouve=facteurs[i] if i < len(facteurs) else '',
+                pourquoi_1=p1s[i] if i < len(p1s) else '',
+                pourquoi_2=p2s[i] if i < len(p2s) else '',
+                pourquoi_3=p3s[i] if i < len(p3s) else '',
+                pourquoi_4=p4s[i] if i < len(p4s) else '',
+                pourquoi_5=p5s[i] if i < len(p5s) else '',
+            )
+    messages.success(request, "✅ 5P enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_fh(request, huitd):
+    for ev in huitd.facteur_humain.evaluations.all():
+        key = f'fh_eval_{ev.categorie}_{ev.numero_critere}'
+        ev.evaluation = request.POST.get(key, '')
+        ev.commentaire = request.POST.get(f'{key}_comment', '')
+        ev.save()
+    messages.success(request, "✅ Facteur Humain enregistré")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)
+
+def _save_evidences(request, huitd):
+    titre = request.POST.get('titre', '')
+    description = request.POST.get('description_ev', '')
+    fichier = request.FILES.get('fichier')
+    if fichier:
+        Evidence8D.objects.create(huitd=huitd, titre=titre, description=description, fichier=fichier)
+        messages.success(request, "✅ Évidence ajoutée")
+    else:
+        messages.warning(request, "⚠️ Aucun fichier")
+    return redirect('reclamations:huitd_modifier', pk=huitd.id)

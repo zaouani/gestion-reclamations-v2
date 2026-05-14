@@ -112,6 +112,10 @@
                             <li><a class="dropdown-item" href="{% url 'reclamations:import_reclamations' %}">
                                 <i class="fas fa-file-import"></i> Importer réclamations
                             </a></li>
+                            <li><a class="dropdown-item" href="{% url 'reclamations:qualite_dashboard' %}">
+                                    <i class="fas fa-clipboard-check"></i> Qualité Produit
+                                </a>
+                            </li>
                             {% if user.role == 'admin' %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'accounts:liste_utilisateurs' %}">
