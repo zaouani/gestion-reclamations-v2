@@ -1,0 +1,351 @@
+<!-- ==================== D1 : 5W2H ==================== -->
+<div class="section-title">D1 : Description du problème / Problem Description (5W2H)</div>
+
+<form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}" enctype="multipart/form-data">
+    {% csrf_token %}<input type="hidden" name="section" value="d1">
+    
+    <style>
+        .table-d1 { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .table-d1 th, .table-d1 td { border: 1px solid #999; padding: 4px 8px; vertical-align: middle; }
+        .table-d1 th { background-color: #e9ecef; font-weight: bold; width: 30%; font-size: 0.85rem; }
+        .table-d1 td { width: 70%; }
+        .table-d1 textarea { width: 100%; border: none; background: transparent; padding: 4px; resize: vertical; min-height: 28px; height: 32px; font-size: 0.85rem; }
+        .table-d1 input[type="text"] { width: 100%; border: none; background: transparent; padding: 4px; font-size: 0.85rem; }
+    </style>
+    
+    <table class="table-d1">
+        <tr><th>Qui ? / Who ?</th><td><textarea name="d1_qui">{{ huitd.d1_qui }}</textarea></td></tr>
+        <tr><th>Quoi ? / What ?</th><td><textarea name="d1_quoi">{{ huitd.d1_quoi }}</textarea></td></tr>
+        <tr><th>Où ? / Where ?</th><td><textarea name="d1_ou">{{ huitd.d1_ou }}</textarea></td></tr>
+        <tr><th>Quand ? / When ?</th><td><textarea name="d1_quand">{{ huitd.d1_quand }}</textarea></td></tr>
+        <tr><th>Comment ? / How ?</th><td><textarea name="d1_comment">{{ huitd.d1_comment }}</textarea></td></tr>
+        <tr><th>Combien ? / How much ?</th><td><textarea name="d1_combien">{{ huitd.d1_combien }}</textarea></td></tr>
+        <tr><th>Pourquoi ? / Why ?</th><td><textarea name="d1_pourquoi">{{ huitd.d1_pourquoi }}</textarea></td></tr>
+    </table>
+    
+    <table class="table-d1">
+        <tr>
+            <th>Caractérisation du défaut / Characterization of the defect</th>
+            <td><textarea name="d1_caracterisation" rows="2" style="min-height:40px;">{{ huitd.d1_caracterisation }}</textarea></td>
+        </tr>
+    </table>
+    
+    <table class="table-d1">
+        <tr>
+            <th>Le problème est-il déjà connu ? / Is the problem already known?</th>
+            <td>
+                <label style="margin-right:20px;"><input type="radio" name="d1_probleme_connu" value="oui" {% if huitd.d1_probleme_connu %}checked{% endif %}> Oui / Yes</label>
+                <label><input type="radio" name="d1_probleme_connu" value="non" {% if not huitd.d1_probleme_connu %}checked{% endif %}> Non / No</label>
+            </td>
+        </tr>
+    </table>
+    
+    <table class="table-d1">
+        <tr>
+            <th>Y'a-t-il un risque sur un produit ou process similaire ? / Is there a risk on a similar product or process?</th>
+            <td>
+                <label style="margin-right:20px;"><input type="radio" name="d1_risque" value="oui" {% if huitd.d1_risque %}checked{% endif %}> Oui / Yes</label>
+                <label style="margin-right:20px;"><input type="radio" name="d1_risque" value="non" {% if not huitd.d1_risque %}checked{% endif %}> Non / No</label>
+                <span style="display:inline-block;margin-top:4px;">Si oui, sur lequel ? / If yes, on which :</span>
+                <input type="text" name="d1_risque_detail" value="{{ huitd.d1_risque_detail }}" style="width:60%;margin-left:5px;">
+            </td>
+        </tr>
+    </table>
+    
+    <table class="table-d1">
+        <tr>
+            <th style="width:50%;">Illustration du produit défectueux</th>
+            <th style="width:50%;">Illustration du produit conforme</th>
+        </tr>
+        <tr>
+            <td>
+                {% if huitd.d1_illustration_defectueux %}
+                <img src="{{ huitd.d1_illustration_defectueux.url }}" style="max-width:100%;max-height:150px;display:block;margin-bottom:5px;">
+                {% endif %}
+                <input type="file" name="illustration_defectueux" class="form-control form-control-sm no-print">
+            </td>
+            <td>
+                {% if huitd.d1_illustration_conforme %}
+                <img src="{{ huitd.d1_illustration_conforme.url }}" style="max-width:100%;max-height:150px;display:block;margin-bottom:5px;">
+                {% endif %}
+                <input type="file" name="illustration_conforme" class="form-control form-control-sm no-print">
+            </td>
+        </tr>
+    </table>
+    
+    <div class="text-end mb-4 no-print">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D1</button>
+    </div>
+</form>
+        
+        <!-- ==================== D2 : Actions d'urgence ==================== -->
+<div class="section-title">D2 : Sécuriser et mettre en place les actions d'urgence / Securing and Implementing Emergency Actions</div>
+<form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+    {% csrf_token %}<input type="hidden" name="section" value="d2">
+    
+    <table class="huitd-table">
+        <tr><th>Date</th><td><input type="date" name="d2_date" value="{{ huitd.d2_date|date:'Y-m-d' }}"></td></tr>
+        <tr>
+            <th>Quelles actions sont envisagées pour éviter la non détection du défaut (fiche alerte, check list…) ?<br>What actions are planned to avoid failure to detect the fault (warning sheet, checklist, etc.)?</th>
+            <td><textarea name="d2_actions" rows="4">{{ huitd.d2_actions }}</textarea></td>
+        </tr>
+    </table>
+    
+    <table class="huitd-table checkbox-table">
+        <tr>
+            <th>Un tri est-il nécessaire ? / Is sorting necessary?</th>
+            <td>
+                <label><input type="radio" name="d2_tri" value="oui" {% if huitd.d2_tri %}checked{% endif %}> Oui / Yes</label>
+                <label class="ms-4"><input type="radio" name="d2_tri" value="non" {% if not huitd.d2_tri %}checked{% endif %}> Non / No</label>
+            </td>
+        </tr>
+    </table>
+    
+    <table class="huitd-table">
+        <tr><th>OF concernés / OF concerned</th><td><input type="text" name="of_concernes" value="{{ huitd.d2_of_concernes }}"></td></tr>
+        <tr><th>Qté rebutée / Scrap Qty</th><td><input type="text" name="quantite_rebutee" value="{{ huitd.d2_quantite_rebutee|default:'N/A' }}"></td></tr>
+        <tr><th>Qté à retoucher / Qty to be reworked</th><td><input type="text" name="quantite_retoucher" value="{{ huitd.d2_quantite_retoucher|default:'N/A' }}"></td></tr>
+    </table>
+    
+    <div class="text-end mb-4 no-print">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D2</button>
+    </div>
+</form>
+        
+<!-- ==================== D3 : Équipe ==================== -->
+<form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="section" value="d3">
+
+    <div class="section-title d-flex justify-content-between align-items-center"> 
+        D3 - Équipe 8D 
+        <button type="button" class="btn btn-light btn-sm" id="addParticipantBtn">
+            <i class="fas fa-plus"></i> Ajouter un participant
+        </button>
+    </div>
+
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="d3_date" class="form-label">Date D3</label>
+                <input type="date" class="form-control" id="d3_date" name="d3_date" 
+                    value="{{ huitd.d3_date|date:'Y-m-d' }}">
+            </div>
+        </div>
+        
+        <!-- Pilote et Animateur - stockés directement dans HuitD -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card bg-light border-primary">
+                    <div class="card-body">
+                        <h6 class="text-primary mb-3"><i class="fas fa-user-check"></i> Pilote / Leader</h6>
+                        <div class="row">
+                            <div class="col-md-12 mb-2">
+                                <label class="form-label">Nom / Name</label>
+                                <input type="text" class="form-control" name="pilote" 
+                                       value="{{ huitd.pilote }}" placeholder="Nom du pilote">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Fonction / Function</label>
+                                <input type="text" class="form-control" name="pilote_fonction" 
+                                       value="{{ huitd.pilote_fonction }}" placeholder="Fonction">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-light border-info">
+                    <div class="card-body">
+                        <h6 class="text-info mb-3"><i class="fas fa-user-friends"></i> Animateur / Animator</h6>
+                        <div class="row">
+                            <div class="col-md-12 mb-2">
+                                <label class="form-label">Nom / Name</label>
+                                <input type="text" class="form-control" name="animateur" 
+                                       value="{{ huitd.animateur }}" placeholder="Nom de l'animateur">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Fonction / Function</label>
+                                <input type="text" class="form-control" name="animateur_fonction" 
+                                       value="{{ huitd.animateur_fonction }}" placeholder="Fonction">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Participants supplémentaires -->
+        <div class="mt-4">
+            <h6 class="mb-3"><i class="fas fa-users"></i> Autres participants</h6>
+            <div class="table-responsive">
+                <table class="table table-bordered" id="participantsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 70px">Ordre</th>
+                            <th>Nom / Name</th>
+                            <th>Fonction / Function</th>
+                            <th style="width: 80px">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Participants existants -->
+                        {% for participant in huitd.participants.all %}
+                        <tr class="participant-row">
+                            <td>
+                                <input type="number" class="form-control form-control-sm participant-order" 
+                                    name="participant_ordre[]" value="{{ participant.ordre }}" 
+                                    style="width: 60px" min="1">
+                            </td>
+                            <td>
+                                <input type="text" class="form-control" name="participant_nom[]" 
+                                    value="{{ participant.nom }}" placeholder="Nom" required>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control" name="participant_fonction[]" 
+                                    value="{{ participant.fonction }}" placeholder="Fonction">
+                            </td>
+                            <td>
+                                <input type="hidden" name="participant_id[]" value="{{ participant.id }}">
+                                <button type="button" class="btn btn-sm btn-danger remove-participant">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="card-footer text-end">
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Enregistrer D3
+        </button>
+    </div>
+</form>
+
+<!-- Template pour nouveau participant (sans Date.now() dans le template) -->
+<template id="participant-template">
+    <tr class="participant-row">
+        <td>
+            <input type="number" class="form-control form-control-sm participant-order" 
+                name="participant_ordre[]" value="0" style="width: 60px" min="1">
+        </td>
+        <td>
+            <input type="text" class="form-control" name="participant_nom[]" placeholder="Nom" required>
+        </td>
+        <td>
+            <input type="text" class="form-control" name="participant_fonction[]" placeholder="Fonction">
+        </td>
+        <td>
+            <input type="hidden" name="participant_id[]" value="">
+            <button type="button" class="btn btn-sm btn-danger remove-participant">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+ <!-- ==================== D4 : Analyse préliminaire ==================== -->
+<div class="section-title">D4 : Analyse préliminaire / Preliminary Analysis</div>
+<form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+    {% csrf_token %}<input type="hidden" name="section" value="d4">
+    <table class="huitd-table">
+        <tr><th>Date</th><td><input type="date" name="d4_date" value="{{ huitd.d4_date|date:'Y-m-d' }}"></td></tr>
+        <tr>
+            <th>Cause(s) probable(s) d'apparition du défaut ? / Probable cause(s) of fault?</th>
+            <td><textarea name="d4_causes_apparition" rows="3">{{ huitd.d4_causes_apparition }}</textarea></td>
+        </tr>
+        <tr>
+            <th>Cause(s) probable(s) de non détection ? / Probable cause(s) of non-detection?</th>
+            <td><textarea name="d4_causes_non_detection" rows="3">{{ huitd.d4_causes_non_detection }}</textarea></td>
+        </tr>
+    </table>
+    
+    <table class="huitd-table checkbox-table">
+        <tr>
+            <th>Décision: engager une recherche de causes racines avec un 8D ?<br>Decision: carry out a root cause analysis with an 8D?</th>
+            <td>
+                <label><input type="radio" name="decision_8d" value="OUI" {% if huitd.decision_8d == 'OUI' %}checked{% endif %}> Oui / YES</label>
+                <label class="ms-4"><input type="radio" name="decision_8d" value="NON" {% if huitd.decision_8d == 'NON' %}checked{% endif %}> Non / NO</label>
+            </td>
+        </tr>
+    </table>
+    
+ 
+    
+    <div class="text-end mb-4 no-print">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D4</button>
+    </div>
+</form>
+<div class="fin-4d">fin du 4D</div>
+<div class="separator"></div>
+
+<script>
+    // Gestion des participants dynamiques
+    document.addEventListener('DOMContentLoaded', function() {
+        const participantsTable = document.querySelector('#participantsTable tbody');
+        const addParticipantBtn = document.getElementById('addParticipantBtn');
+        const template = document.getElementById('participant-template');
+        
+        if (!participantsTable || !addParticipantBtn || !template) return;
+        
+        // Fonction pour ajouter un participant
+        function addParticipant() {
+            const newRow = template.content.cloneNode(true);
+            
+            // Générer un ID unique pour le nouveau participant (en JavaScript)
+            const newId = 'new_' + Date.now();
+            const hiddenInput = newRow.querySelector('input[name="participant_id[]"]');
+            if (hiddenInput) {
+                hiddenInput.value = newId;
+            }
+            
+            participantsTable.appendChild(newRow);
+            
+            // Mettre à jour l'ordre
+            updateOrders();
+            
+            // Ajouter l'événement de suppression
+            const removeBtn = newRow.querySelector('.remove-participant');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    if (confirm('Supprimer ce participant de l\'équipe 8D ?')) {
+                        this.closest('tr').remove();
+                        updateOrders();
+                    }
+                });
+            }
+        }
+        
+        // Fonction pour mettre à jour les ordres
+        function updateOrders() {
+            const rows = participantsTable.querySelectorAll('tr.participant-row');
+            let order = 1;
+            rows.forEach(row => {
+                const orderInput = row.querySelector('.participant-order');
+                if (orderInput) {
+                    orderInput.value = order++;
+                }
+            });
+        }
+        
+        // Ajouter un participant au clic
+        addParticipantBtn.addEventListener('click', addParticipant);
+        
+        // Supprimer un participant existant
+        document.querySelectorAll('.remove-participant').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (confirm('Supprimer ce participant de l\'équipe 8D ?')) {
+                    this.closest('tr').remove();
+                    updateOrders();
+                }
+            });
+        });
+        
+        // Initialiser les ordres
+        updateOrders();
+    });
+</script>

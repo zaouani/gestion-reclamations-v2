@@ -18,7 +18,6 @@ urlpatterns = [
     path('creer/', views.creer_reclamation, name='creer'),
     path('<int:pk>/', views.detail_reclamation, name='detail_reclamation'),
     path('<int:pk>/modifier-etats/', views.modifier_etats, name='modifier_etats'),
-    path('<int:pk>/ajouter-ligne/', views.ajouter_ligne, name='ajouter_ligne'),
     path('<int:pk>/supprimer/', views.supprimer_reclamation, name='supprimer_reclamation'),
     path('<int:pk>/modifier/', views.modifier_reclamation, name='modifier_reclamation'),
     path('api/rechercher-descriptions-nc/', views.rechercher_descriptions_nc, name='rechercher_descriptions_nc'),

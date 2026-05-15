@@ -1,0 +1,412 @@
+<!-- ==================== D5 : Causes racines ==================== -->
+<div class="section-title">D5 : Analyse des causes racines / Root Cause Analysis (Ishikawa, 5 Why, FTA...)</div>
+
+<form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+    {% csrf_token %}<input type="hidden" name="section" value="d5">
+    
+    <table class="huitd-table">
+        <tr>
+            <th>
+                Causes racines de l'occurrence ?<br>
+                Root causes of occurrence?
+            </th>
+            <td>
+                <textarea name="d5_causes_occurrence" rows="5">{{ huitd.d5_causes_occurrence }}</textarea>
+            </td>
+        </tr>
+        <tr>
+            <th>
+                Causes racines de la non détection ?<br>
+                Root causes of non-detection?
+            </th>
+            <td>
+                <textarea name="d5_causes_non_detection" rows="5">{{ huitd.d5_causes_non_detection }}</textarea>
+                <br><br>
+            </td>
+        </tr>
+    </table>
+                <small>Méthodes d'analyse disponibles :</small><br>
+                <span class="method-link no-print" onclick="ouvrirMethode('5w2h')"> Remplir 5W2H</span>
+                &nbsp;|&nbsp;
+                <span class="method-link no-print" onclick="ouvrirMethode('ishikawa')"> Remplir Ishikawa</span>
+                &nbsp;|&nbsp;
+                <span class="method-link no-print" onclick="ouvrirMethode('vrs')">Remplir VRS</span>
+                &nbsp;|&nbsp;
+                <span class="method-link no-print" onclick="ouvrirMethode('5p')">Remplir 5P</span>
+                &nbsp;|&nbsp;
+                <span class="method-link no-print" onclick="ouvrirMethode('fh')"> Remplir Facteur Humain</span>
+    <div class="text-end mb-4 no-print">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D5</button>
+    </div>
+</form>
+
+<!-- ==================== MODALS DES MÉTHODES ==================== -->
+{% include 'reclamations/huitd/includes/huitd_modals.html' %}
+<!-- ==================== D6 : Actions ==================== -->
+<div class="section-title">D6 : Actions correctives et préventives / Corrective and Preventive Actions</div>
+
+    <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+        {% csrf_token %}<input type="hidden" name="section" value="d6">
+        
+        <style>
+            #table-actions {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+            #table-actions thead th {
+                background-color: #e9ecef;
+                font-weight: bold;
+                font-size: 0.8rem;
+                text-align: center;
+                vertical-align: middle;
+                padding: 10px 6px;
+                border: 1px solid #999;
+            }
+            #table-actions thead th.col-type { width: 10%; }
+            #table-actions thead th.col-cause { width: 20%; }
+            #table-actions thead th.col-action { width: 20%; }
+            #table-actions thead th.col-pilote { width: 20%; }
+            #table-actions thead th.col-delai { width: 15%; }
+            #table-actions thead th.col-statut { width: 10%; }
+            #table-actions thead th.col-del { width: 5%; }
+            
+            #table-actions tbody td {
+                vertical-align: middle;
+                padding: 6px;
+                border: 1px solid #ccc;
+            }
+            #table-actions .action-row { transition: background-color 0.3s; }
+            #table-actions .action-row:hover { background-color: #f8f9fa; }
+            #table-actions .action-row:only-child .btn-remove-row { opacity: 0.3; pointer-events: none; }
+            #table-actions .action-row input,
+            #table-actions .action-row textarea,
+            #table-actions .action-row select {
+                width: 100%;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 4px 6px;
+                font-size: 0.8rem;
+                box-sizing: border-box;
+            }
+            #table-actions .action-row textarea { resize: vertical; min-height: 40px; }
+            #table-actions .action-row input:focus,
+            #table-actions .action-row textarea:focus,
+            #table-actions .action-row select:focus {
+                outline: none;
+                border-color: #3498db;
+                box-shadow: 0 0 0 2px rgba(52,152,219,0.1);
+            }
+            .btn-remove-row { color: #e74c3c; border: none; background: none; font-size: 1.2rem; cursor: pointer; padding: 0; line-height: 1; }
+            .btn-remove-row:hover { color: #c0392b; }
+        </style>
+        
+        <table class="huitd-table" id="table-actions">
+            <thead>
+                <tr>
+                    <th class="col-type">Type</th>
+                    <th class="col-cause">Causes retenues / Causes retained</th>
+                    <th class="col-action">Actions : occurrence - non détection</th>
+                    <th class="col-pilote">Pilote</th>
+                    <th class="col-delai">Délai/Deadline</th>
+                    <th class="col-statut">Statut / Status</th>
+                    <th class="col-del"></th>
+                </tr>
+            </thead>
+            <tbody id="actions-body">
+                {% for action in huitd.actions.all %}
+                <tr class="action-row">
+                    <td>
+                        <select name="action_type[]">
+                            <option value="CORRECTIVE" {% if action.type_action == 'CORRECTIVE' %}selected{% endif %}>AC</option>
+                            <option value="PREVENTIVE" {% if action.type_action == 'PREVENTIVE' %}selected{% endif %}>AP</option>
+                        </select>
+                    </td>
+                    <td><input type="text" name="action_cause[]" value="{{ action.numero_cause }}" placeholder="Ex: B, E, C..."></td>
+                    <td><textarea name="action_desc[]" rows="2" placeholder="Décrire l'action...">{{ action.action }}</textarea></td>
+                    <td><input type="text" name="action_pilote[]" value="{{ action.pilote }}" placeholder="Nom du pilote"></td>
+                    <td><input type="text" name="action_delai[]" value="{{ action.delai_semaines }}" placeholder="Ex: Week 22"></td>
+                    <td>
+                        <select name="action_statut[]">
+                            <option value="PLANIFIE" {% if action.statut == 'PLANIFIE' %}selected{% endif %}>Planifié</option>
+                            <option value="EN_COURS" {% if action.statut == 'EN_COURS' %}selected{% endif %}>En cours</option>
+                            <option value="REALISE" {% if action.statut == 'REALISE' %}selected{% endif %}>Réalisé</option>
+                            <option value="EFFICACE" {% if action.statut == 'EFFICACE' %}selected{% endif %}>Efficace</option>
+                        </select>
+                    </td>
+                    <td style="text-align:center;"><button type="button" class="btn-remove-row" onclick="supprimerLigne(this)">×</button></td>
+                </tr>
+                {% empty %}
+                <tr class="action-row">
+                    <td><select name="action_type[]"><option value="CORRECTIVE">AC</option><option value="PREVENTIVE">AP</option></select></td>
+                    <td><input type="text" name="action_cause[]" placeholder="Ex: B, E, C..."></td>
+                    <td><textarea name="action_desc[]" rows="2" placeholder="Décrire l'action..."></textarea></td>
+                    <td><input type="text" name="action_pilote[]" placeholder="Nom du pilote"></td>
+                    <td><input type="text" name="action_delai[]" placeholder="Ex: Week 22"></td>
+                    <td><select name="action_statut[]"><option>Planifié</option><option>En cours</option><option>Réalisé</option><option>Efficace</option></select></td>
+                    <td style="text-align:center;"><button type="button" class="btn-remove-row" onclick="supprimerLigne(this)">×</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <button type="button" class="btn btn-outline-primary btn-sm no-print mt-2" onclick="ajouterAction()">
+            <i class="fas fa-plus"></i> Ajouter une action
+        </button>
+        
+        <div class="text-end mb-4 no-print">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D6</button>
+        </div>
+    </form>
+
+    <script>
+
+        function ajouterAction(){
+            var t=document.getElementById('actions-body'),r=document.createElement('tr');
+            r.className='action-row';
+            r.innerHTML='<td><select name="action_type[]"><option value="CORRECTIVE">AC</option><option value="PREVENTIVE">AP</option></select></td><td><input type="text" name="action_cause[]" placeholder="Ex: B"></td><td><textarea name="action_desc[]" rows="2" placeholder="Action..."></textarea></td><td><input type="text" name="action_pilote[]" placeholder="Pilote"></td><td><input type="text" name="action_delai[]" placeholder="Ex: week 22"></td><td><select name="action_statut[]"><option>Planifié</option><option>En cours</option><option>Réalisé</option><option>Efficace</option></select></td><td><button type="button" onclick="supprimerLigne(this)" style="color:red;border:none;background:none;font-size:1.2rem;">×</button></td>';
+            t.appendChild(r);
+        }
+        function supprimerLigne(b){var r=document.querySelectorAll('#actions-body .action-row');if(r.length>1)b.closest('tr').remove();}
+
+
+            function mettreAJourCompteur() {
+                const tbody = document.getElementById('actions-body');
+                const count = tbody.querySelectorAll('.action-row').length;
+                const compteur = document.getElementById('count-actions');
+                if (compteur) {
+                    compteur.textContent = count;
+                }
+            }
+
+            // Initialiser le compteur au chargement
+            document.addEventListener('DOMContentLoaded', function() {
+                mettreAJourCompteur();
+            });
+    </script>
+<!-- ==================== D7 : Vérification ==================== -->
+<div class="section-title">D7 : Vérification de l'efficacité des actions / Checking the Effectiveness of Actions</div>
+    <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+        {% csrf_token %}<input type="hidden" name="section" value="d7">
+        
+        <table class="huitd-table">
+            <tr>
+                <th>Comment est vérifié l'efficacité des actions (qui ? comment ?) ?<br>How is the effectiveness of actions verified (who? how?)?</th>
+                <td><textarea name="d7_verification" rows="3">{{ huitd.d7_verification }}</textarea></td>
+            </tr>
+            <tr>
+                <th>Ces actions sont-elles suffisantes pour éradiquer le problème ?<br>Are these actions enough to eradicate the problem?</th>
+                <td><textarea name="d7_suffisant" rows="2">{{ huitd.d7_suffisant }}</textarea></td>
+            </tr>
+        </table>
+        
+        <div class="text-end mb-4 no-print">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D7</button>
+        </div>
+    </form>
+
+<!-- ==================== D8 : Transversalisation ==================== -->
+<div class="section-title">D8 : Transversalisation / Transversalization</div>
+
+    <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+        {% csrf_token %}<input type="hidden" name="section" value="d8">
+        
+        <table class="huitd-table">
+            <tr>
+                <th>Sur quels périmètres peut-on transversaliser les leçons apprises (process, produits…) ?<br>Where can lessons learned be applied across the board (processes, products, etc.)?</th>
+                <td><textarea name="transversalisation" rows="3">{{ huitd.d8_transversalisation }}</textarea></td>
+            </tr>
+        </table>
+        
+        <!-- Alteration Necessary -->
+        <style>
+            #table-alterations {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+            #table-alterations thead th {
+                background-color: #e9ecef;
+                font-weight: bold;
+                font-size: 0.8rem;
+                text-align: center;
+                vertical-align: middle;
+                padding: 10px 8px;
+                border: 1px solid #999;
+            }
+            #table-alterations thead th.col-alt { width: 40%; }
+            #table-alterations thead th.col-remark { width: 20%; }
+            #table-alterations thead th.col-pilot { width: 20%; }
+            #table-alterations thead th.col-deadline { width: 20%; }
+            #table-alterations tbody td {
+                vertical-align: middle;
+                padding: 6px 8px;
+                border: 1px solid #ccc;
+            }
+            #table-alterations tbody td:first-child {
+                font-size: 0.8rem;
+                font-weight: 500;
+            }
+            #table-alterations tbody input {
+                width: 100%;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 4px 6px;
+                font-size: 0.8rem;
+                box-sizing: border-box;
+            }
+            #table-alterations tbody input:focus {
+                outline: none;
+                border-color: #3498db;
+                box-shadow: 0 0 0 2px rgba(52,152,219,0.1);
+            }
+            #table-alterations tbody tr:hover { background-color: #f8f9fa; }
+        </style>
+        
+        <table class="huitd-table" id="table-alterations">
+            <thead>
+                <tr>
+                    <th class="col-alt">Alteration Necessary</th>
+                    <th class="col-remark">Remark</th>
+                    <th class="col-pilot">Pilot</th>
+                    <th class="col-deadline">Deadline</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alt in huitd.alterations.all %}
+                <tr>
+                    <td>{{ alt.type_document }}</td>
+                    <td><input type="text" name="alt_remark_{{ forloop.counter0 }}" value="{{ alt.remarque }}"></td>
+                    <td><input type="text" name="alt_pilote_{{ forloop.counter0 }}" value="{{ alt.pilote }}"></td>
+                    <td><input type="date" name="alt_deadline_{{ forloop.counter0 }}" value="{{ alt.deadline|date:'Y-m-d' }}"></td>
+                </tr>
+                {% empty %}
+                <tr><td>Inspection Sheet (PV)</td><td><input type="text" name="alt_remark_0"></td><td><input type="text" name="alt_pilote_0"></td><td><input type="date" name="alt_deadline_0"></td></tr>
+                <tr><td>Control Plan</td><td><input type="text" name="alt_remark_1"></td><td><input type="text" name="alt_pilote_1"></td><td><input type="date" name="alt_deadline_1"></td></tr>
+                <tr><td>Instruction Sheet (FI)</td><td><input type="text" name="alt_remark_2"></td><td><input type="text" name="alt_pilote_2"></td><td><input type="date" name="alt_deadline_2"></td></tr>
+                <tr><td>Maintenance Plan</td><td><input type="text" name="alt_remark_3"></td><td><input type="text" name="alt_pilote_3"></td><td><input type="date" name="alt_deadline_3"></td></tr>
+                <tr><td>Audit Frequency</td><td><input type="text" name="alt_remark_4"></td><td><input type="text" name="alt_pilote_4"></td><td><input type="date" name="alt_deadline_4"></td></tr>
+                <tr><td>Workstation Documents Updated</td><td><input type="text" name="alt_remark_5"></td><td><input type="text" name="alt_pilote_5"></td><td><input type="date" name="alt_deadline_5"></td></tr>
+                <tr><td>Process Improvement</td><td><input type="text" name="alt_remark_6"></td><td><input type="text" name="alt_pilote_6"></td><td><input type="date" name="alt_deadline_6"></td></tr>
+                <tr><td>PFMEA</td><td><input type="text" name="alt_remark_7"></td><td><input type="text" name="alt_pilote_7"></td><td><input type="date" name="alt_deadline_7"></td></tr>
+                <tr><td>Standardization of Tools and Equipment</td><td><input type="text" name="alt_remark_8"></td><td><input type="text" name="alt_pilote_8"></td><td><input type="date" name="alt_deadline_8"></td></tr>
+                <tr><td>Training Plan</td><td><input type="text" name="alt_remark_9"></td><td><input type="text" name="alt_pilote_9"></td><td><input type="date" name="alt_deadline_9"></td></tr>
+                <tr><td>Deploy to Similar (Other Program)</td><td><input type="text" name="alt_remark_10"></td><td><input type="text" name="alt_pilote_10"></td><td><input type="date" name="alt_deadline_10"></td></tr>
+                <tr><td>Deploy to Similar (Other APU)</td><td><input type="text" name="alt_remark_11"></td><td><input type="text" name="alt_pilote_11"></td><td><input type="date" name="alt_deadline_11"></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        
+        
+        <div class="text-end mb-4 no-print">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D8</button>
+        </div>
+    </form>
+    <div class="fin-8d">fin du 8D</div>    
+
+
+<!-- ==================== Décision HCIM ==================== -->
+<div class="section-title">Décision HCIM</div>
+
+    <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
+        {% csrf_token %}<input type="hidden" name="section" value="decision">
+        
+        <table class="huitd-table checkbox-table">
+            <tr>
+                <th>8D accepté / 8D Report Accepted</th>
+                <td>
+                    <label><input type="radio" name="huitd_accepte" value="oui" {% if huitd.huitd_accepte %}checked{% endif %}> Oui / YES</label>
+                    <label class="ms-4">
+                        Non / NO, exigé par / required by : 
+                        <input type="text" name="decision_hcim" value="{{ huitd.decision_hcim }}" style="width:200px;">
+                    </label>
+                </td>
+            </tr>
+        </table>
+        
+        <!-- ==================== Fin du 8D ==================== -->
+        <div class="section-title">Fin du 8D / Closure of 8D</div>
+        
+        <table class="huitd-table">
+            <tr>
+                <th>Date & Signature</th>
+                <td>
+                    <input type="date" name="fin_huitd" value="{{ huitd.fin_huitd|date:'Y-m-d' }}" style="width:auto;margin-bottom:10px;">
+                    <br>
+                    <div class="signature-box">
+                        <input type="text" name="fin_huitd_signature" value="{{ huitd.fin_huitd_signature }}" placeholder="Signature" style="width:100%;">
+                    </div>
+                </td>
+            </tr>
+        </table>
+        
+        <div class="text-end mb-4 no-print">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer Décision</button>
+        </div>
+    </form>
+
+<!-- ==================== Évidences ==================== -->
+<div class="section-title">📎 Évidences / Pièces jointes</div>
+
+{% if huitd.evidences.exists %}
+<div class="mb-4">
+    {% for ev in huitd.evidences.all %}
+    <div class="d-flex align-items-center mb-2 p-2 border rounded">
+        <i class="fas fa-paperclip text-muted me-3"></i>
+        <div class="flex-grow-1">
+            <strong>{{ ev.titre }}</strong>
+            <br><small class="text-muted">{{ ev.date_ajout|date:"d/m/Y H:i" }}</small>
+        </div>
+        <a href="{{ ev.fichier.url }}" class="btn btn-sm btn-outline-primary me-1" target="_blank">
+            <i class="fas fa-download"></i>
+        </a>
+        <a href="{% url 'reclamations:huitd_supprimer_evidence' ev.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Supprimer cette évidence ?')">
+            <i class="fas fa-trash"></i>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}" enctype="multipart/form-data">
+    {% csrf_token %}<input type="hidden" name="section" value="evidences">
+    
+    <h6>Ajouter un fichier :</h6>
+    <div class="row">
+        <div class="col-md-4 mb-2">
+            <label class="form-label fw-bold">Titre</label>
+            <input type="text" name="titre" class="form-control" required>
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label fw-bold">Description</label>
+            <input type="text" name="description_ev" class="form-control">
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label fw-bold">Fichier</label>
+            <input type="file" name="fichier" class="form-control" required>
+        </div>
+    </div>
+    
+    <div class="text-end mt-3 no-print">
+        <button type="submit" class="btn btn-success btn-sm">
+            <i class="fas fa-upload"></i> Ajouter l'évidence
+        </button>
+    </div>
+</form>
+
+<script>
+function ouvrirMethode(methode) {
+    document.getElementById('modal-' + methode).style.display = 'block';
+}
+
+function fermerMethode(methode) {
+    document.getElementById('modal-' + methode).style.display = 'none';
+}
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('method-modal')) {
+        event.target.style.display = 'none';
+    }
+}
+</script>

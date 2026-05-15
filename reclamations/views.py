@@ -1951,12 +1951,16 @@ def detail_reclamation(request, pk):
             'lignes__produit',
             'lignes__site',
             'lignes__uap_concernee',
-              # ← AJOUT : précharger analyses et actions
+            'huitd__actions',  # ← AJOUT : précharger les actions 8D
+            'huitd__participants',  # ← AJOUT : précharger les participants
+            'huitd__causes_ishikawa',  # si vous avez ce modèle
+            'huitd__causes_5p',  # si vous avez ce modèle
         ).select_related(
             'client',
             'site_client',
             'programme',
-            'createur'
+            'createur',
+            'huitd',  # ← AJOUT : charger le 8D associé
         ),
         pk=pk
     )
@@ -2009,33 +2013,6 @@ def modifier_etats(request, pk):
     }
     return render(request, 'reclamations/modifier_etats.html', context)
 
-@login_required
-def ajouter_ligne(request, pk):
-    """Ajouter une ligne à une réclamation existante"""
-    reclamation = get_object_or_404(Reclamation, pk=pk)
-    
-    if request.method == 'POST':
-        produit_id = request.POST.get('produit')
-        quantite = request.POST.get('quantite')
-        
-        if produit_id and quantite:
-            LigneReclamation.objects.create(
-                reclamation=reclamation,
-                produit_id=produit_id,
-                quantite=quantite,
-                description_non_conformite=request.POST.get('description', ''),
-                commentaire=request.POST.get('commentaire', ''),
-                temps_rework=request.POST.get('temps_rework') or None
-            )
-            messages.success(request, "Ligne ajoutée avec succès!")
-        
-        return redirect('reclamations:detail_reclamation', pk=reclamation.id)
-    
-    context = {
-        'reclamation': reclamation,
-        'produits': Produit.objects.filter(actif=True),
-    }
-    return render(request, 'reclamations/ajouter_ligne.html', context)
 
 @login_required
 def modifier_reclamation(request, pk):
@@ -2092,98 +2069,155 @@ def modifier_reclamation(request, pk):
                 reclamation.save()
                 
                 # ========== TRAITEMENT DES LIGNES ==========
-                lignes_ids = request.POST.getlist('ligne_id[]')
-                produits = request.POST.getlist('produit[]')
-                sites = request.POST.getlist('site[]')
-                quantites = request.POST.getlist('quantite[]')
-                commentaires = request.POST.getlist('commentaire[]')
-                uaps = request.POST.getlist('uap_concernee[]')
+                # Récupérer toutes les données POST
+                post_data = request.POST
+                
+                # Compter le nombre de lignes (produit[])
+                produits = post_data.getlist('produit[]')
+                nb_lignes = len(produits)
+                
+                # Récupérer les IDs des lignes
+                lignes_ids = post_data.getlist('ligne_id[]')
+                
+                # S'assurer que toutes les listes ont la même longueur
+                while len(lignes_ids) < nb_lignes:
+                    lignes_ids.append('')
+                
+                # Récupérer les autres données
+                sites = post_data.getlist('site[]')
+                while len(sites) < nb_lignes:
+                    sites.append('')
+                    
+                quantites = post_data.getlist('quantite[]')
+                while len(quantites) < nb_lignes:
+                    quantites.append('1')
+                    
+                commentaires = post_data.getlist('commentaire[]')
+                while len(commentaires) < nb_lignes:
+                    commentaires.append('')
+                    
+                uaps = post_data.getlist('uap_concernee[]')
+                while len(uaps) < nb_lignes:
+                    uaps.append('')
                 
                 # Récupérer les données des NC
-                nc_ids = request.POST.getlist('nc_id[]')
-                nc_descriptions = request.POST.getlist('nc_description[]')
-                nc_quantites = request.POST.getlist('nc_quantite[]')
-                nc_ligne_refs = request.POST.getlist('nc_ligne_ref[]')
+                nc_ids = post_data.getlist('nc_id[]')
+                nc_descriptions = post_data.getlist('nc_description[]')
+                nc_quantites = post_data.getlist('nc_quantite[]')
+                nc_ligne_refs = post_data.getlist('nc_ligne_ref[]')
                 
-                # Regrouper les NC par référence de ligne (index)
-                nc_par_index = {}
+                # Regrouper les NC par référence de ligne
+                nc_par_ligne = {}
                 for idx in range(len(nc_descriptions)):
                     if idx < len(nc_ligne_refs) and nc_descriptions[idx].strip():
-                        index_ref = nc_ligne_refs[idx]  # C'est l'index de la ligne ou l'ID
+                        ligne_ref = str(nc_ligne_refs[idx])
                         
-                        if index_ref not in nc_par_index:
-                            nc_par_index[index_ref] = []
+                        if ligne_ref not in nc_par_ligne:
+                            nc_par_ligne[ligne_ref] = []
                         
-                        nc_par_index[index_ref].append({
-                            'id': nc_ids[idx] if idx < len(nc_ids) else '',
+                        nc_id = nc_ids[idx] if idx < len(nc_ids) else ''
+                        quantite = int(nc_quantites[idx]) if idx < len(nc_quantites) and nc_quantites[idx].isdigit() else 1
+                        
+                        nc_par_ligne[ligne_ref].append({
+                            'id': nc_id,
                             'description': nc_descriptions[idx].strip(),
-                            'quantite': int(nc_quantites[idx]) if idx < len(nc_quantites) and nc_quantites[idx] else 1
+                            'quantite': quantite
                         })
                 
                 lignes_a_conserver = []
                 
-                for i in range(len(produits)):
-                    if not produits[i]:
+                for i in range(nb_lignes):
+                    produit_id = produits[i]
+                    if not produit_id or produit_id == '':
                         continue
                     
-                    quantite_totale = int(quantites[i]) if i < len(quantites) and quantites[i] else 1
-                    ligne_id = lignes_ids[i] if i < len(lignes_ids) else None
+                    quantite_totale = int(quantites[i]) if i < len(quantites) and quantites[i].isdigit() else 1
+                    ligne_id_str = lignes_ids[i] if i < len(lignes_ids) else ''
                     site_id = sites[i] if i < len(sites) and sites[i] else None
                     uap_id = uaps[i] if i < len(uaps) and uaps[i] else None
                     commentaire = commentaires[i] if i < len(commentaires) else ''
                     
-                    # Utiliser l'index comme référence pour les NC (compatible avec le template)
+                    # Clé pour trouver les NC (utilisation de l'index)
                     ligne_ref = str(i)
                     
-                    # Récupérer les NC pour cette ligne (par index)
-                    ncs_ligne = nc_par_index.get(ligne_ref, [])
-                    # Chercher aussi par ligne_id si c'est une ligne existante
-                    if ligne_id and ligne_id.isdigit():
-                        ncs_ligne.extend(nc_par_index.get(ligne_id, []))
+                    # Récupérer les NC pour cette ligne
+                    ncs_ligne = nc_par_ligne.get(ligne_ref, [])
                     
-                    # Créer ou modifier la ligne
-                    if ligne_id and ligne_id.startswith('new_'):
-                        ligne = LigneReclamation.objects.create(
-                            reclamation=reclamation,
-                            produit_id=produits[i],
-                            quantite=quantite_totale,
-                            site_id=site_id,
-                            uap_concernee_id=uap_id,
-                            commentaire=commentaire,
-                            description_non_conformite=''
-                        )
-                        lignes_a_conserver.append(ligne.id)
-                        
-                    elif ligne_id and ligne_id.isdigit():
+                    # Si c'est une ligne existante, chercher aussi par son ID
+                    if ligne_id_str and ligne_id_str.isdigit():
+                        ncs_ligne.extend(nc_par_ligne.get(ligne_id_str, []))
+                    
+                    # Nettoyer les doublons
+                    ncs_uniques = {}
+                    for nc in ncs_ligne:
+                        key = f"{nc['description']}_{nc['quantite']}"
+                        if key not in ncs_uniques:
+                            ncs_uniques[key] = nc
+                    ncs_ligne = list(ncs_uniques.values())
+                    
+                    # Gérer la ligne
+                    if ligne_id_str and ligne_id_str != '' and ligne_id_str.isdigit():
+                        # Modifier ligne existante
                         try:
-                            ligne = LigneReclamation.objects.get(id=ligne_id, reclamation=reclamation)
-                            ligne.produit_id = produits[i]
+                            ligne = LigneReclamation.objects.get(id=int(ligne_id_str), reclamation=reclamation)
+                            ligne.produit_id = int(produit_id)
                             ligne.quantite = quantite_totale
-                            ligne.site_id = site_id
-                            ligne.uap_concernee_id = uap_id
+                            ligne.site_id = int(site_id) if site_id and site_id.isdigit() else None
+                            ligne.uap_concernee_id = int(uap_id) if uap_id and uap_id.isdigit() else None
                             ligne.commentaire = commentaire
                             ligne.save()
                             lignes_a_conserver.append(ligne.id)
                         except LigneReclamation.DoesNotExist:
-                            continue
+                            # Créer nouvelle ligne
+                            ligne = LigneReclamation.objects.create(
+                                reclamation=reclamation,
+                                produit_id=int(produit_id),
+                                quantite=quantite_totale,
+                                site_id=int(site_id) if site_id and site_id.isdigit() else None,
+                                uap_concernee_id=int(uap_id) if uap_id and uap_id.isdigit() else None,
+                                commentaire=commentaire
+                            )
+                            lignes_a_conserver.append(ligne.id)
                     else:
-                        continue
+                        # Créer nouvelle ligne
+                        ligne = LigneReclamation.objects.create(
+                            reclamation=reclamation,
+                            produit_id=int(produit_id),
+                            quantite=quantite_totale,
+                            site_id=int(site_id) if site_id and site_id.isdigit() else None,
+                            uap_concernee_id=int(uap_id) if uap_id and uap_id.isdigit() else None,
+                            commentaire=commentaire
+                        )
+                        lignes_a_conserver.append(ligne.id)
                     
                     # Traiter les NC pour cette ligne
                     ncs_a_conserver = []
-                    descriptions_nc = []
                     
                     for nc_data in ncs_ligne:
                         description = nc_data['description']
                         quantite_nc = nc_data['quantite']
+                        nc_id = nc_data['id']
                         
                         if not description:
                             continue
                         
-                        descriptions_nc.append(description)
-                        nc_id = nc_data['id']
-                        
-                        if nc_id.startswith('new_') or not nc_id:
+                        if nc_id and nc_id != '' and nc_id.isdigit():
+                            # Modifier NC existante
+                            try:
+                                nc = NonConformite.objects.get(id=int(nc_id), ligne_reclamation=ligne)
+                                nc.description = description
+                                nc.quantite = quantite_nc
+                                nc.save()
+                                ncs_a_conserver.append(nc.id)
+                            except NonConformite.DoesNotExist:
+                                # Créer nouvelle NC
+                                nc = NonConformite.objects.create(
+                                    ligne_reclamation=ligne,
+                                    description=description,
+                                    quantite=quantite_nc
+                                )
+                                ncs_a_conserver.append(nc.id)
+                        else:
                             # Créer nouvelle NC
                             nc = NonConformite.objects.create(
                                 ligne_reclamation=ligne,
@@ -2191,39 +2225,18 @@ def modifier_reclamation(request, pk):
                                 quantite=quantite_nc
                             )
                             ncs_a_conserver.append(nc.id)
-                            
-                        elif nc_id.isdigit():
-                            # Modifier NC existante
-                            try:
-                                nc = NonConformite.objects.get(id=nc_id, ligne_reclamation=ligne)
-                                nc.description = description
-                                nc.quantite = quantite_nc
-                                nc.save()
-                                ncs_a_conserver.append(nc.id)
-                            except NonConformite.DoesNotExist:
-                                # Créer si n'existe pas
-                                nc = NonConformite.objects.create(
-                                    ligne_reclamation=ligne,
-                                    description=description,
-                                    quantite=quantite_nc
-                                )
-                                ncs_a_conserver.append(nc.id)
                     
-                    # Mettre à jour le champ description_non_conformite
-                    if descriptions_nc:
-                        ligne.description_non_conformite = " | ".join(descriptions_nc)
-                    else:
-                        ligne.description_non_conformite = ""
-                    ligne.save(update_fields=['description_non_conformite'])
-                    
-                    # Supprimer les NC orphelines
+                    # Supprimer les NC qui ne sont plus dans la liste
                     if ncs_a_conserver:
                         ligne.non_conformites.exclude(id__in=ncs_a_conserver).delete()
                     else:
                         ligne.non_conformites.all().delete()
                 
-                # Supprimer les lignes orphelines
-                reclamation.lignes.exclude(id__in=lignes_a_conserver).delete()
+                # Supprimer les lignes qui ne sont plus dans le formulaire
+                if lignes_a_conserver:
+                    reclamation.lignes.exclude(id__in=lignes_a_conserver).delete()
+                else:
+                    reclamation.lignes.all().delete()
                 
                 messages.success(request, f"Réclamation {reclamation.numero_reclamation} modifiée avec succès!")
                 return redirect('reclamations:detail_reclamation', pk=reclamation.id)
@@ -4792,8 +4805,18 @@ def huitd_modifier(request, pk):
 
         except Exception as e:
             messages.error(request, f"❌ Erreur : {str(e)}")
+            import traceback
+            traceback.print_exc()
 
-    return render(request, 'reclamations/huitd/huitd_formulaire.html', {'huitd': huitd})
+    # Préparer les choix pour les rôles
+    role_choices = Participant8D.ROLE_CHOICES
+    
+    context = {
+        'huitd': huitd,
+        'role_choices': role_choices,
+    }
+
+    return render(request, 'reclamations/huitd/huitd_formulaire.html', context)
 
 @login_required
 def huitd_supprimer_evidence(request, pk):
@@ -4845,8 +4868,6 @@ def qualite_dashboard(request):
     }
     return render(request, 'reclamations/qualite/dashboard.html', context)
 
-
-
 def _save_general(request, huitd):
     huitd.numero_of = request.POST.get('numero_of', '')
     huitd.date_ouverture = request.POST.get('date_ouverture') or None
@@ -4890,13 +4911,71 @@ def _save_d2(request, huitd):
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_d3(request, huitd):
+    """Sauvegarde la section D3 - Équipe 8D avec participants"""
+    
+    # Sauvegarde des champs D3 existants dans HuitD
     huitd.d3_date = request.POST.get('d3_date') or None
     huitd.pilote = request.POST.get('pilote', '')
     huitd.pilote_fonction = request.POST.get('pilote_fonction', '')
     huitd.animateur = request.POST.get('animateur', '')
     huitd.animateur_fonction = request.POST.get('animateur_fonction', '')
     huitd.save()
-    messages.success(request, "✅ D3 enregistré")
+    
+    # ========== GESTION DES PARTICIPANTS (uniquement les participants supplémentaires) ==========
+    # Récupérer toutes les données des participants
+    participant_ids = request.POST.getlist('participant_id[]')
+    participant_noms = request.POST.getlist('participant_nom[]')
+    participant_fonctions = request.POST.getlist('participant_fonction[]')
+    participant_ordres = request.POST.getlist('participant_ordre[]')
+    
+    participants_a_conserver = []
+    
+    # Parcourir tous les participants
+    for i in range(len(participant_noms)):
+        nom = participant_noms[i].strip()
+        if not nom:  # Ignorer les lignes vides
+            continue
+        
+        fonction = participant_fonctions[i] if i < len(participant_fonctions) else ''
+        ordre = int(participant_ordres[i]) if i < len(participant_ordres) and participant_ordres[i].isdigit() else i + 1
+        participant_id = participant_ids[i] if i < len(participant_ids) else ''
+        
+        # Vérifier si c'est un participant existant ou nouveau
+        if participant_id and participant_id != '' and participant_id.isdigit():
+            # Modifier participant existant
+            try:
+                participant = Participant8D.objects.get(id=int(participant_id), huitd=huitd)
+                participant.nom = nom
+                participant.fonction = fonction
+                participant.ordre = ordre
+                participant.save()
+                participants_a_conserver.append(participant.id)
+            except Participant8D.DoesNotExist:
+                # Créer nouveau participant
+                participant = Participant8D.objects.create(
+                    huitd=huitd,
+                    nom=nom,
+                    fonction=fonction,
+                    ordre=ordre
+                )
+                participants_a_conserver.append(participant.id)
+        elif participant_id and participant_id.startswith('new_'):
+            # Créer nouveau participant
+            participant = Participant8D.objects.create(
+                huitd=huitd,
+                nom=nom,
+                fonction=fonction,
+                ordre=ordre
+            )
+            participants_a_conserver.append(participant.id)
+    
+    # Supprimer les participants qui ne sont plus dans la liste
+    if participants_a_conserver:
+        huitd.participants.exclude(id__in=participants_a_conserver).delete()
+    else:
+        huitd.participants.all().delete()
+    
+    messages.success(request, "✅ D3 - Équipe 8D enregistrée avec succès!")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_d4(request, huitd):

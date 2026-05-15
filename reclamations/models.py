@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator, DecimalValidator
 from django.utils import timezone
+from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from decimal import Decimal
@@ -218,13 +219,105 @@ class Reclamation(models.Model):
             self.date_cloture = today
         
         super().save(*args, **kwargs)
+    
+    def get_date_expiration_4d(self):
+        """Calcule la date d'expiration 4D (2 jours ouvrables)"""
+        if not self.date_reclamation:
+            return None
+    
+        return self._calculer_date_ouvrable(self.date_reclamation, 2)
+    
+    def get_date_expiration_8d(self):
+        """Calcule la date d'expiration 8D (10 jours ouvrables)"""
+        if not self.date_reclamation:
+            return None
+        
+        return self._calculer_date_ouvrable(self.date_reclamation, 10)
+    
+    def _calculer_date_ouvrable(self, date_debut, jours):
+        """Calcule une date en ajoutant uniquement les jours ouvrables (lundi-vendredi)"""
+        date_courante = date_debut
+        jours_ajoutes = 0
+        
+        while jours_ajoutes < jours:
+            date_courante += timedelta(days=1)
+            # Vérifie si c'est un jour ouvrable (lundi=0, dimanche=6)
+            if date_courante.weekday() < 5:  # 0-4 = lundi à vendredi
+                jours_ajoutes += 1
+        
+        return date_courante
+    
+    @property
+    def est_expire_4d(self):
+        """Vérifie si le délai 4D est expiré"""
+        if not self.get_date_expiration_4d():
+            return False
+        
+        # Si l'état 4D est clôturé, on considère que ce n'est pas expiré
+        if self.etat_4d == 'CLOTURE':
+            return False
+            
+        return timezone.now().date() > self.get_date_expiration_4d()
+    
+    @property
+    def est_expire_8d(self):
+        """Vérifie si le délai 8D est expiré"""
+        if not self.get_date_expiration_8d():
+            return False
+        
+        # Si l'état 8D est clôturé, on considère que ce n'est pas expiré
+        if self.etat_8d == 'CLOTURE':
+            return False
+            
+        return timezone.now().date() > self.get_date_expiration_8d()
+    
+    @property
+    def jours_restants_4d(self):
+        """Calcule les jours ouvrables restants pour le 4D"""
+        if not self.get_date_expiration_4d() or self.etat_4d == 'CLOTURE':
+            return None
+            
+        aujourd_hui = timezone.now().date()
+        if aujourd_hui > self.get_date_expiration_4d():
+            return 0
+            
+        # Compte les jours ouvrables restants
+        jours_restants = 0
+        date_courante = aujourd_hui
+        
+        while date_courante < self.get_date_expiration_4d():
+            date_courante += timedelta(days=1)
+            if date_courante.weekday() < 5:
+                jours_restants += 1
+                
+        return jours_restants
+    
+    @property
+    def jours_restants_8d(self):
+        """Calcule les jours ouvrables restants pour le 8D"""
+        if not self.get_date_expiration_8d() or self.etat_8d == 'CLOTURE':
+            return None
+            
+        aujourd_hui = timezone.now().date()
+        if aujourd_hui > self.get_date_expiration_8d():
+            return 0
+            
+        # Compte les jours ouvrables restants
+        jours_restants = 0
+        date_courante = aujourd_hui
+        
+        while date_courante < self.get_date_expiration_8d():
+            date_courante += timedelta(days=1)
+            if date_courante.weekday() < 5:
+                jours_restants += 1
+                
+        return jours_restants
 
 class LigneReclamation(models.Model):
     """Lignes de réclamation"""
     reclamation = models.ForeignKey(Reclamation, on_delete=models.CASCADE, related_name='lignes')
     produit = models.ForeignKey(Produit, on_delete=models.PROTECT, related_name='lignes_reclamation')
     quantite = models.IntegerField(validators=[MinValueValidator(1)])
-    description_non_conformite = models.TextField("Description non-conformité")
     commentaire = models.TextField(blank=True)
     site = models.ForeignKey('Site', on_delete=models.PROTECT, related_name='lignes_reclamation', null=True, blank=True)
     uap_concernee = models.ForeignKey(UAP, on_delete=models.SET_NULL, null=True, blank=True, related_name='lignes_reclamation')
@@ -904,10 +997,13 @@ class HuitD(models.Model):
 
 class Participant8D(models.Model):
     """Participants de l'équipe 8D"""
+    ROLE_CHOICES = [
+        ('Participant','Participant')
+    ]
     huitd = models.ForeignKey(HuitD, on_delete=models.CASCADE, related_name='participants')
     nom = models.CharField("Nom / Name", max_length=100)
     fonction = models.CharField("Fonction / Function", max_length=100, blank=True)
-    role = models.CharField("Rôle / Role", max_length=100, blank=True)
+    role = models.CharField("Role", max_length=50, choices=ROLE_CHOICES, default='Participant')
     ordre = models.IntegerField("Ordre", default=1)
     
     class Meta:
