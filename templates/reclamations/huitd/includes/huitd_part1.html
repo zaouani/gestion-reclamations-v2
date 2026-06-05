@@ -53,24 +53,52 @@
     </table>
     
     <table class="table-d1">
-        <tr>
-            <th style="width:50%;">Illustration du produit défectueux</th>
-            <th style="width:50%;">Illustration du produit conforme</th>
-        </tr>
-        <tr>
-            <td>
-                {% if huitd.d1_illustration_defectueux %}
-                <img src="{{ huitd.d1_illustration_defectueux.url }}" style="max-width:100%;max-height:150px;display:block;margin-bottom:5px;">
-                {% endif %}
-                <input type="file" name="illustration_defectueux" class="form-control form-control-sm no-print">
-            </td>
-            <td>
-                {% if huitd.d1_illustration_conforme %}
-                <img src="{{ huitd.d1_illustration_conforme.url }}" style="max-width:100%;max-height:150px;display:block;margin-bottom:5px;">
-                {% endif %}
-                <input type="file" name="illustration_conforme" class="form-control form-control-sm no-print">
-            </td>
-        </tr>
+        <thead>
+            <tr>
+                <th style="width:50%;">Illustration du produit défectueux</th>
+                <th style="width:50%;">Illustration du produit conforme</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    {% if huitd.d1_illustration_defectueux %}
+                    <div class="image-container" style="position: relative; display: inline-block;">
+                        <img src="{{ huitd.d1_illustration_defectueux.url }}" 
+                            style="max-width:100%; max-height:150px; display:block; margin-bottom:5px;">
+                        <div class="form-check mt-2">
+                            <input type="checkbox" name="supprimer_defectueux" id="supprimer_defectueux" 
+                                class="form-check-input" value="1">
+                            <label class="form-check-label text-danger" for="supprimer_defectueux">
+                                <i class="fas fa-trash"></i> Supprimer cette image
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <input type="file" name="illustration_defectueux" class="form-control form-control-sm no-print" 
+                        accept="image/*">
+                    <small class="text-muted">Laissez vide pour conserver l'image actuelle</small>
+                </td>
+                <td>
+                    {% if huitd.d1_illustration_conforme %}
+                    <div class="image-container" style="position: relative; display: inline-block;">
+                        <img src="{{ huitd.d1_illustration_conforme.url }}" 
+                            style="max-width:100%; max-height:150px; display:block; margin-bottom:5px;">
+                        <div class="form-check mt-2">
+                            <input type="checkbox" name="supprimer_conforme" id="supprimer_conforme" 
+                                class="form-check-input" value="1">
+                            <label class="form-check-label text-danger" for="supprimer_conforme">
+                                <i class="fas fa-trash"></i> Supprimer cette image
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <input type="file" name="illustration_conforme" class="form-control form-control-sm no-print" 
+                        accept="image/*">
+                    <small class="text-muted">Laissez vide pour conserver l'image actuelle</small>
+                </td>
+            </tr>
+        </tbody>
     </table>
     
     <div class="text-end mb-4 no-print">

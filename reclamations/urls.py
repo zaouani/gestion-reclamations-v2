@@ -93,10 +93,6 @@ urlpatterns = [
     path('api/chatbot/', views.api_chatbot, name='api_chatbot'),
     path('api/chatbot/suggestions/', views.get_chatbot_suggestions, name='chatbot_suggestions'),
 
-    # Analyse NC
-    path('<int:pk>/analyse/', views.analyse_nc_detail, name='analyse_nc_detail'),
-    path('analyse/nc/<int:pk>/modifier/', views.analyse_nc_modifier, name='analyse_nc_modifier'),
-
     # 8D
     path('8d/creer/<int:reclamation_id>/', views.huitd_creer, name='huitd_creer'),
     path('8d/<int:pk>/', views.huitd_detail, name='huitd_detail'),

@@ -300,112 +300,37 @@ function ajouterCauseIshikawa(cat) {
 </script>
 <!-- Modal VRS -->
 <div class="method-modal" id="modal-vrs">
-    <div class="method-modal-content" style="max-width:1100px;">
+    <div class="method-modal-content" style="max-width:1200px;">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4> Verification of Standards (VRS)</h4>
+            <h4>Verification of Standards (VRS)</h4>
             <button type="button" class="btn-close" onclick="fermerMethode('vrs')"></button>
         </div>
         
         <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}">
-            {% csrf_token %}<input type="hidden" name="section" value="vrs">
+            {% csrf_token %}
+            <input type="hidden" name="section" value="vrs">
             
             <h5 class="fw-bold mb-3">Tableau de Vérification des Standards (VRS)</h5>
+            
             <div class="table-responsive">
-                <table class="table table-bordered table-sm">
+                <table class="table table-bordered table-sm" id="vrsTable">
                     <thead class="table-light">
                         <tr>
-                            <th>6M</th>
-                            <th>Facteur probable / Probable factor</th>
-                            <th>Paramètre mesurable / Is there a measurable parameter</th>
-                            <th>Standard ou exigences / What is the standard or requirement</th>
-                            <th>Données réelles (bonnes) / Real data (good parts)</th>
-                            <th>Données réelles (mauvaises) / Real data (bad parts)</th>
-                            <th>Standard suivi ?</th>
-                            <th>Standard approprié ?</th>
-                            <th>Lien prouvé ?</th>
-                            <th>Facteur prouvé</th>
+                            <th style="width: 100px">6M</th>
+                            <th style="width: 200px">Facteur probable</th>
+                            <th style="width: 150px">Paramètre mesurable</th>
+                            <th style="width: 200px">Standard ou exigences</th>
+                            <th style="width: 150px">Données (bonnes)</th>
+                            <th style="width: 150px">Données (mauvaises)</th>
+                            <th style="width: 80px">Std suivi</th>
+                            <th style="width: 80px">Std appr.</th>
+                            <th style="width: 80px">Lien prouvé</th>
+                            <th style="width: 80px">Facteur prouvé</th>
+                            <th style="width: 50px"></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for f in huitd.vrs.facteurs.all %}
-                        <tr>
-                            <td><strong>{{ f.get_categorie_display }}</strong></td>
-                            <td><textarea name="vrs_facteur_{{ f.categorie }}" class="form-control form-control-sm" rows="1">{{ f.facteur_probable }}</textarea></td>
-                            <td><textarea name="vrs_parametre_{{ f.categorie }}" class="form-control form-control-sm" rows="1">{{ f.parametre_mesurable }}</textarea></td>
-                            <td><textarea name="vrs_standard_{{ f.categorie }}" class="form-control form-control-sm" rows="1">{{ f.standard_exigence }}</textarea></td>
-                            <td><textarea name="vrs_bonnes_{{ f.categorie }}" class="form-control form-control-sm" rows="1">{{ f.donnees_bonnes }}</textarea></td>
-                            <td><textarea name="vrs_mauvaises_{{ f.categorie }}" class="form-control form-control-sm" rows="1">{{ f.donnees_mauvaises }}</textarea></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_suivi_{{ f.categorie }}" {% if f.standard_suivi %}checked{% endif %}></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_appro_{{ f.categorie }}" {% if f.standard_approprie %}checked{% endif %}></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_lien_{{ f.categorie }}" {% if f.lien_prouve %}checked{% endif %}></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_prouve_{{ f.categorie }}" {% if f.facteur_prouve %}checked{% endif %}></td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td><strong>A - Milieu / Environment</strong></td>
-                            <td><textarea name="vrs_facteur_A" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_parametre_A" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_standard_A" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_bonnes_A" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_mauvaises_A" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_suivi_A"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_appro_A"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_lien_A"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_prouve_A"></td>
-                        </tr>
-                        <tr>
-                            <td><strong>B - Méthodes / Methods</strong></td>
-                            <td><textarea name="vrs_facteur_B" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_parametre_B" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_standard_B" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_bonnes_B" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_mauvaises_B" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_suivi_B"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_appro_B"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_lien_B"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_prouve_B"></td>
-                        </tr>
-                        <tr>
-                            <td><strong>C - Moyens / Resources</strong></td>
-                            <td><textarea name="vrs_facteur_C" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_parametre_C" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_standard_C" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_bonnes_C" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_mauvaises_C" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_suivi_C"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_appro_C"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_lien_C"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_prouve_C"></td>
-                        </tr>
-                        <tr>
-                            <td><strong>D - Main d'œuvre / Personnel</strong></td>
-                            <td colspan="9" class="text-muted fst-italic">Merci de renseigner l'onglet Facteur humain / Please fill in the Human Factor tab</td>
-                        </tr>
-                        <tr>
-                            <td><strong>E - Matières / Materials</strong></td>
-                            <td><textarea name="vrs_facteur_E" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_parametre_E" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_standard_E" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_bonnes_E" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_mauvaises_E" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_suivi_E"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_appro_E"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_lien_E"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_prouve_E"></td>
-                        </tr>
-                        <tr>
-                            <td><strong>F - Mesures / Measures</strong></td>
-                            <td><textarea name="vrs_facteur_F" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_parametre_F" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_standard_F" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_bonnes_F" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td><textarea name="vrs_mauvaises_F" class="form-control form-control-sm" rows="1"></textarea></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_suivi_F"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_appro_F"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_lien_F"></td>
-                            <td class="text-center"><input type="checkbox" name="vrs_prouve_F"></td>
-                        </tr>
-                        {% endfor %}
+                    <tbody id="vrsTbody">
+                        <!-- Les lignes seront chargées dynamiquement -->
                     </tbody>
                 </table>
             </div>
@@ -417,11 +342,180 @@ function ajouterCauseIshikawa(cat) {
     </div>
 </div>
 
+<!-- Template pour une ligne VRS -->
+<template id="vrs-row-template">
+    <tr class="vrs-row">
+        <td>
+            <select class="form-control form-control-sm categorie-select" name="vrs_categorie[]" required>
+                <option value="A">A - Milieu / Environment</option>
+                <option value="B">B - Méthodes / Methods</option>
+                <option value="C">C - Moyens / Resources</option>
+                <option value="D">D - Main d'œuvre / Personnel</option>
+                <option value="E">E - Matières / Materials</option>
+                <option value="F">F - Mesures / Measures</option>
+            </select>
+            <input type="hidden" name="vrs_id[]" value="">
+        </td>
+        <td><textarea name="vrs_facteur[]" class="form-control form-control-sm" rows="1"></textarea></td>
+        <td><textarea name="vrs_parametre[]" class="form-control form-control-sm" rows="1"></textarea></td>
+        <td><textarea name="vrs_standard[]" class="form-control form-control-sm" rows="1"></textarea></td>
+        <td><textarea name="vrs_bonnes[]" class="form-control form-control-sm" rows="1"></textarea></td>
+        <td><textarea name="vrs_mauvaises[]" class="form-control form-control-sm" rows="1"></textarea></td>
+        <td class="text-center"><input type="checkbox" name="vrs_suivi[]" class="form-check-input"></td>
+        <td class="text-center"><input type="checkbox" name="vrs_appro[]" class="form-check-input"></td>
+        <td class="text-center"><input type="checkbox" name="vrs_lien[]" class="form-check-input"></td>
+        <td class="text-center"><input type="checkbox" name="vrs_prouve[]" class="form-check-input"></td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-danger remove-row">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+<script>
+    // Gestion des lignes VRS
+    let vrsRowCounter = 0;
+    
+    function loadVRSData() {
+        const tbody = document.getElementById('vrsTbody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        // Charger les données existantes depuis Django
+        const existingData = {{ vrs_data|safe|default:'[]' }};
+        
+        if (existingData.length === 0) {
+            // Ajouter une ligne par défaut pour chaque catégorie
+            const categories = ['A', 'B', 'C', 'E', 'F'];
+            categories.forEach(function(cat) {
+                addVRSRow(cat);
+            });
+        } else {
+            existingData.forEach(function(data) {
+                addVRSRow(data.categorie, data);
+            });
+        }
+    }
+    
+    function addVRSRow(categorie, data) {
+        if (categorie === undefined) categorie = 'B';
+        if (data === undefined) data = null;
+        
+        const template = document.getElementById('vrs-row-template');
+        const tbody = document.getElementById('vrsTbody');
+        const newRow = template.content.cloneNode(true);
+        const row = newRow.querySelector('tr');
+        
+        // Ajouter un ID unique
+        const rowId = 'vrs_row_' + Date.now() + '_' + vrsRowCounter;
+        vrsRowCounter = vrsRowCounter + 1;
+        row.id = rowId;
+        
+        // Définir la catégorie
+        const categorieSelect = row.querySelector('.categorie-select');
+        if (categorieSelect) {
+            categorieSelect.value = categorie;
+        }
+        
+        // Remplir avec les données existantes
+        if (data) {
+            const idInput = row.querySelector('input[name="vrs_id[]"]');
+            if (idInput) idInput.value = data.id || '';
+            
+            const facteurTextarea = row.querySelector('textarea[name="vrs_facteur[]"]');
+            if (facteurTextarea) facteurTextarea.value = data.facteur_probable || '';
+            
+            const parametreTextarea = row.querySelector('textarea[name="vrs_parametre[]"]');
+            if (parametreTextarea) parametreTextarea.value = data.parametre_mesurable || '';
+            
+            const standardTextarea = row.querySelector('textarea[name="vrs_standard[]"]');
+            if (standardTextarea) standardTextarea.value = data.standard_exigence || '';
+            
+            const bonnesTextarea = row.querySelector('textarea[name="vrs_bonnes[]"]');
+            if (bonnesTextarea) bonnesTextarea.value = data.donnees_bonnes || '';
+            
+            const mauvaisesTextarea = row.querySelector('textarea[name="vrs_mauvaises[]"]');
+            if (mauvaisesTextarea) mauvaisesTextarea.value = data.donnees_mauvaises || '';
+            
+            const suiviCheckbox = row.querySelector('input[name="vrs_suivi[]"]');
+            if (suiviCheckbox) suiviCheckbox.checked = data.standard_suivi || false;
+            
+            const approCheckbox = row.querySelector('input[name="vrs_appro[]"]');
+            if (approCheckbox) approCheckbox.checked = data.standard_approprie || false;
+            
+            const lienCheckbox = row.querySelector('input[name="vrs_lien[]"]');
+            if (lienCheckbox) lienCheckbox.checked = data.lien_prouve || false;
+            
+            const prouveCheckbox = row.querySelector('input[name="vrs_prouve[]"]');
+            if (prouveCheckbox) prouveCheckbox.checked = data.facteur_prouve || false;
+        }
+        
+        tbody.appendChild(row);
+        
+        // Ajouter l'événement de suppression
+        const removeBtn = row.querySelector('.remove-row');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                if (confirm('Supprimer cette ligne ?')) {
+                    row.remove();
+                }
+            });
+        }
+        
+        return row;
+    }
+    
+    // Bouton pour ajouter une ligne spécifique à la catégorie B (Méthodes)
+    function addMethodRow() {
+        addVRSRow('B');
+    }
+    
+    // Initialisation au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        loadVRSData();
+        
+        // Ajouter un bouton spécifique pour les méthodes
+        const modalContent = document.querySelector('#modal-vrs .method-modal-content');
+        if (modalContent) {
+            // Vérifier si les boutons existent déjà
+            if (!document.getElementById('vrs-button-container')) {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.id = 'vrs-button-container';
+                buttonContainer.className = 'mb-3';
+                buttonContainer.innerHTML = `
+                    <div class="btn-group flex-wrap">
+                        <button type="button" class="btn btn-sm btn-success" onclick="addVRSRow('A')">
+                            <i class="fas fa-plus"></i> Ajouter Environnement
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addVRSRow('B')">
+                            <i class="fas fa-plus"></i> Ajouter Méthode
+                        </button>
+                        <button type="button" class="btn btn-sm btn-info" onclick="addVRSRow('C')">
+                            <i class="fas fa-plus"></i> Ajouter Moyens
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="addVRSRow('E')">
+                            <i class="fas fa-plus"></i> Ajouter Matières
+                        </button>
+                        <button type="button" class="btn btn-sm btn-dark" onclick="addVRSRow('F')">
+                            <i class="fas fa-plus"></i> Ajouter Mesures
+                        </button>
+                    </div>
+                `;
+                const formElement = modalContent.querySelector('form');
+                if (formElement) {
+                    modalContent.insertBefore(buttonContainer, formElement);
+                }
+            }
+        }
+    });
+</script>
+
 <!-- Modal 5P -->
 <div class="method-modal" id="modal-5p">
     <div class="method-modal-content">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>❓ Analyse 5 WHY</h4>
+            <h4>Analyse 5 WHY</h4>
             <button type="button" class="btn-close" onclick="fermerMethode('5p')"></button>
         </div>
         
@@ -445,57 +539,6 @@ function ajouterCauseIshikawa(cat) {
                         <textarea name="5p_p3[]" class="form-control form-control-sm mb-2" rows="1" placeholder="3. Pourquoi ? / Why?">{{ cp.pourquoi_3 }}</textarea>
                         <textarea name="5p_p4[]" class="form-control form-control-sm mb-2" rows="1" placeholder="4. Pourquoi ? / Why?">{{ cp.pourquoi_4 }}</textarea>
                         <textarea name="5p_p5[]" class="form-control form-control-sm mb-2" rows="1" placeholder="5. Pourquoi ? / Why?">{{ cp.pourquoi_5 }}</textarea>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="card mb-3">
-                    <div class="card-header bg-danger text-white d-flex justify-content-between">
-                        <select name="5p_type[]" class="form-select form-select-sm d-inline w-auto">
-                            <option value="OCCURRENCE">Occurrence - B</option>
-                            <option value="NON_DETECTION">No Detection - C</option>
-                        </select>
-                        <button type="button" class="btn btn-sm btn-outline-light" onclick="this.closest('.card').remove()">×</button>
-                    </div>
-                    <div class="card-body">
-                        <input type="text" name="5p_facteur[]" class="form-control form-control-sm mb-2" placeholder="Facteur" value="B">
-                        <textarea name="5p_p1[]" class="form-control form-control-sm mb-2" rows="1" placeholder="1."></textarea>
-                        <textarea name="5p_p2[]" class="form-control form-control-sm mb-2" rows="1" placeholder="2."></textarea>
-                        <textarea name="5p_p3[]" class="form-control form-control-sm mb-2" rows="1" placeholder="3."></textarea>
-                        <textarea name="5p_p4[]" class="form-control form-control-sm mb-2" rows="1" placeholder="4."></textarea>
-                        <textarea name="5p_p5[]" class="form-control form-control-sm mb-2" rows="1" placeholder="5."></textarea>
-                    </div>
-                </div>
-                <div class="card mb-3">
-                    <div class="card-header bg-danger text-white d-flex justify-content-between">
-                        <select name="5p_type[]" class="form-select form-select-sm d-inline w-auto">
-                            <option value="OCCURRENCE">Occurrence - E</option>
-                            <option value="NON_DETECTION">No Detection - C</option>
-                        </select>
-                        <button type="button" class="btn btn-sm btn-outline-light" onclick="this.closest('.card').remove()">×</button>
-                    </div>
-                    <div class="card-body">
-                        <input type="text" name="5p_facteur[]" class="form-control form-control-sm mb-2" placeholder="Facteur" value="E">
-                        <textarea name="5p_p1[]" class="form-control form-control-sm mb-2" rows="1" placeholder="1."></textarea>
-                        <textarea name="5p_p2[]" class="form-control form-control-sm mb-2" rows="1" placeholder="2."></textarea>
-                        <textarea name="5p_p3[]" class="form-control form-control-sm mb-2" rows="1" placeholder="3."></textarea>
-                        <textarea name="5p_p4[]" class="form-control form-control-sm mb-2" rows="1" placeholder="4."></textarea>
-                        <textarea name="5p_p5[]" class="form-control form-control-sm mb-2" rows="1" placeholder="5."></textarea>
-                    </div>
-                </div>
-                <div class="card mb-3">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between">
-                        <select name="5p_type[]" class="form-select form-select-sm d-inline w-auto">
-                            <option value="NON_DETECTION">No Detection - C</option>
-                        </select>
-                        <button type="button" class="btn btn-sm btn-outline-light" onclick="this.closest('.card').remove()">×</button>
-                    </div>
-                    <div class="card-body">
-                        <input type="text" name="5p_facteur[]" class="form-control form-control-sm mb-2" placeholder="Facteur" value="C">
-                        <textarea name="5p_p1[]" class="form-control form-control-sm mb-2" rows="1" placeholder="1."></textarea>
-                        <textarea name="5p_p2[]" class="form-control form-control-sm mb-2" rows="1" placeholder="2."></textarea>
-                        <textarea name="5p_p3[]" class="form-control form-control-sm mb-2" rows="1" placeholder="3."></textarea>
-                        <textarea name="5p_p4[]" class="form-control form-control-sm mb-2" rows="1" placeholder="4."></textarea>
-                        <textarea name="5p_p5[]" class="form-control form-control-sm mb-2" rows="1" placeholder="5."></textarea>
                     </div>
                 </div>
                 {% endfor %}

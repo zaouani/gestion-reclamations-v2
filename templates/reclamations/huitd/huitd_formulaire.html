@@ -213,7 +213,7 @@
     </div>
     
     <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
+        {% csrf_token %}<input type="hidden" name="section" value="general">
         
         <!-- ==================== TITRE ==================== -->
         <div class="huitd-title">
@@ -271,7 +271,10 @@
                 </select>
             </div>
         </div>
-        
+            <div class="text-end mb-4 no-print">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer</button>
+        </div>
+    </form>
          {% include 'reclamations/huitd/includes/huitd_part1.html' %}
          {% include 'reclamations/huitd/includes/huitd_part2.html' %}
 

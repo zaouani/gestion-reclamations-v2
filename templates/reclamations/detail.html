@@ -11,6 +11,13 @@
                 Réclamation {{ reclamation.numero_reclamation }}
             </h1>
         </div>
+        {% if reclamation.besoin_4dp %}
+        <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+            <i class="fas fa-info-circle"></i>
+            <strong>4DP nécessaire</strong> - Une démarche 4DP est requise pour cette réclamation.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
         <div class="col text-end">
             <a href="{% url 'reclamations:liste' %}" class="btn btn-secondary">
                 <i class="fas fa-list"></i> Liste
@@ -179,10 +186,6 @@
                             
                             {% if reclamation.etat_4d != 'CLOTURE' %}
                                 <div class="mt-2">
-                                    <small class="text-muted">
-                                        <i class="fas fa-calendar-alt"></i> 
-                                        Date réclamation: {{ reclamation.date_reclamation|date:"d/m/Y" }}
-                                    </small>
                                     <br>
                                     <small class="text-muted">
                                         <i class="fas fa-hourglass-half"></i> 
@@ -207,6 +210,7 @@
                                 </div>
                             {% endif %}
                             
+                            
                             {% if reclamation.date_cloture_4d %}
                                 <br>
                                 <small class="text-success">
@@ -223,10 +227,7 @@
                             
                             {% if reclamation.etat_8d != 'CLOTURE' %}
                                 <div class="mt-2">
-                                    <small class="text-muted">
-                                        <i class="fas fa-calendar-alt"></i> 
-                                        Date réclamation: {{ reclamation.date_reclamation|date:"d/m/Y" }}
-                                    </small>
+
                                     <br>
                                     <small class="text-muted">
                                         <i class="fas fa-hourglass-half"></i> 
@@ -259,16 +260,40 @@
                                 </small>
                             {% endif %}
                         </div>
+                        
                     </div>
                     
                     <hr>
-                    
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" {% if reclamation.cloture %}checked{% endif %} disabled>
-                        <label class="form-check-label">
-                            Réclamation clôturée
-                        </label>
+                    <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <h6>4DP nécessaire ? :</h6>
+                            {% if reclamation.besoin_4dp %}
+                            <span class="badge bg-warning">
+                                <i class="fas fa-check-circle"></i> Oui
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-times-circle"></i> Non
+                            </span>
+                            {% endif %}
+                        </div>
                     </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <h6>Réclamation clôturée ?</h6>
+                            {% if reclamation.cloture %}
+                            <span class="badge bg-warning">
+                                <i class="fas fa-check-circle"></i> Oui
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-times-circle"></i> Non
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
                     
                     {% if reclamation.date_cloture %}
                         <small class="text-muted">
@@ -436,7 +461,7 @@
                                                     {% elif action.avancement >= 50 %}bg-info
                                                     {% else %}bg-warning{% endif %}" 
                                                     role="progressbar" 
-                                                    style="width: {{ action.avancement }}%;"
+                                                    style="width: {{ action.avancement|default_if_none:'0' }}%;"
                                                     aria-valuenow="{{ action.avancement }}" 
                                                     aria-valuemin="0" 
                                                     aria-valuemax="100">

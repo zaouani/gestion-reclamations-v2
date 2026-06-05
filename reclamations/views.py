@@ -1,3 +1,5 @@
+import os
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -454,6 +456,7 @@ def export_reclamations_excel(request):
     response['Content-Disposition'] = f'attachment; filename="reclamations_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
     
     return response
+
 @login_required
 def export_dashboard_excel(request):
     """Exporte les données du dashboard en Excel"""
@@ -880,10 +883,6 @@ def detail_recurrence_nc(request, description):
     UNIQUEMENT pour les réclamations avec imputation CIM
     """
     
-    from urllib.parse import unquote
-    from django.db.models import Count, Sum, Q
-    from django.db.models.functions import TruncMonth
-    
     description = unquote(description)
     
     # Récupérer tous les produits concernés (CIM uniquement)
@@ -895,7 +894,7 @@ def detail_recurrence_nc(request, description):
         quantite_totale=Sum('lignes_reclamation__non_conformites__quantite')
     ).order_by('-nb_occurences')
     
-    # Récupérer toutes les non-conformités (CIM uniquement) - SANS select_related('analyse')
+    # Récupérer toutes les non-conformités (CIM uniquement)
     non_conformites = NonConformite.objects.filter(
         description=description,
         ligne_reclamation__reclamation__imputation='CIM'
@@ -904,7 +903,6 @@ def detail_recurrence_nc(request, description):
         'ligne_reclamation__reclamation__client',
         'ligne_reclamation__produit',
         'ligne_reclamation__uap_concernee'
-        # ❌ 'analyse' supprimé car peut ne pas exister
     ).order_by('-ligne_reclamation__reclamation__date_reclamation')
     
     nb_reclamations = non_conformites.values('ligne_reclamation__reclamation').distinct().count()
@@ -940,53 +938,105 @@ def detail_recurrence_nc(request, description):
                 'nb_occurences': item['nb_occurences']
             })
     
-    # ========== SECTION ANALYSE : Causes racines et actions ==========
-    # Récupérer les analyses liées à ces NC (requête séparée)
-    nc_ids = non_conformites.values_list('id', flat=True)
+    # ========== SECTION ANALYSE : Causes racines à partir d'Ishikawa ==========
+    # Récupérer les réclamations CIM concernées
+    reclamations_cim = Reclamation.objects.filter(
+        imputation='CIM',
+        lignes__non_conformites__description=description
+    ).distinct()
     
-    analyses = AnalyseNC.objects.filter(
-        non_conformite_id__in=nc_ids
+    # Récupérer les causes Ishikawa liées à ces réclamations
+    causes_ishikawa = CauseIshikawa.objects.filter(
+        huitd__reclamation__in=reclamations_cim
     ).select_related(
-        'non_conformite__ligne_reclamation__reclamation',
-        'non_conformite__ligne_reclamation__produit'
-    ).prefetch_related('actions_pdca')
+        'huitd__reclamation'
+    )
     
-    # Causes racines distinctes
+    # Causes racines distinctes (occurrence et non détection)
     causes_racines = []
-    for analyse in analyses:
-        if analyse.cause_racine:
-            causes_racines.append({
-                'cause': analyse.cause_racine,
-                'methode': analyse.get_methode_analyse_display() if analyse.methode_analyse else '',
-                'reclamation': analyse.non_conformite.ligne_reclamation.reclamation,
-                'produit': analyse.non_conformite.ligne_reclamation.produit,
-                'statut': analyse.get_statut_display()
-            })
     
-    # Actions PDCA liées
-    actions_pdca = ActionPDCA.objects.filter(
-        analyse_nc__in=analyses
+    # Ajouter les causes Ishikawa
+    for cause in causes_ishikawa:
+        causes_racines.append({
+            'cause': cause.cause,
+            'categorie': cause.get_categorie_display(),
+            'type': cause.get_type_cause_display(),
+            'methode': 'Ishikawa (6M)',
+            'reclamation': cause.huitd.reclamation,
+            'produit': None,
+            'statut': 'Analyse'
+        })
+    
+    # Ajouter également les causes 5P
+    causes_5p = CauseCinqP.objects.filter(
+        huitd__reclamation__in=reclamations_cim
     ).select_related(
-        'analyse_nc__non_conformite__ligne_reclamation__reclamation',
-        'analyse_nc__non_conformite__ligne_reclamation__produit'
-    ).order_by('statut', '-priorite')
+        'huitd__reclamation'
+    )
     
-    # Statistiques des actions
-    actions_stats = {
-        'total': actions_pdca.count(),
-        'planifiees': actions_pdca.filter(statut='PLAN').count(),
-        'en_cours': actions_pdca.filter(statut='DO').count(),
-        'terminees': actions_pdca.filter(statut__in=['ACT', 'CLOTURE']).count(),
-        'efficaces': actions_pdca.filter(efficacite='EFFICACE').count(),
+    for cause in causes_5p:
+        causes_racines.append({
+            'cause': f"5P - Facteur: {cause.facteur_prouve}",
+            'categorie': cause.get_type_cause_display(),
+            'type': cause.get_type_cause_display(),
+            'methode': '5 Pourquoi',
+            'reclamation': cause.huitd.reclamation,
+            'produit': None,
+            'statut': 'Analyse'
+        })
+    
+    # Regrouper les causes par type
+    causes_par_type = {}
+    for cause in causes_racines:
+        type_cause = cause.get('type', 'Général')
+        if type_cause not in causes_par_type:
+            causes_par_type[type_cause] = []
+        causes_par_type[type_cause].append(cause)
+    
+    # ========== SECTION ACTIONS : Plan d'actions 8D ==========
+    # Récupérer les actions 8D liées aux réclamations CIM
+    actions_8d = Action8D.objects.filter(
+        huitd__reclamation__in=reclamations_cim
+    ).select_related(
+        'huitd__reclamation'
+    ).order_by('statut', '-date_prevue')
+    
+    actions_par_statut = {
+        'PLANIFIE': actions_8d.filter(statut='PLANIFIE'),
+        'EN_COURS': actions_8d.filter(statut='EN_COURS'),
+        'REALISE': actions_8d.filter(statut='REALISE'),
+        'ABANDONNE': actions_8d.filter(statut='ABANDONNE'),
     }
+    
+    actions_stats = {
+        'total': actions_8d.count(),
+        'planifiees': actions_8d.filter(statut='PLANIFIE').count(),
+        'en_cours': actions_8d.filter(statut='EN_COURS').count(),
+        'realisees': actions_8d.filter(statut='REALISE').count(),
+        'abandonnees': actions_8d.filter(statut='ABANDONNE').count(),
+        'efficaces': actions_8d.filter(efficacite='100').count(),
+    }
+    
+    # Actions par type
+    actions_par_type = {
+        'CORRECTIVE': actions_8d.filter(type_action='CORRECTIVE'),
+        'PREVENTIVE': actions_8d.filter(type_action='PREVENTIVE'),
+    }
+    
+    # Calculer le taux de réalisation
+    taux_realisation = 0
+    if actions_stats['total'] > 0:
+        taux_realisation = round((actions_stats['realisees'] / actions_stats['total']) * 100, 1)
     
     # Formater les lignes pour l'affichage
     lignes_data = []
-    # Créer un dictionnaire pour mapper NC -> analyse
-    analyse_map = {a.non_conformite_id: a for a in analyses}
     
     for nc in non_conformites[:50]:
         reclamation = nc.ligne_reclamation.reclamation
+        
+        # Récupérer les actions 8D pour cette réclamation
+        actions_reclamation = actions_8d.filter(huitd__reclamation=reclamation)
+        
         lignes_data.append({
             'reclamation': reclamation,
             'produit': nc.ligne_reclamation.produit,
@@ -994,7 +1044,8 @@ def detail_recurrence_nc(request, description):
             'description_nc': nc.description,
             'uap_concernee': nc.ligne_reclamation.uap_concernee,
             'commentaire': nc.ligne_reclamation.commentaire,
-            'analyse': analyse_map.get(nc.id),  # Utiliser le dictionnaire au lieu de nc.analyse
+            'actions': actions_reclamation,
+            'nb_actions': actions_reclamation.count(),
         })
     
     context = {
@@ -1008,8 +1059,12 @@ def detail_recurrence_nc(request, description):
         'lignes': lignes_data,
         'filtre_imputation': 'CIM',
         'causes_racines': causes_racines,
-        'actions_pdca': actions_pdca,
+        'causes_par_type': causes_par_type,
+        'actions_8d': actions_8d,
+        'actions_par_statut': actions_par_statut,
+        'actions_par_type': actions_par_type,
         'actions_stats': actions_stats,
+        'taux_realisation': taux_realisation,
     }
     
     return render(request, 'reclamations/produit/detail_recurrence_nc.html', context)
@@ -1737,7 +1792,7 @@ def creer_reclamation(request):
             date_reclamation = request.POST.get('date_reclamation')
             imputation = request.POST.get('imputation', 'CIM')
             type_nc = request.POST.get('type_nc', 'TECHNIQUE')
-            
+            besoin_4dp = request.POST.get('besoin_4dp') == 'on'
             # Validation des champs obligatoires
             erreurs = []
             
@@ -1774,6 +1829,7 @@ def creer_reclamation(request):
                 programme_id=programme_id if programme_id else None,
                 imputation=imputation,
                 type_nc=type_nc,
+                besoin_4dp=besoin_4dp,
                 etat_4d='OUVERT',
                 etat_8d='OUVERT',
                 cloture=False,
@@ -2012,7 +2068,6 @@ def modifier_etats(request, pk):
         'etat_choices': Reclamation.ETAT_CHOICES,
     }
     return render(request, 'reclamations/modifier_etats.html', context)
-
 
 @login_required
 def modifier_reclamation(request, pk):
@@ -3836,109 +3891,10 @@ def api_reclamations_client_mois(request):
 
 #=============8D=============================================
 @login_required
-def analyse_nc_detail(request, pk):
-    """Affiche/masque l'analyse des NC d'une réclamation"""
-    reclamation = get_object_or_404(
-        Reclamation.objects.prefetch_related(
-            'lignes__non_conformites__analyse__actions_pdca'
-        ),
-        pk=pk
-    )
-    
-    # Récupérer toutes les NC de la réclamation
-    non_conformites = NonConformite.objects.filter(
-        ligne_reclamation__reclamation=reclamation
-    ).select_related(
-        'ligne_reclamation__produit',
-        'ligne_reclamation__uap_concernee'
-    ).order_by('ligne_reclamation__produit', 'description')
-    
-    context = {
-        'reclamation': reclamation,
-        'non_conformites': non_conformites,
-    }
-    return render(request, 'reclamations/detail.html', context)
-
-@login_required
-def analyse_nc_modifier(request, pk):
-    """Modifier l'analyse d'une NC"""
-    non_conformite = get_object_or_404(
-        NonConformite.objects.select_related(
-            'ligne_reclamation__reclamation__client',
-            'ligne_reclamation__produit'
-        ),
-        pk=pk
-    )
-    
-    # Récupérer ou créer l'analyse
-    analyse, created = AnalyseNC.objects.get_or_create(non_conformite=non_conformite)
-    
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                analyse.cause_racine = request.POST.get('cause_racine', '')
-                analyse.methode_analyse = request.POST.get('methode_analyse', '')
-                analyse.actions_proposees = request.POST.get('actions_proposees', '')
-                analyse.statut = request.POST.get('statut', 'A_FAIRE')
-                analyse.save()
-                
-                # Gestion des actions PDCA
-                action_ids = request.POST.getlist('action_id[]')
-                titres = request.POST.getlist('titre[]')
-                responsables = request.POST.getlist('responsable[]')
-                dates_cibles = request.POST.getlist('date_cible[]')
-                priorites = request.POST.getlist('priorite[]')
-                
-                actions_a_conserver = []
-                
-                for i in range(len(titres)):
-                    if not titres[i].strip():
-                        continue
-                    
-                    action_id = action_ids[i] if i < len(action_ids) else None
-                    
-                    if action_id and action_id.startswith('new_'):
-                        action = ActionPDCA.objects.create(
-                            analyse_nc=analyse,
-                            titre=titres[i],
-                            responsable=responsables[i] if i < len(responsables) else '',
-                            date_cible=dates_cibles[i] if i < len(dates_cibles) else timezone.now().date(),
-                            priorite=priorites[i] if i < len(priorites) else 'MOYENNE',
-                            statut='PLAN'
-                        )
-                        actions_a_conserver.append(action.id)
-                        
-                    elif action_id and action_id.isdigit():
-                        try:
-                            action = ActionPDCA.objects.get(id=action_id, analyse_nc=analyse)
-                            action.titre = titres[i]
-                            action.responsable = responsables[i] if i < len(responsables) else ''
-                            action.date_cible = dates_cibles[i] if i < len(dates_cibles) else action.date_cible
-                            action.priorite = priorites[i] if i < len(priorites) else action.priorite
-                            action.save()
-                            actions_a_conserver.append(action.id)
-                        except ActionPDCA.DoesNotExist:
-                            pass
-                
-                # Supprimer les actions orphelines
-                analyse.actions_pdca.exclude(id__in=actions_a_conserver).delete()
-                
-                messages.success(request, "✅ Analyse NC enregistrée avec succès !")
-                return redirect('reclamations:analyse_nc_detail', pk=non_conformite.ligne_reclamation.reclamation.id)
-                
-        except Exception as e:
-            messages.error(request, f"Erreur : {str(e)}")
-    
-    context = {
-        'non_conformite': non_conformite,
-        'analyse': analyse,
-        'priorite_choices': ActionPDCA.PRIORITE_CHOICES,
-    }
-    return render(request, 'reclamations/analyse/modifier.html', context)
-
-@login_required
 def dashboard_pdca(request):
-    """Dashboard centralisé des actions PDCA (basé sur Action8D)"""
+    """Dashboard centralisé des actions PDCA (basé sur Action8D)
+    Optimisé : n'affiche que les actions non réalisées par défaut
+    """
     
     # Filtres
     statut = request.GET.get('statut', '')
@@ -3947,10 +3903,18 @@ def dashboard_pdca(request):
     search = request.GET.get('search', '')
     en_retard_only = request.GET.get('en_retard', '')
     
-    # Requête de base sur Action8D
-    actions = Action8D.objects.select_related(
-        'huitd__reclamation__client',
-    ).all()
+    # Par défaut, exclure les actions réalisées et abandonnées (sauf si filtre explicite)
+    if not statut:
+        # Par défaut : seulement les actions en cours ou planifiées
+        actions = Action8D.objects.select_related(
+            'huitd__reclamation__client',
+        ).filter(
+            statut__in=['PLANIFIE', 'EN_COURS']
+        )
+    else:
+        actions = Action8D.objects.select_related(
+            'huitd__reclamation__client',
+        ).all()
     
     # Filtres
     if statut:
@@ -3972,44 +3936,83 @@ def dashboard_pdca(request):
         actions = actions.filter(
             date_prevue__lt=timezone.now().date(),
             date_realisee__isnull=True
-        ).exclude(statut__in=['EFFICACE', 'ABANDONNE'])
+        ).exclude(statut='ABANDONNE')
     
+    # Limiter le nombre d'actions affichées (pagination)
     actions = actions.order_by('statut', 'date_prevue')
     
-    # Statistiques
-    total = actions.count()
-    if total > 0:
-        # Moyenne des pourcentages d'efficacité pour les actions RÉALISÉES
-        taux_efficacite = actions.filter(statut='REALISE').aggregate(
-            Avg('efficacite')
-        )['efficacite__avg'] or 0
-    stats = {
-        'total': total,
-        'planifies': actions.filter(statut='PLANIFIE').count(),
-        'en_cours': actions.filter(statut='EN_COURS').count(),
-        'realises': actions.filter(statut='REALISE').count(),
-        'efficaces': actions.filter(statut='EFFICACE').count(),
-        'abandonnes': actions.filter(statut='ABANDONNE').count(),
-        'en_retard': sum(1 for a in actions if a.en_retard),
-        'taux_efficacite': taux_efficacite,
-        'taux_avancement_moyen': round(actions.aggregate(Avg('avancement'))['avancement__avg'] or 0, 1),
-    }
+    # Pagination (50 actions par page)
+    paginator = Paginator(actions, 50)
+    page_number = request.GET.get('page', 1)
+    actions_page = paginator.get_page(page_number)
     
-    # Regroupement par type
-    type_stats = actions.values('type_action').annotate(count=Count('id')).order_by('-count')
+    # ========== STATISTIQUES (optimisées) ==========
+    # Utiliser des agrégations pour éviter de charger tous les objets
+    from django.db.models import Q, Avg, Count, Sum
     
-    # Actions critiques (en retard et planifiées)
-    actions_critiques = actions.filter(
-        statut__in=['PLANIFIE', 'EN_COURS'],
-        date_prevue__lt=timezone.now().date(),
-        date_realisee__isnull=True
+    # Statistiques sur les actions NON réalisées (le cœur du dashboard)
+    actions_non_realisees = Action8D.objects.filter(
+        statut__in=['PLANIFIE', 'EN_COURS']
     )
     
+    stats = {
+        'total': actions_non_realisees.count(),
+        'planifies': actions_non_realisees.filter(statut='PLANIFIE').count(),
+        'en_cours': actions_non_realisees.filter(statut='EN_COURS').count(),
+        'realises': Action8D.objects.filter(statut='REALISE').count(),
+        'efficaces': Action8D.objects.filter(statut='EFFICACE').count(),
+        'abandonnes': Action8D.objects.filter(statut='ABANDONNE').count(),
+        'en_retard': actions_non_realisees.filter(
+            date_prevue__lt=timezone.now().date(),
+            date_realisee__isnull=True
+        ).count(),
+        'taux_efficacite': 0,
+        'taux_avancement_moyen': round(actions_non_realisees.aggregate(
+            Avg('avancement'))['avancement__avg'] or 0, 1),
+    }
+    
+    # Taux d'efficacité (uniquement sur les actions réalisées)
+    actions_realisees = Action8D.objects.filter(statut='REALISE')
+    if actions_realisees.exists():
+        efficacite_moyenne = actions_realisees.aggregate(
+            avg_efficacite=Avg('efficacite')
+        )['avg_efficacite'] or 0
+        stats['taux_efficacite'] = efficacite_moyenne
+    
+    # Regroupement par type (seulement sur les actions non réalisées)
+    type_stats = actions_non_realisees.values('type_action').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Actions critiques (en retard) - limitées à 20
+    actions_critiques = actions_non_realisees.filter(
+        date_prevue__lt=timezone.now().date(),
+        date_realisee__isnull=True
+    )[:20]
+    
+    # Top pilotes avec le plus d'actions en cours
+    top_pilotes = actions_non_realisees.values('pilote').filter(
+        pilote__isnull=False,
+        pilote__gt=''
+    ).annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    # Évolution des actions (dernier mois)
+    date_limite = timezone.now() - timedelta(days=30)
+    evolution = Action8D.objects.filter(
+        date_creation__gte=date_limite
+    ).values('date_creation__date').annotate(
+        count=Count('id')
+    ).order_by('date_creation__date')[:30]
+    
     context = {
-        'actions': actions,
+        'actions': actions_page,  # Page courante (max 50)
         'stats': stats,
         'type_stats': type_stats,
         'actions_critiques': actions_critiques,
+        'top_pilotes': top_pilotes,
+        'evolution': evolution,
         'statut_choices': Action8D.STATUT_CHOICES,
         'type_choices': Action8D.TYPE_CHOICES,
         'filtres': {
@@ -4018,7 +4021,8 @@ def dashboard_pdca(request):
             'pilote': pilote,
             'search': search,
             'en_retard': en_retard_only,
-        }
+        },
+        'afficher_historique': request.GET.get('historique', False),
     }
     
     return render(request, 'reclamations/pdca/dashboard.html', context)
@@ -4100,7 +4104,7 @@ def chatbot_ollama_status(request):
             'ollama_available': False,
             'error': str(e)
         }, status=500)
- 
+
 # API Chatbot 
 @login_required
 def api_chatbot(request):
@@ -4130,7 +4134,7 @@ def api_chatbot(request):
     except Exception as e:
         logger.exception("Error in api_chatbot")
         return JsonResponse({'error': 'Erreur interne'}, status=500)
-   
+
 @login_required
 def chat_stream(request):
     """Endpoint principal pour le streaming du chatbot"""
@@ -4716,10 +4720,7 @@ def huitd_creer(request, reclamation_id):
             _init_evaluations_fh(fh)
 
             # 5P par défaut
-            CauseCinqP.objects.create(huitd=huitd, type_cause='OCCURRENCE', facteur_prouve='B')
-            CauseCinqP.objects.create(huitd=huitd, type_cause='OCCURRENCE', facteur_prouve='E')
-            CauseCinqP.objects.create(huitd=huitd, type_cause='NON_DETECTION', facteur_prouve='C')
-
+            CauseCinqP.objects.create(huitd=huitd, type_cause='OCCURRENCE', facteur_prouve='A')
             messages.success(request, f"✅ Fiche 8D créée pour {reclamation.numero_reclamation}")
             return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
@@ -4776,7 +4777,7 @@ def huitd_modifier(request, pk):
     huitd = get_object_or_404(
         HuitD.objects.select_related('cinq_w2h', 'vrs', 'facteur_humain').prefetch_related(
             'participants', 'causes_ishikawa', 'vrs__facteurs',
-            'causes_5p', 'facteur_humain__evaluations', 'actions', 'alterations'
+            'causes_5p', 'facteur_humain__evaluations', 'actions', 'alterations','evidences'
         ),
         pk=pk
     )
@@ -4801,7 +4802,8 @@ def huitd_modifier(request, pk):
                 if section == 'vrs': return _save_vrs(request, huitd)
                 if section == '5p': return _save_5p(request, huitd)
                 if section == 'fh': return _save_fh(request, huitd)
-                if section == 'evidences': return _save_evidences(request, huitd)
+                if section == 'evidences': 
+                    return _save_evidences(request, huitd)
 
         except Exception as e:
             messages.error(request, f"❌ Erreur : {str(e)}")
@@ -4810,10 +4812,27 @@ def huitd_modifier(request, pk):
 
     # Préparer les choix pour les rôles
     role_choices = Participant8D.ROLE_CHOICES
+    vrs_data = []
+    if huitd.vrs:
+        for f in huitd.vrs.facteurs.all():
+            vrs_data.append({
+                'id': f.id,
+                'categorie': f.categorie,
+                'facteur_probable': f.facteur_probable,
+                'parametre_mesurable': f.parametre_mesurable,
+                'standard_exigence': f.standard_exigence,
+                'donnees_bonnes': f.donnees_bonnes,
+                'donnees_mauvaises': f.donnees_mauvaises,
+                'standard_suivi': f.standard_suivi,
+                'standard_approprie': f.standard_approprie,
+                'lien_prouve': f.lien_prouve,
+                'facteur_prouve': f.facteur_prouve,
+                  })
     
     context = {
         'huitd': huitd,
         'role_choices': role_choices,
+        'vrs_data': json.dumps(vrs_data),
     }
 
     return render(request, 'reclamations/huitd/huitd_formulaire.html', context)
@@ -4877,11 +4896,15 @@ def _save_general(request, huitd):
     huitd.client = request.POST.get('client', '')
     huitd.lieu_detection = request.POST.get('lieu_detection', 'QUALITE')
     huitd.interne = request.POST.get('interne', '')
+    huitd.etat = 'EN_COURS'
     huitd.save()
     messages.success(request, "✅ Infos générales enregistrées")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_d1(request, huitd):
+    """Sauvegarde la section D1 - 5W2H avec gestion des images"""
+    
+    # Sauvegarde des champs texte D1
     huitd.d1_qui = request.POST.get('d1_qui', '')
     huitd.d1_quoi = request.POST.get('d1_quoi', '')
     huitd.d1_ou = request.POST.get('d1_ou', '')
@@ -4890,13 +4913,47 @@ def _save_d1(request, huitd):
     huitd.d1_combien = request.POST.get('d1_combien', '')
     huitd.d1_pourquoi = request.POST.get('d1_pourquoi', '')
     huitd.d1_caracterisation = request.POST.get('d1_caracterisation', '')
-    huitd.d1_probleme_connu = request.POST.get('d1_probleme_connu') == 'oui'
-    huitd.d1_risque = request.POST.get('d1_risque') == 'oui'
+    huitd.d1_probleme_connu = request.POST.get('d1_probleme_connu') == 'on'
+    huitd.d1_risque = request.POST.get('d1_risque') == 'on'
     huitd.d1_risque_detail = request.POST.get('d1_risque_detail', '')
-    if request.FILES.get('illustration_defectueux'): huitd.d1_illustration_defectueux = request.FILES['illustration_defectueux']
-    if request.FILES.get('illustration_conforme'): huitd.d1_illustration_conforme = request.FILES['illustration_conforme']
+    
+    # ========== GESTION DES IMAGES ==========
+    
+    # Vérifier si l'utilateur veut supprimer l'image défectueuse
+    if request.POST.get('supprimer_defectueux') == '1':
+        if huitd.d1_illustration_defectueux:
+            # Supprimer le fichier physique
+            if os.path.isfile(huitd.d1_illustration_defectueux.path):
+                os.remove(huitd.d1_illustration_defectueux.path)
+            huitd.d1_illustration_defectueux = None
+    
+    # Vérifier si l'utilisateur veut supprimer l'image conforme
+    if request.POST.get('supprimer_conforme') == '1':
+        if huitd.d1_illustration_conforme:
+            # Supprimer le fichier physique
+            if os.path.isfile(huitd.d1_illustration_conforme.path):
+                os.remove(huitd.d1_illustration_conforme.path)
+            huitd.d1_illustration_conforme = None
+    
+    # Gérer la nouvelle image défectueuse (remplace l'ancienne si existante)
+    if 'illustration_defectueux' in request.FILES:
+        # Supprimer l'ancienne image si elle existe
+        if huitd.d1_illustration_defectueux and not request.POST.get('supprimer_defectueux'):
+            if os.path.isfile(huitd.d1_illustration_defectueux.path):
+                os.remove(huitd.d1_illustration_defectueux.path)
+        huitd.d1_illustration_defectueux = request.FILES['illustration_defectueux']
+    
+    # Gérer la nouvelle image conforme
+    if 'illustration_conforme' in request.FILES:
+        # Supprimer l'ancienne image si elle existe
+        if huitd.d1_illustration_conforme and not request.POST.get('supprimer_conforme'):
+            if os.path.isfile(huitd.d1_illustration_conforme.path):
+                os.remove(huitd.d1_illustration_conforme.path)
+        huitd.d1_illustration_conforme = request.FILES['illustration_conforme']
+    
     huitd.save()
-    messages.success(request, "✅ D1 enregistré")
+    
+    messages.success(request, "✅ D1 - 5W2H enregistré avec succès!")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_d2(request, huitd):
@@ -4997,18 +5054,14 @@ def _save_d5(request, huitd):
 def _save_d6(request, huitd):
     """Sauvegarde D6 - Plan d'actions et vérification clôture"""
     huitd.actions.all().delete()
-    
+
     types_action = request.POST.getlist('action_type[]')
     causes = request.POST.getlist('action_cause[]')
     actions = request.POST.getlist('action_desc[]')
     pilotes = request.POST.getlist('action_pilote[]')
     dates_prevues = request.POST.getlist('action_date_prevue[]')
-    avancements = request.POST.getlist('action_avancement[]')
-    dates_realisees = request.POST.getlist('action_date_realisee[]')
-    efficacites = request.POST.getlist('action_efficacite[]')
-    comments_verif = request.POST.getlist('action_comment_verif[]')
+    delai_semaines = request.POST.getlist('action_delai[]')
     statuts = request.POST.getlist('action_statut[]')
-    remarques = request.POST.getlist('action_remarque[]')
     
     for i in range(len(actions)):
         if actions[i].strip():
@@ -5018,13 +5071,8 @@ def _save_d6(request, huitd):
                 numero_cause=causes[i] if i < len(causes) else '',
                 action=actions[i],
                 pilote=pilotes[i] if i < len(pilotes) else '',
-                date_prevue=dates_prevues[i] if i < len(dates_prevues) and dates_prevues[i] else None,
-                avancement=int(avancements[i]) if i < len(avancements) and avancements[i] else 0,
-                date_realisee=dates_realisees[i] if i < len(dates_realisees) and dates_realisees[i] else None,
-                efficacite=efficacites[i] if i < len(efficacites) else '0',
-                comment_verification=comments_verif[i] if i < len(comments_verif) else '',
+                delai_semaines=delai_semaines[i] if i < len(delai_semaines) else '',
                 statut=statuts[i] if i < len(statuts) else 'PLANIFIE',
-                remarque=remarques[i] if i < len(remarques) else '',
                 ordre=i+1
             )
     
@@ -5092,7 +5140,6 @@ def _save_5w2h(request, huitd):
     messages.success(request, "✅ 5W2H enregistré")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
-
 def _save_ishikawa(request, huitd):
     huitd.causes_ishikawa.all().delete()
     for cat in ['A','B','C','D','E','F']:
@@ -5106,18 +5153,113 @@ def _save_ishikawa(request, huitd):
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_vrs(request, huitd):
-    for f in huitd.vrs.facteurs.all():
-        f.facteur_probable = request.POST.get(f'vrs_facteur_{f.categorie}', '')
-        f.parametre_mesurable = request.POST.get(f'vrs_parametre_{f.categorie}', '')
-        f.standard_exigence = request.POST.get(f'vrs_standard_{f.categorie}', '')
-        f.donnees_bonnes = request.POST.get(f'vrs_bonnes_{f.categorie}', '')
-        f.donnees_mauvaises = request.POST.get(f'vrs_mauvaises_{f.categorie}', '')
-        f.standard_suivi = request.POST.get(f'vrs_suivi_{f.categorie}') == 'on'
-        f.standard_approprie = request.POST.get(f'vrs_appro_{f.categorie}') == 'on'
-        f.lien_prouve = request.POST.get(f'vrs_lien_{f.categorie}') == 'on'
-        f.facteur_prouve = request.POST.get(f'vrs_prouve_{f.categorie}') == 'on'
-        f.save()
-    messages.success(request, "✅ VRS enregistré")
+    """Sauvegarde du tableau VRS avec multiples lignes"""
+    
+    # Récupérer ou créer le VRS
+    vrs, created = VRS.objects.get_or_create(huitd=huitd)
+    
+    # Récupérer les données du formulaire
+    vrs_ids = request.POST.getlist('vrs_id[]')
+    vrs_categories = request.POST.getlist('vrs_categorie[]')
+    vrs_facteurs = request.POST.getlist('vrs_facteur[]')
+    vrs_parametres = request.POST.getlist('vrs_parametre[]')
+    vrs_standards = request.POST.getlist('vrs_standard[]')
+    vrs_bonnes = request.POST.getlist('vrs_bonnes[]')
+    vrs_mauvaises = request.POST.getlist('vrs_mauvaises[]')
+    vrs_suivis = request.POST.getlist('vrs_suivi[]')
+    vrs_appro = request.POST.getlist('vrs_appro[]')
+    vrs_liens = request.POST.getlist('vrs_lien[]')
+    vrs_prouves = request.POST.getlist('vrs_prouve[]')
+    
+    facteurs_a_conserver = []
+    
+    # Compter combien de lignes par catégorie pour définir l'ordre
+    ordre_par_categorie = {}
+    
+    for i in range(len(vrs_categories)):
+        categorie = vrs_categories[i]
+        if not categorie:
+            continue
+        
+        # Initialiser le compteur pour cette catégorie
+        if categorie not in ordre_par_categorie:
+            ordre_par_categorie[categorie] = 1
+        
+        facteur = vrs_facteurs[i] if i < len(vrs_facteurs) else ''
+        parametre = vrs_parametres[i] if i < len(vrs_parametres) else ''
+        standard = vrs_standards[i] if i < len(vrs_standards) else ''
+        bonnes = vrs_bonnes[i] if i < len(vrs_bonnes) else ''
+        mauvaises = vrs_mauvaises[i] if i < len(vrs_mauvaises) else ''
+        suivi = i < len(vrs_suivis) and vrs_suivis[i] == 'on'
+        appro = i < len(vrs_appro) and vrs_appro[i] == 'on'
+        lien = i < len(vrs_liens) and vrs_liens[i] == 'on'
+        prouve = i < len(vrs_prouves) and vrs_prouves[i] == 'on'
+        
+        # Ordre unique par catégorie
+        ordre = ordre_par_categorie[categorie]
+        ordre_par_categorie[categorie] += 1
+        
+        facteur_id = vrs_ids[i] if i < len(vrs_ids) and vrs_ids[i].isdigit() else None
+        
+        if facteur_id:
+            # Mettre à jour existant
+            try:
+                f = FacteurVRS.objects.get(id=int(facteur_id), vrs=vrs)
+                f.categorie = categorie
+                f.facteur_probable = facteur
+                f.parametre_mesurable = parametre
+                f.standard_exigence = standard
+                f.donnees_bonnes = bonnes
+                f.donnees_mauvaises = mauvaises
+                f.standard_suivi = suivi
+                f.standard_approprie = appro
+                f.lien_prouve = lien
+                f.facteur_prouve = prouve
+                f.ordre = ordre
+                f.save()
+                facteurs_a_conserver.append(f.id)
+            except FacteurVRS.DoesNotExist:
+                # Créer nouveau
+                f = FacteurVRS.objects.create(
+                    vrs=vrs,
+                    categorie=categorie,
+                    facteur_probable=facteur,
+                    parametre_mesurable=parametre,
+                    standard_exigence=standard,
+                    donnees_bonnes=bonnes,
+                    donnees_mauvaises=mauvaises,
+                    standard_suivi=suivi,
+                    standard_approprie=appro,
+                    lien_prouve=lien,
+                    facteur_prouve=prouve,
+                    ordre=ordre
+                )
+                facteurs_a_conserver.append(f.id)
+        else:
+            # Créer nouveau
+            f = FacteurVRS.objects.create(
+                vrs=vrs,
+                categorie=categorie,
+                facteur_probable=facteur,
+                parametre_mesurable=parametre,
+                standard_exigence=standard,
+                donnees_bonnes=bonnes,
+                donnees_mauvaises=mauvaises,
+                standard_suivi=suivi,
+                standard_approprie=appro,
+                lien_prouve=lien,
+                facteur_prouve=prouve,
+                ordre=ordre
+            )
+            facteurs_a_conserver.append(f.id)
+    
+    # Supprimer les facteurs qui ne sont plus dans la liste
+    if facteurs_a_conserver:
+        vrs.facteurs.exclude(id__in=facteurs_a_conserver).delete()
+    else:
+        vrs.facteurs.all().delete()
+    
+    messages.success(request, "✅ VRS enregistré avec succès!")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_5p(request, huitd):
@@ -5154,12 +5296,101 @@ def _save_fh(request, huitd):
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_evidences(request, huitd):
-    titre = request.POST.get('titre', '')
-    description = request.POST.get('description_ev', '')
-    fichier = request.FILES.get('fichier')
-    if fichier:
-        Evidence8D.objects.create(huitd=huitd, titre=titre, description=description, fichier=fichier)
-        messages.success(request, "✅ Évidence ajoutée")
+    """Sauvegarde la section des évidences"""
+    
+    # Récupérer toutes les données des évidences
+    evidence_ids = request.POST.getlist('evidence_id[]')
+    evidence_titres = request.POST.getlist('evidence_titre[]')
+    evidence_descriptions = request.POST.getlist('evidence_description[]')
+    evidence_fichiers = request.FILES.getlist('evidence_fichier[]')
+    evidence_supprimer_fichier = request.POST.getlist('evidence_supprimer_fichier[]')
+    
+    evidences_a_conserver = []
+    
+    # Traiter les évidences existantes et nouvelles
+    for i in range(len(evidence_titres)):
+        titre = evidence_titres[i].strip()
+        if not titre:
+            continue
+        
+        description = evidence_descriptions[i] if i < len(evidence_descriptions) else ''
+        evidence_id = evidence_ids[i] if i < len(evidence_ids) else ''
+        fichier = evidence_fichiers[i] if i < len(evidence_fichiers) else None
+        
+        # Vérifier si l'utilisateur veut supprimer le fichier
+        supprimer_fichier = False
+        if i < len(evidence_supprimer_fichier):
+            supprimer_fichier = evidence_supprimer_fichier[i] == '1'
+        
+        if evidence_id and evidence_id != '' and evidence_id.isdigit():
+            # Modifier évidence existante
+            try:
+                evidence = Evidence8D.objects.get(id=int(evidence_id), huitd=huitd)
+                evidence.titre = titre
+                evidence.description = description
+                
+                # Supprimer l'ancien fichier si demandé
+                if supprimer_fichier and evidence.fichier:
+                    if os.path.isfile(evidence.fichier.path):
+                        os.remove(evidence.fichier.path)
+                    evidence.fichier = None
+                
+                # Remplacer le fichier si nouveau fourni
+                if fichier:
+                    if evidence.fichier and os.path.isfile(evidence.fichier.path):
+                        os.remove(evidence.fichier.path)
+                    evidence.fichier = fichier
+                
+                evidence.save()
+                evidences_a_conserver.append(evidence.id)
+            except Evidence8D.DoesNotExist:
+                # Créer nouvelle évidence (cas rare)
+                evidence = Evidence8D.objects.create(
+                    huitd=huitd,
+                    titre=titre,
+                    description=description,
+                    fichier=fichier if fichier else None
+                )
+                evidences_a_conserver.append(evidence.id)
+        else:
+            # Créer nouvelle évidence
+            if not fichier:
+                continue  # Une nouvelle évidence doit avoir un fichier
+            evidence = Evidence8D.objects.create(
+                huitd=huitd,
+                titre=titre,
+                description=description,
+                fichier=fichier
+            )
+            evidences_a_conserver.append(evidence.id)
+    
+    # Supprimer les évidences qui ne sont plus dans la liste
+    if evidences_a_conserver:
+        # Supprimer physiquement les fichiers des évidences supprimées
+        for evidence in huitd.evidences.exclude(id__in=evidences_a_conserver):
+            if evidence.fichier and os.path.isfile(evidence.fichier.path):
+                os.remove(evidence.fichier.path)
+        huitd.evidences.exclude(id__in=evidences_a_conserver).delete()
     else:
-        messages.warning(request, "⚠️ Aucun fichier")
+        # Supprimer toutes les évidences
+        for evidence in huitd.evidences.all():
+            if evidence.fichier and os.path.isfile(evidence.fichier.path):
+                os.remove(evidence.fichier.path)
+        huitd.evidences.all().delete()
+    
+    # ========== CLÔTURE DU 8D ==========
+    # Vérifier si le 8D a au moins une évidence
+    if huitd.evidences.exists():
+        # Changer l'état du 8D en CLOTURE
+        huitd.etat = 'CLOTURE'
+        huitd.fin_huitd = timezone.now().date()
+        huitd.save()
+        messages.success(request, "✅ Évidences enregistrées et 8D clôturé avec succès!")
+    else:
+        # Si plus d'évidence, on remet l'état à EN_COURS
+        if huitd.etat == 'CLOTURE':
+            huitd.etat = 'EN_COURS'
+            huitd.fin_huitd = None
+            huitd.save()
+        messages.success(request, "✅ Évidences enregistrées avec succès!")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)

@@ -57,7 +57,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>⚠️ Notification de retard</h1>
+            <h1>Notification de retard</h1>
             <p>Réclamation {{ reclamation.numero_reclamation }}</p>
         </div>
         
@@ -67,13 +67,13 @@
             <p>La réclamation <strong>{{ reclamation.numero_reclamation }}</strong> dépasse les délais de clôture prévus.</p>
             
             <div class="warning">
-                <strong>📋 Informations :</strong><br>
+                <strong>Informations :</strong><br>
                 Client : {{ reclamation.client.nom }}<br>
                 Date de création : {{ reclamation.date_reclamation|date:"d/m/Y" }}<br>
                 Type : {{ reclamation.get_type_nc_display }}
             </div>
             
-            <h3>📅 États en retard :</h3>
+            <h3>États en retard :</h3>
             <ul>
                 {% for notif in notifications %}
                 <li>
@@ -85,17 +85,17 @@
             </ul>
             
             <div class="warning">
-                <strong>⚠️ Action requise :</strong><br>
+                <strong> Action requise :</strong><br>
                 Veuillez mettre à jour les états de cette réclamation dans les meilleurs délais.
             </div>
             
             <div style="text-align: center;">
                 <a href="{{ site_url }}{% url 'reclamations:modifier_etats' reclamation.id %}" class="button">
-                    🔧 Modifier les états
+                    Modifier les états
                 </a>
                 &nbsp;&nbsp;
                 <a href="{{ site_url }}{% url 'reclamations:detail_reclamation' reclamation.id %}" class="button" style="background-color: #6c757d;">
-                    👁️ Voir le détail
+                    Voir le détail
                 </a>
             </div>
         </div>

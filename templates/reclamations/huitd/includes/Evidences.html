@@ -1,0 +1,213 @@
+<!-- Section Evidences -->
+<div class="card mb-4" id="section-evidences">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-paperclip"></i> Évidences / Pièces jointes</h5>
+        <button type="button" class="btn btn-light btn-sm" id="addEvidenceBtn">
+            <i class="fas fa-plus"></i> Ajouter une évidence
+        </button>
+    </div>
+    <div class="card-body">
+        <div id="evidences-container">
+            {% for evidence in huitd.evidences.all %}
+            <div class="evidence-item border rounded p-3 mb-3" id="evidence-{{ evidence.id }}">
+                <input type="hidden" name="evidence_id[]" value="{{ evidence.id }}">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label">Titre *</label>
+                        <input type="text" class="form-control" name="evidence_titre[]" 
+                               value="{{ evidence.titre }}" placeholder="Titre de l'évidence" required>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label">Fichier</label>
+                        {% if evidence.fichier %}
+                        <div class="current-file mb-2">
+                            <a href="{{ evidence.fichier.url }}" target="_blank" class="btn btn-sm btn-info">
+                                <i class="fas fa-download"></i> {{ evidence.fichier.name|slice:"-20:" }}
+                            </a>
+                            <button type="button" class="btn btn-sm btn-danger" 
+                                    onclick="deleteEvidenceFile('{{ evidence.id }}')">
+                                <i class="fas fa-trash"></i> Supprimer le fichier
+                            </button>
+                            <input type="hidden" name="evidence_supprimer_fichier[]" id="supprimer_fichier_{{ evidence.id }}" value="0">
+                        </div>
+                        {% endif %}
+                        <input type="file" class="form-control form-control-sm" 
+                               name="evidence_fichier[]" accept="image/*,application/pdf">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="evidence_description[]" rows="2" 
+                                  placeholder="Description optionnelle">{{ evidence.description }}</textarea>
+                    </div>
+                    <div class="col-md-1 mb-2 text-end">
+                        <label class="form-label">&nbsp;</label>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-danger remove-evidence" 
+                                    data-evidence-id="{{ evidence.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div id="no-evidences-message" class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Aucune évidence. Cliquez sur "Ajouter une évidence" pour commencer.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="card-footer text-end">
+        <button type="submit" name="section" value="evidences" class="btn btn-primary">
+            <i class="fas fa-save"></i> Enregistrer les évidences
+        </button>
+    </div>
+</div>
+
+<!-- Template pour nouvelle évidence -->
+<template id="evidence-template">
+    <div class="evidence-item border rounded p-3 mb-3">
+        <input type="hidden" name="evidence_id[]" value="">
+        <div class="row">
+            <div class="col-md-4 mb-2">
+                <label class="form-label">Titre *</label>
+                <input type="text" class="form-control" name="evidence_titre[]" 
+                       placeholder="Titre de l'évidence" required>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label class="form-label">Fichier *</label>
+                <input type="file" class="form-control form-control-sm" 
+                       name="evidence_fichier[]" accept="image/*,application/pdf" required>
+            </div>
+            <div class="col-md-3 mb-2">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" name="evidence_description[]" rows="2" 
+                          placeholder="Description optionnelle"></textarea>
+            </div>
+            <div class="col-md-1 mb-2 text-end">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="button" class="btn btn-sm btn-danger remove-evidence">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="preview-image mt-2" style="display: none;">
+            <img style="max-width: 100px; max-height: 100px;">
+        </div>
+    </div>
+</template>
+
+<script>
+    // Gestion des évidences dynamiques
+    document.addEventListener('DOMContentLoaded', function() {
+        const evidencesContainer = document.getElementById('evidences-container');
+        const addEvidenceBtn = document.getElementById('addEvidenceBtn');
+        const template = document.getElementById('evidence-template');
+        
+        if (!evidencesContainer || !addEvidenceBtn || !template) return;
+        
+        // Fonction pour ajouter une évidence
+        function addEvidence() {
+            const newEvidence = template.content.cloneNode(true);
+            const newId = 'new_' + Date.now();
+            const hiddenInput = newEvidence.querySelector('input[name="evidence_id[]"]');
+            if (hiddenInput) {
+                hiddenInput.value = newId;
+            }
+            
+            evidencesContainer.appendChild(newEvidence);
+            
+            // Supprimer le message "aucune évidence" s'il existe
+            const noEvidencesMsg = document.getElementById('no-evidences-message');
+            if (noEvidencesMsg) {
+                noEvidencesMsg.style.display = 'none';
+            }
+            
+            // Ajouter l'événement de suppression
+            const removeBtn = evidencesContainer.lastElementChild.querySelector('.remove-evidence');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    if (confirm('Supprimer cette évidence ?')) {
+                        this.closest('.evidence-item').remove();
+                        // Afficher le message si plus d'évidences
+                        if (evidencesContainer.querySelectorAll('.evidence-item').length === 0) {
+                            const noMsg = document.getElementById('no-evidences-message');
+                            if (noMsg) noMsg.style.display = 'block';
+                        }
+                    }
+                });
+            }
+            
+            // Ajouter la prévisualisation d'image
+            const fileInput = evidencesContainer.lastElementChild.querySelector('input[type="file"]');
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    const previewDiv = this.closest('.evidence-item').querySelector('.preview-image');
+                    const previewImg = previewDiv.querySelector('img');
+                    if (this.files && this.files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            previewImg.src = event.target.result;
+                            previewDiv.style.display = 'block';
+                        };
+                        reader.readAsDataURL(this.files[0]);
+                    } else {
+                        previewDiv.style.display = 'none';
+                        previewImg.src = '';
+                    }
+                });
+            }
+        }
+        
+        // Ajouter une évidence au clic
+        addEvidenceBtn.addEventListener('click', addEvidence);
+        
+        // Supprimer une évidence existante
+        document.querySelectorAll('.remove-evidence').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (confirm('Supprimer cette évidence ?')) {
+                    this.closest('.evidence-item').remove();
+                    if (evidencesContainer.querySelectorAll('.evidence-item').length === 0) {
+                        const noMsg = document.getElementById('no-evidences-message');
+                        if (noMsg) noMsg.style.display = 'block';
+                    }
+                }
+            });
+        });
+        
+        // Prévisualisation des images existantes pour les nouveaux fichiers
+        document.querySelectorAll('.evidence-item input[type="file"]').forEach(fileInput => {
+            fileInput.addEventListener('change', function(e) {
+                const previewDiv = this.closest('.evidence-item').querySelector('.preview-image');
+                if (previewDiv) {
+                    const previewImg = previewDiv.querySelector('img');
+                    if (this.files && this.files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            previewImg.src = event.target.result;
+                            previewDiv.style.display = 'block';
+                        };
+                        reader.readAsDataURL(this.files[0]);
+                    } else {
+                        previewDiv.style.display = 'none';
+                        previewImg.src = '';
+                    }
+                }
+            });
+        });
+    });
+    
+    // Fonction pour supprimer un fichier d'évidence existant
+    function deleteEvidenceFile(evidenceId) {
+        if (confirm('Supprimer ce fichier ?')) {
+            document.getElementById(`supprimer_fichier_${evidenceId}`).value = '1';
+            // Cacher l'affichage du fichier
+            const fileContainer = document.getElementById(`evidence-${evidenceId}`).querySelector('.current-file');
+            if (fileContainer) {
+                fileContainer.style.display = 'none';
+            }
+        }
+    }
+</script>

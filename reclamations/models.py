@@ -145,7 +145,7 @@ class Reclamation(models.Model):
     # États
     etat_4d = models.CharField("État 4D", max_length=20, choices=ETAT_CHOICES, default='OUVERT')
     etat_8d = models.CharField("État 8D", max_length=20, choices=ETAT_CHOICES, default='OUVERT')
-    
+    besoin_4dp = models.BooleanField("4DP nécessaire ?", default=False, help_text="Cocher si une démarche 4DP est nécessaire")
     # Métadonnées
     evidence = models.TextField(blank=True)
     me = models.BooleanField("ME", default=False)
@@ -176,32 +176,104 @@ class Reclamation(models.Model):
         return f"{self.numero_reclamation} - {self.client.nom}"
     
     @property
-    def toutes_actions_terminees(self):
+    def toutes_actions_realisees(self):
+            """
+            Vérifie si toutes les actions du 8D sont réalisées
+            """
+            if not hasattr(self, 'huitd'):
+                return False
+            
+            actions = self.huitd.actions.all()
+            if not actions.exists():
+                return False
+            
+            # Vérifie qu'il n'y a QUE des actions avec statut 'REALISE'
+            actions_non_realisees = actions.exclude(statut='REALISE')
+            return not actions_non_realisees.exists()
+    
+    def get_date_derniere_action_realisee(self):
         """
-        Vérifie si toutes les actions du 8D sont terminées (REALISE ou ABANDONNE)
-        Retourne False si pas de 8D ou pas d'actions
+        Récupère la date de réalisation de la dernière action (la plus récente)
         """
         if not hasattr(self, 'huitd'):
-            return False
+            return None
         
-        actions = self.huitd.actions.all()
-        if not actions.exists():
-            return False
+        dernieres_actions = self.huitd.actions.filter(
+            statut='REALISE',
+            date_realisee__isnull=False
+        ).order_by('-date_realisee')
         
-        # Vérifie qu'il n'y a QUE des statuts REALISE ou ABANDONNE
-        actions_non_terminees = actions.exclude(statut__in=['REALISE', 'ABANDONNE'])
-        return not actions_non_terminees.exists()
+        if dernieres_actions.exists():
+            return dernieres_actions.first().date_realisee
+        
+        return None
     
-    def verifier_et_cloturer(self):
+    def peut_etre_cloturee_auto(self):
         """
-        Vérifie si toutes les actions 8D sont terminées et clôture la réclamation si c'est le cas
+        Vérifie si la réclamation peut être clôturée automatiquement :
+        1. Toutes les actions sont réalisées
+        2. La dernière action date de plus de 3 mois
+        3. La réclamation n'est pas déjà clôturée
         """
-        if self.toutes_actions_terminees and not self.cloture:
+        # Vérifier que la réclamation n'est pas déjà clôturée
+        if self.cloture:
+            return False
+        
+        # Vérifier que toutes les actions sont réalisées
+        if not self.toutes_actions_realisees():
+            return False
+        
+        # Récupérer la date de la dernière action réalisée
+        date_derniere_action = self.get_date_derniere_action_realisee()
+        
+        if not date_derniere_action:
+            return False
+        
+        # Calculer la date limite (3 mois après la dernière action)
+        date_limite = date_derniere_action + timedelta(days=90)
+        
+        # Vérifier si on est après la date limite
+        return timezone.now().date() >= date_limite
+    
+    def auto_cloturer(self):
+        """
+        Clôture automatiquement la réclamation si les conditions sont remplies
+        """
+        if self.peut_etre_cloturee_auto():
             self.cloture = True
             self.date_cloture = timezone.now().date()
             self.save(update_fields=['cloture', 'date_cloture'])
+            
+            # Optionnel : Clôturer aussi les états 4D et 8D
+            if self.etat_4d != 'CLOTURE':
+                self.etat_4d = 'CLOTURE'
+            if self.etat_8d != 'CLOTURE':
+                self.etat_8d = 'CLOTURE'
+            self.save(update_fields=['etat_4d', 'etat_8d'])
+            
             return True
         return False
+    
+    @property
+    def jours_avant_cloture_auto(self):
+        """
+        Calcule le nombre de jours restants avant clôture automatique
+        """
+        if not self.toutes_actions_realisees():
+            return None
+        
+        date_derniere_action = self.get_date_derniere_action_realisee()
+        if not date_derniere_action:
+            return None
+        
+        date_limite = date_derniere_action + timedelta(days=90)
+        aujourd_hui = timezone.now().date()
+        
+        if aujourd_hui >= date_limite:
+            return 0
+        
+        delta = date_limite - aujourd_hui
+        return delta.days
     
     def save(self, *args, **kwargs):
         today = timezone.now().date()
@@ -627,81 +699,33 @@ class VRS(models.Model):
         return f"VRS - {self.huitd.reclamation.numero_reclamation}"
 
 class FacteurVRS(models.Model):
-    """
-    Facteurs du tableau VRS pour chaque catégorie 6M
-    Colonnes : Facteur, Paramètre, Standard, Données bonnes/mauvaises, Checkboxes
-    """
+    """Facteurs du tableau VRS pour chaque catégorie 6M"""
     
     CATEGORIE_CHOICES = [
         ('A', 'A - Milieu / Environment'),
         ('B', 'B - Méthodes / Methods'),
         ('C', 'C - Moyens / Resources'),
+        ('D', 'D - Main d\'œuvre / Personnel'),
         ('E', 'E - Matières / Materials'),
         ('F', 'F - Mesures / Measures'),
     ]
     
-    # Liaison
-    vrs = models.ForeignKey(
-        VRS,
-        on_delete=models.CASCADE,
-        related_name='facteurs'
-    )
-    
-    # Catégorie 6M
-    categorie = models.CharField(
-        "Catégorie 6M",
-        max_length=1,
-        choices=CATEGORIE_CHOICES
-    )
-    
-    # Colonnes du tableau VRS
-    facteur_probable = models.TextField(
-        "Facteur probable / Probable factor",
-        blank=True
-    )
-    parametre_mesurable = models.TextField(
-        "Paramètre mesurable / Is there a measurable parameter",
-        blank=True
-    )
-    standard_exigence = models.TextField(
-        "Standard ou exigences / What is the standard or requirement",
-        blank=True
-    )
-    donnees_bonnes = models.TextField(
-        "Données réelles (bonnes) / Real data (good parts)",
-        blank=True
-    )
-    donnees_mauvaises = models.TextField(
-        "Données réelles (mauvaises) / Real data (bad parts)",
-        blank=True
-    )
-    
-    # Checkboxes
-    standard_suivi = models.BooleanField(
-        "Standard suivi ? / Is the standard followed?",
-        default=False
-    )
-    standard_approprie = models.BooleanField(
-        "Standard approprié ? / Is the standard appropriate",
-        default=False
-    )
-    lien_prouve = models.BooleanField(
-        "Lien prouvé ? / Proven location",
-        default=False
-    )
-    facteur_prouve = models.BooleanField(
-        "Facteur prouvé / Proven factor",
-        default=False
-    )
+    vrs = models.ForeignKey(VRS, on_delete=models.CASCADE, related_name='facteurs')
+    categorie = models.CharField(max_length=1, choices=CATEGORIE_CHOICES)
+    facteur_probable = models.TextField(blank=True)
+    parametre_mesurable = models.TextField(blank=True)
+    standard_exigence = models.TextField(blank=True)
+    donnees_bonnes = models.TextField(blank=True)
+    donnees_mauvaises = models.TextField(blank=True)
+    standard_suivi = models.BooleanField(default=False)
+    standard_approprie = models.BooleanField(default=False)
+    lien_prouve = models.BooleanField(default=False)
+    facteur_prouve = models.BooleanField(default=False)
+    ordre = models.IntegerField(default=0)
     
     class Meta:
-        verbose_name = "Facteur VRS"
-        verbose_name_plural = "Facteurs VRS"
-        ordering = ['categorie']
-        unique_together = ['vrs', 'categorie']
-    
-    def __str__(self):
-        return f"VRS {self.get_categorie_display()} - {self.vrs.huitd.reclamation.numero_reclamation}"
+        ordering = ['categorie', 'ordre']
+        
 
 class FacteurHumain(models.Model):
     """
@@ -1031,7 +1055,7 @@ class Action8D(models.Model):
         ('75', '75% - Bonne'),
         ('100', '100% - Très bonne / Complète'),
     ]
-
+ 
     huitd = models.ForeignKey('HuitD', on_delete=models.CASCADE, related_name='actions')
     
     # Identification
@@ -1093,6 +1117,21 @@ class Action8D(models.Model):
             delta = self.date_prevue - timezone.now().date()
             return delta.days
         return None
+    def est_la_derniere_action(self):
+        """
+        Vérifie si cette action est la dernière réalisée de son 8D
+        """
+        if self.statut != 'REALISE' or not self.date_realisee:
+            return False
+        
+        dernieres_actions = self.huitd.actions.filter(
+            statut='REALISE',
+            date_realisee__isnull=False
+        ).order_by('-date_realisee')
+        
+        if dernieres_actions.exists():
+            return dernieres_actions.first().id == self.id
+        return False
 
 class Alteration8D(models.Model):
     """Altérations nécessaires (standardisation D8)"""
@@ -1116,6 +1155,9 @@ class Evidence8D(models.Model):
     
     class Meta:
         ordering = ['-date_ajout']
+    
+    def __str__(self):
+        return f"{self.titre} - {self.huitd.reclamation.numero_reclamation}"
 
 #========= Gestion des FAIs =============
 

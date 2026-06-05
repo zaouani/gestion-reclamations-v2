@@ -291,87 +291,122 @@
     </div>
     
     <!-- ========== SECTION ACTIONS PDCA ========== -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-success text-white section-header">
-                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i> Actions PDCA mises en place</h5>
-                    <div>
-                        <span class="badge bg-light text-dark me-1">{{ actions_stats.total }} actions</span>
-                        <span class="badge bg-light text-success me-1">{{ actions_stats.terminees }} terminées</span>
-                        <span class="badge bg-light text-warning">{{ actions_stats.efficaces }} efficaces</span>
+    <!-- Section Causes racines -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-search"></i> Causes racines (Ishikawa & 5P)</h5>
+        </div>
+        <div class="card-body">
+            {% if causes_racines %}
+                {% for type, causes in causes_par_type.items %}
+                <h6 class="mt-3 mb-2 text-primary">{{ type }}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cause</th>
+                                <th>Catégorie/Méthode</th>
+                                <th>Réclamation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cause in causes %}
+                            <tr>
+                                <td>{{ cause.cause|truncatechars:100 }}</td>
+                                <td>{{ cause.categorie|default:cause.methode }}</td>
+                                <td>
+                                    <a href="{% url 'reclamations:detail_reclamation' cause.reclamation.id %}" target="_blank">
+                                        {{ cause.reclamation.numero_reclamation }}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">Aucune cause racine identifiée via Ishikawa ou 5P.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Section Plan d'actions 8D -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-tasks"></i> Plan d'actions 8D</h5>
+        </div>
+        <div class="card-body">
+            {% if actions_8d %}
+            <!-- Statistiques -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <div class="display-6">{{ actions_stats.total }}</div>
+                            <small>Total actions</small>
+                        </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    {% if actions_pdca %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Action</th>
-                                    <th>Priorité</th>
-                                    <th>Statut</th>
-                                    <th>Responsable</th>
-                                    <th>Date cible</th>
-                                    <th>Réclamation</th>
-                                    <th>Produit</th>
-                                    <th>Avancement</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for action in actions_pdca %}
-                                <tr>
-                                    <td>
-                                        <strong>{{ action.titre|truncatechars:80 }}</strong>
-                                        {% if action.efficacite != 'NON_EVALUE' %}
-                                        <br>
-                                        <small>
-                                            <i class="fas fa-{% if action.efficacite == 'EFFICACE' %}check-circle text-success{% elif action.efficacite == 'PARTIEL' %}adjust text-warning{% else %}times-circle text-danger{% endif %}"></i>
-                                            {{ action.get_efficacite_display }}
-                                        </small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-{{ action.priorite }}">{{ action.get_priorite_display }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-statut-{{ action.statut }}">{{ action.get_statut_display }}</span>
-                                    </td>
-                                    <td><small>{{ action.responsable }}</small></td>
-                                    <td>
-                                        <small>
-                                            {{ action.date_cible|date:"d/m/Y" }}
-                                            {% if action.date_realisation %}
-                                            <br><span class="text-success">✓ {{ action.date_realisation|date:"d/m/Y" }}</span>
-                                            {% endif %}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'reclamations:detail_reclamation' action.analyse_nc.non_conformite.ligne_reclamation.reclamation.id %}" class="text-decoration-none">
-                                            <small>{{ action.analyse_nc.non_conformite.ligne_reclamation.reclamation.numero_reclamation }}</small>
-                                        </a>
-                                    </td>
-                                    <td><code>{{ action.analyse_nc.non_conformite.ligne_reclamation.produit.product_number }}</code></td>
-                                    <td>
-                                        <div class="progress" style="height: 6px; width: 60px;">
-                                            <div class="progress-bar bg-success" style="width: {{ action.pourcentage_avancement }}%"></div>
-                                        </div>
-                                        <small>{{ action.pourcentage_avancement }}%</small>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="col-md-3">
+                    <div class="card bg-info bg-opacity-25">
+                        <div class="card-body text-center">
+                            <div class="display-6 text-info">{{ actions_stats.realisees }}</div>
+                            <small>Réalisées</small>
+                        </div>
                     </div>
-                    {% else %}
-                    <div class="text-center py-4 text-muted">
-                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-                        <p>Aucune action PDCA définie pour ce défaut</p>
-                        <small>Les actions peuvent être ajoutées depuis le détail de chaque réclamation</small>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning bg-opacity-25">
+                        <div class="card-body text-center">
+                            <div class="display-6 text-warning">{{ actions_stats.en_cours }}</div>
+                            <small>En cours</small>
+                        </div>
                     </div>
-                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success bg-opacity-25">
+                        <div class="card-body text-center">
+                            <div class="display-6 text-success">{{ taux_realisation }}%</div>
+                            <small>Taux réalisation</small>
+                        </div>
+                    </div>
                 </div>
             </div>
+            
+            <!-- Actions par type -->
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#allActions">
+                        Toutes ({{ actions_stats.total }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#correctiveActions">
+                        Correctives ({{ actions_par_type.CORRECTIVE|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#preventiveActions">
+                        Préventives ({{ actions_par_type.PREVENTIVE|length }})
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="allActions">
+                    {% include "reclamations/produit/_actions_table.html" with actions=actions_8d %}
+                </div>
+                <div class="tab-pane fade" id="correctiveActions">
+                    {% include "reclamations/produit/_actions_table.html" with actions=actions_par_type.CORRECTIVE %}
+                </div>
+                <div class="tab-pane fade" id="preventiveActions">
+                    {% include "reclamations/produit/_actions_table.html" with actions=actions_par_type.PREVENTIVE %}
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted">Aucune action 8D définie pour ces réclamations.</p>
+            {% endif %}
         </div>
     </div>
 </div>

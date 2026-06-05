@@ -483,18 +483,42 @@
     </table>
 
     <!-- ==================== ÉVIDENCES ==================== -->
-    {% if huitd.evidences.exists %}
-    <div class="section-title">📎 Évidences</div>
-    <div class="mb-4">
+   {% if huitd.evidences.exists %}
+<div class="section-title">📎 Évidences</div>
+<div class="mb-4">
+    <div class="row">
         {% for ev in huitd.evidences.all %}
-        <div class="d-flex align-items-center mb-2 p-2 border rounded">
-            <i class="fas fa-paperclip text-muted me-3"></i>
-            <div class="flex-grow-1"><strong>{{ ev.titre }}</strong><br><small>{{ ev.date_ajout|date:"d/m/Y H:i" }}</small></div>
-            <a href="{{ ev.fichier.url }}" class="btn btn-sm btn-outline-primary me-1" target="_blank"><i class="fas fa-download"></i></a>
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <strong><i class="fas fa-tag me-1"></i> {{ ev.titre }}</strong>
+                </div>
+                <div class="card-body text-center">
+                    {% if ev.fichier.url|lower|slice:"-3:" == "jpg" or ev.fichier.url|lower|slice:"-4:" == "jpeg" or ev.fichier.url|lower|slice:"-3:" == "png" or ev.fichier.url|lower|slice:"-3:" == "gif" %}
+                    <img src="{{ ev.fichier.url }}" alt="{{ ev.titre }}" 
+                         style="max-width: 100%; max-height: 200px; object-fit: cover; cursor: pointer;"
+                         class="img-fluid rounded mb-2" 
+                         onclick="window.open(this.src, '_blank')">
+                    {% elif ev.fichier.url|lower|slice:"-3:" == "pdf" %}
+                    <i class="fas fa-file-pdf fa-5x text-danger mb-2"></i>
+                    {% else %}
+                    <i class="fas fa-file fa-5x text-secondary mb-2"></i>
+                    {% endif %}
+                    
+                    <small class="text-muted d-block">
+                        <i class="fas fa-calendar-alt me-1"></i> {{ ev.date_ajout|date:"d/m/Y H:i" }}
+                    </small>
+                    
+                    {% if ev.description %}
+                    <p class="small text-muted mt-2 mb-0">{{ ev.description|truncatechars:100 }}</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
         {% endfor %}
     </div>
-    {% endif %}
+</div>
+{% endif %}
 
 </div>
 {% endblock %}

@@ -44,6 +44,12 @@
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     .empty-kanban { text-align: center; padding: 30px; color: #bdc3c7; }
     @media print { .no-print { display: none; } .kanban-column { break-inside: avoid; } }
+    
+    /* Styles pour la pagination */
+    .pagination { margin-bottom: 0; }
+    .page-link { color: #667eea; }
+    .page-item.active .page-link { background-color: #667eea; border-color: #667eea; }
+    .pagination-info { font-size: 0.85rem; color: #6c757d; }
 </style>
 {% endblock %}
 
@@ -165,103 +171,18 @@
         </form>
     </div>
 
-    <!-- Vue Kanban -->
-    <div class="row">
-        <!-- Colonne PLANIFIÉ -->
-        <div class="col-md-4 mb-3">
-            <div class="kanban-column plan">
-                <h5><i class="fas fa-clipboard-list me-2"></i> PLANIFIÉ <span class="badge bg-secondary float-end">{{ stats.planifies }}</span></h5>
-                {% for action in actions %}
-                    {% if action.statut == 'PLANIFIE' %}
-                    <div class="action-card type-{{ action.type_action }}" onclick="window.location='{% url 'reclamations:pdca_modifier' action.id %}'">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge {% if action.type_action == 'CORRECTIVE' %}bg-primary{% else %}bg-warning text-dark{% endif %}">{{ action.get_type_action_display }}</span>
-                            <small class="text-muted">{{ action.huitd.reclamation.numero_reclamation }}</small>
-                        </div>
-                        <div class="action-title">{{ action.action|truncatechars:80 }}</div>
-                        <div class="action-meta">
-                            <span><i class="fas fa-user"></i> {{ action.pilote|default:"-"|truncatechars:15 }}</span>
-                            <span><i class="fas fa-calendar-alt"></i> {{ action.date_prevue|date:"d/m/Y"|default:"Non planifiée" }}</span>
-                        </div>
-                        {% if action.en_retard %}
-                        <span class="badge bg-danger mt-1"><i class="fas fa-exclamation"></i> En retard</span>
-                        {% endif %}
-                        <div class="progress-mini"><div class="progress-bar bg-primary" style="width: {{ action.avancement }}%"></div></div>
-                        <small class="text-muted">{{ action.avancement }}%</small>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-                {% if stats.planifies == 0 %}
-                <div class="empty-kanban"><i class="fas fa-inbox fa-2x mb-2"></i><p class="small">Aucune action planifiée</p></div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Colonne EN COURS -->
-        <div class="col-md-4 mb-3">
-            <div class="kanban-column do">
-                <h5><i class="fas fa-play-circle me-2"></i> EN COURS <span class="badge bg-danger float-end">{{ stats.en_cours }}</span></h5>
-                {% for action in actions %}
-                    {% if action.statut == 'EN_COURS' %}
-                    <div class="action-card type-{{ action.type_action }}" onclick="window.location='{% url 'reclamations:pdca_modifier' action.id %}'">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge {% if action.type_action == 'CORRECTIVE' %}bg-primary{% else %}bg-warning text-dark{% endif %}">{{ action.get_type_action_display }}</span>
-                            <small class="text-muted">{{ action.huitd.reclamation.numero_reclamation }}</small>
-                        </div>
-                        <div class="action-title">{{ action.action|truncatechars:80 }}</div>
-                        <div class="action-meta">
-                            <span><i class="fas fa-user"></i> {{ action.pilote|default:"-"|truncatechars:15 }}</span>
-                            <span><i class="fas fa-calendar-alt"></i> {{ action.date_prevue|date:"d/m/Y"|default:"-" }}</span>
-                        </div>
-                        {% if action.en_retard %}
-                        <span class="badge bg-danger mt-1"><i class="fas fa-exclamation"></i> En retard</span>
-                        {% endif %}
-                        <div class="progress-mini"><div class="progress-bar bg-danger" style="width: {{ action.avancement }}%"></div></div>
-                        <small class="text-muted">{{ action.avancement }}%</small>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-                {% if stats.en_cours == 0 %}
-                <div class="empty-kanban"><i class="fas fa-inbox fa-2x mb-2"></i><p class="small">Aucune action en cours</p></div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Colonne RÉALISÉ -->
-        <div class="col-md-4 mb-3">
-            <div class="kanban-column realise">
-                <h5><i class="fas fa-check-circle me-2"></i> RÉALISÉ <span class="badge bg-info float-end">{{ stats.realises }}</span></h5>
-                {% for action in actions %}
-                    {% if action.statut == 'REALISE' %}
-                    <div class="action-card type-{{ action.type_action }}" style="border-left-color: #4facfe;" onclick="window.location='{% url 'reclamations:pdca_modifier' action.id %}'">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge {% if action.type_action == 'CORRECTIVE' %}bg-primary{% else %}bg-warning text-dark{% endif %}">{{ action.get_type_action_display }}</span>
-                            <small class="text-muted">{{ action.huitd.reclamation.numero_reclamation }}</small>
-                        </div>
-                        <div class="action-title">{{ action.action|truncatechars:80 }}</div>
-                        <div class="action-meta">
-                            <span><i class="fas fa-user"></i> {{ action.pilote|default:"-"|truncatechars:15 }}</span>
-                            <span><i class="fas fa-calendar-check"></i> {{ action.date_realisee|date:"d/m/Y"|default:"-" }}</span>
-                        </div>
-                        {% if action.verification_efficacite %}
-                        <small class="text-success d-block mt-1"><i class="fas fa-check-circle"></i> Vérification renseignée</small>
-                        {% endif %}
-                        <div class="progress-mini"><div class="progress-bar bg-info" style="width: {{ action.avancement }}%"></div></div>
-                        <small class="text-muted">{{ action.avancement }}%</small>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-                {% if stats.realises == 0 %}
-                <div class="empty-kanban"><i class="fas fa-inbox fa-2x mb-2"></i><p class="small">Aucune action réalisée</p></div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Tableau détaillé -->
+    <!-- Tableau détaillé avec pagination -->
     <div class="card mt-4">
-        <div class="card-header bg-light">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <h6 class="mb-0"><i class="fas fa-table me-2"></i> Liste détaillée des actions en cours</h6>
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="?per_page=25{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="btn btn-outline-secondary {% if per_page == 25 %}active{% endif %}">25</a>
+                <a href="?per_page=50{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="btn btn-outline-secondary {% if per_page == 50 %}active{% endif %}">50</a>
+                <a href="?per_page=100{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="btn btn-outline-secondary {% if per_page == 100 %}active{% endif %}">100</a>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -301,6 +222,89 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination -->
+            {% if actions.has_other_pages %}
+            <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                <div class="pagination-info">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Affichage des actions <strong>{{ actions.start_index }}</strong> à <strong>{{ actions.end_index }}</strong>
+                    sur <strong>{{ actions.paginator.count }}</strong> au total
+                    {% if actions.paginator.num_pages > 1 %}
+                    (Page <strong>{{ actions.number }}</strong>/<strong>{{ actions.paginator.num_pages }}</strong>)
+                    {% endif %}
+                </div>
+                
+                <ul class="pagination mb-0">
+                    <!-- Première page -->
+                    {% if actions.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if per_page %}&per_page={{ per_page }}{% endif %}" aria-label="Première">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-double-left"></i></span>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Page précédente -->
+                    {% if actions.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ actions.previous_page_number }}{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if per_page %}&per_page={{ per_page }}{% endif %}" aria-label="Précédente">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-left"></i></span>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Pages numérotées (affiche jusqu'à 5 pages autour de la page courante) -->
+                    {% for num in actions.paginator.page_range %}
+                        {% if num == actions.number %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > actions.number|add:'-3' and num < actions.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if per_page %}&per_page={{ per_page }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <!-- Page suivante -->
+                    {% if actions.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ actions.next_page_number }}{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if per_page %}&per_page={{ per_page }}{% endif %}" aria-label="Suivante">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-right"></i></span>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Dernière page -->
+                    {% if actions.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ actions.paginator.num_pages }}{% for key, value in filtres.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% if per_page %}&per_page={{ per_page }}{% endif %}" aria-label="Dernière">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-double-right"></i></span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -323,7 +327,7 @@
                             <td>{{ action.action|truncatechars:60 }}</td>
                             <td>{{ action.pilote }}</td>
                             <td>{{ action.date_prevue|date:"d/m/Y" }}</td>
-                            <td><span class="badge bg-danger">{{ action.delai_restant }} jours</span></td>
+                            <td><span class="badge bg-danger">{{ action.delai_restant|default:"0" }} jours</span></td>
                             <td><a href="{% url 'reclamations:pdca_modifier' action.id %}" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a></td>
                         </tr>
                         {% endfor %}

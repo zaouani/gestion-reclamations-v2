@@ -47,6 +47,10 @@
         padding: 0.25rem 0.5rem;
         font-size: 0.75rem;
     }
+    .info-badge {
+        display: inline-block;
+        margin-right: 15px;
+    }
 </style>
 {% endblock %}
 
@@ -132,6 +136,23 @@
                                 </span>
                                 {% endfor %}
                             </div>
+                            <!-- NOUVEAU : Éléments alignés 4DP et Clôture -->
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <h6 class="mb-1">4DP nécessaire ? :</h6>
+                                        {% if item.reclamation.besoin_4dp %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-check-circle"></i> Oui
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-times-circle"></i> Non
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-4 text-end">
                             <div class="mb-2">
@@ -201,6 +222,23 @@
                                     {{ alerte.type }} - J-{{ alerte.jours_restants }}
                                 </span>
                                 {% endfor %}
+                            </div>
+                            <!-- NOUVEAU : Éléments alignés 4DP et Clôture -->
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <h6 class="mb-1">4DP nécessaire ? :</h6>
+                                        {% if item.reclamation.besoin_4dp %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-check-circle"></i> Oui
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-times-circle"></i> Non
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-4 text-end">

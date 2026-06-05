@@ -132,7 +132,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Rapport des réclamations</h1>
+            <h1>Rapport des réclamations</h1>
             <p>{{ date_aujourdhui|date:"d/m/Y" }}</p>
         </div>
         
@@ -154,7 +154,7 @@
             {% if retard_list %}
             <div class="section">
                 <div class="section-title retard">
-                    🔴 RÉCLAMATIONS EN RETARD (URGENT)
+                    RÉCLAMATIONS EN RETARD (URGENT)
                 </div>
                 {% for item in retard_list %}
                 <div class="reclamation-card retard">
@@ -162,7 +162,7 @@
                         {{ item.reclamation.numero_reclamation }} - {{ item.reclamation.client.nom }}
                     </div>
                     <div class="reclamation-details">
-                        📅 Créée le: {{ item.reclamation.date_reclamation|date:"d/m/Y" }}
+                         Créée le: {{ item.reclamation.date_reclamation|date:"d/m/Y" }}
                     </div>
                     <div class="reclamation-details">
                         {% for notif in item.notifications %}
@@ -172,7 +172,7 @@
                         {% endfor %}
                     </div>
                     <a href="{{ site_url }}{% url 'reclamations:modifier_etats' item.reclamation.id %}" class="button">
-                        🔧 Modifier les états
+                         Modifier les états
                     </a>
                 </div>
                 {% endfor %}
@@ -182,7 +182,7 @@
             {% if alerte_list %}
             <div class="section">
                 <div class="section-title alerte">
-                    ⏰ RÉCLAMATIONS EN ALERTE (Échéance proche)
+                     RÉCLAMATIONS EN ALERTE (Échéance proche)
                 </div>
                 {% for item in alerte_list %}
                 <div class="reclamation-card alerte">
@@ -190,7 +190,7 @@
                         {{ item.reclamation.numero_reclamation }} - {{ item.reclamation.client.nom }}
                     </div>
                     <div class="reclamation-details">
-                        📅 Créée le: {{ item.reclamation.date_reclamation|date:"d/m/Y" }}
+                         Créée le: {{ item.reclamation.date_reclamation|date:"d/m/Y" }}
                     </div>
                     <div class="reclamation-details">
                         {% for alerte in item.alertes %}
@@ -200,7 +200,7 @@
                         {% endfor %}
                     </div>
                     <a href="{{ site_url }}{% url 'reclamations:modifier_etats' item.reclamation.id %}" class="button">
-                        🔧 Modifier les états
+                        Modifier les états
                     </a>
                 </div>
                 {% endfor %}
@@ -208,7 +208,7 @@
             {% endif %}
             
             <div style="margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 5px;">
-                <strong>📝 Actions recommandées:</strong>
+                <strong> Actions recommandées:</strong>
                 <ul style="margin: 10px 0 0 20px;">
                     <li>Traiter en priorité les réclamations en retard</li>
                     <li>Planifier le traitement des réclamations en alerte</li>

@@ -11,7 +11,8 @@
                 Root causes of occurrence?
             </th>
             <td>
-                <textarea name="d5_causes_occurrence" rows="5">{{ huitd.d5_causes_occurrence }}</textarea>
+                voir ishikawa et 5W2H<br>
+                see Ishikawa and 5W2H
             </td>
         </tr>
         <tr>
@@ -20,8 +21,8 @@
                 Root causes of non-detection?
             </th>
             <td>
-                <textarea name="d5_causes_non_detection" rows="5">{{ huitd.d5_causes_non_detection }}</textarea>
-                <br><br>
+                voir ishikawa et 5W2H<br>
+                see Ishikawa and 5W2H
             </td>
         </tr>
     </table>
@@ -42,6 +43,7 @@
 
 <!-- ==================== MODALS DES MÉTHODES ==================== -->
 {% include 'reclamations/huitd/includes/huitd_modals.html' %}
+
 <!-- ==================== D6 : Actions ==================== -->
 <div class="section-title">D6 : Actions correctives et préventives / Corrective and Preventive Actions</div>
 
@@ -297,8 +299,7 @@
             </tbody>
         </table>
         
-        
-        
+
         <div class="text-end mb-4 no-print">
             <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Enregistrer D8</button>
         </div>
@@ -318,6 +319,7 @@
                 <td>
                     <label><input type="radio" name="huitd_accepte" value="oui" {% if huitd.huitd_accepte %}checked{% endif %}> Oui / YES</label>
                     <label class="ms-4">
+                        <input type="radio" name="huitd_accepte" value="non" {% if not huitd.huitd_accepte %}checked{% endif %}>
                         Non / NO, exigé par / required by : 
                         <input type="text" name="decision_hcim" value="{{ huitd.decision_hcim }}" style="width:200px;">
                     </label>
@@ -349,50 +351,9 @@
 <!-- ==================== Évidences ==================== -->
 <div class="section-title">📎 Évidences / Pièces jointes</div>
 
-{% if huitd.evidences.exists %}
-<div class="mb-4">
-    {% for ev in huitd.evidences.all %}
-    <div class="d-flex align-items-center mb-2 p-2 border rounded">
-        <i class="fas fa-paperclip text-muted me-3"></i>
-        <div class="flex-grow-1">
-            <strong>{{ ev.titre }}</strong>
-            <br><small class="text-muted">{{ ev.date_ajout|date:"d/m/Y H:i" }}</small>
-        </div>
-        <a href="{{ ev.fichier.url }}" class="btn btn-sm btn-outline-primary me-1" target="_blank">
-            <i class="fas fa-download"></i>
-        </a>
-        <a href="{% url 'reclamations:huitd_supprimer_evidence' ev.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Supprimer cette évidence ?')">
-            <i class="fas fa-trash"></i>
-        </a>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
 <form method="post" action="{% url 'reclamations:huitd_modifier' huitd.id %}" enctype="multipart/form-data">
     {% csrf_token %}<input type="hidden" name="section" value="evidences">
-    
-    <h6>Ajouter un fichier :</h6>
-    <div class="row">
-        <div class="col-md-4 mb-2">
-            <label class="form-label fw-bold">Titre</label>
-            <input type="text" name="titre" class="form-control" required>
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label fw-bold">Description</label>
-            <input type="text" name="description_ev" class="form-control">
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label fw-bold">Fichier</label>
-            <input type="file" name="fichier" class="form-control" required>
-        </div>
-    </div>
-    
-    <div class="text-end mt-3 no-print">
-        <button type="submit" class="btn btn-success btn-sm">
-            <i class="fas fa-upload"></i> Ajouter l'évidence
-        </button>
-    </div>
+    {% include 'reclamations/huitd/includes/Evidences.html' %}
 </form>
 
 <script>
