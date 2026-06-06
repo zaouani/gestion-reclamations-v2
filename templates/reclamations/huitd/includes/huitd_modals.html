@@ -402,83 +402,103 @@ function ajouterCauseIshikawa(cat) {
         if (categorie === undefined) categorie = 'B';
         if (data === undefined) data = null;
         
-        const template = document.getElementById('vrs-row-template');
         const tbody = document.getElementById('vrsTbody');
-        const newRow = template.content.cloneNode(true);
-        const row = newRow.querySelector('tr');
+        if (!tbody) return;
         
-        // Ajouter un ID unique
-        const rowId = 'vrs_row_' + Date.now() + '_' + vrsRowCounter;
+        // Générer un index unique pour cette ligne
+        const rowIndex = vrsRowCounter;
         vrsRowCounter = vrsRowCounter + 1;
-        row.id = rowId;
         
-        // Définir la catégorie
-        const categorieSelect = row.querySelector('.categorie-select');
-        if (categorieSelect) {
-            categorieSelect.value = categorie;
+        // Créer la ligne
+        const newRow = document.createElement('tr');
+        newRow.className = 'vrs-row';
+        newRow.setAttribute('data-row-index', rowIndex);
+        newRow.id = 'vrs_row_' + rowIndex;
+        
+        // Définir les options des catégories
+        const categories = {
+            'A': 'A - Milieu / Environment',
+            'B': 'B - Méthodes / Methods',
+            'C': 'C - Moyens / Resources',
+            'D': 'D - Main d\'œuvre / Personnel',
+            'E': 'E - Matières / Materials',
+            'F': 'F - Mesures / Measures'
+        };
+        
+        let optionsHtml = '';
+        for (let key in categories) {
+            let selected = (key === categorie) ? 'selected' : '';
+            optionsHtml += `<option value="${key}" ${selected}>${categories[key]}</option>`;
         }
         
-        // Remplir avec les données existantes
-        if (data) {
-            const idInput = row.querySelector('input[name="vrs_id[]"]');
-            if (idInput) idInput.value = data.id || '';
-            
-            const facteurTextarea = row.querySelector('textarea[name="vrs_facteur[]"]');
-            if (facteurTextarea) facteurTextarea.value = data.facteur_probable || '';
-            
-            const parametreTextarea = row.querySelector('textarea[name="vrs_parametre[]"]');
-            if (parametreTextarea) parametreTextarea.value = data.parametre_mesurable || '';
-            
-            const standardTextarea = row.querySelector('textarea[name="vrs_standard[]"]');
-            if (standardTextarea) standardTextarea.value = data.standard_exigence || '';
-            
-            const bonnesTextarea = row.querySelector('textarea[name="vrs_bonnes[]"]');
-            if (bonnesTextarea) bonnesTextarea.value = data.donnees_bonnes || '';
-            
-            const mauvaisesTextarea = row.querySelector('textarea[name="vrs_mauvaises[]"]');
-            if (mauvaisesTextarea) mauvaisesTextarea.value = data.donnees_mauvaises || '';
-            
-            const suiviCheckbox = row.querySelector('input[name="vrs_suivi[]"]');
-            if (suiviCheckbox) suiviCheckbox.checked = data.standard_suivi || false;
-            
-            const approCheckbox = row.querySelector('input[name="vrs_appro[]"]');
-            if (approCheckbox) approCheckbox.checked = data.standard_approprie || false;
-            
-            const lienCheckbox = row.querySelector('input[name="vrs_lien[]"]');
-            if (lienCheckbox) lienCheckbox.checked = data.lien_prouve || false;
-            
-            const prouveCheckbox = row.querySelector('input[name="vrs_prouve[]"]');
-            if (prouveCheckbox) prouveCheckbox.checked = data.facteur_prouve || false;
-        }
+        // Récupérer les valeurs
+        const dataId = data ? (data.id || '') : '';
+        const facteurValue = escapeHtml(data ? (data.facteur_probable || '') : '');
+        const parametreValue = escapeHtml(data ? (data.parametre_mesurable || '') : '');
+        const standardValue = escapeHtml(data ? (data.standard_exigence || '') : '');
+        const bonnesValue = escapeHtml(data ? (data.donnees_bonnes || '') : '');
+        const mauvaisesValue = escapeHtml(data ? (data.donnees_mauvaises || '') : '');
         
-        tbody.appendChild(row);
+        // Checkboxes
+        const suiviChecked = data && data.standard_suivi ? 'checked' : '';
+        const approChecked = data && data.standard_approprie ? 'checked' : '';
+        const lienChecked = data && data.lien_prouve ? 'checked' : '';
+        const prouveChecked = data && data.facteur_prouve ? 'checked' : '';
         
-        // Ajouter l'événement de suppression
-        const removeBtn = row.querySelector('.remove-row');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                if (confirm('Supprimer cette ligne ?')) {
-                    row.remove();
-                }
-            });
-        }
+        // Utiliser des noms de champs avec index
+        newRow.innerHTML = `
+            <td>
+                <select class="form-control form-control-sm categorie-select" name="vrs_categorie_${rowIndex}" required>
+                    ${optionsHtml}
+                </select>
+                <input type="hidden" name="vrs_id_${rowIndex}" value="${dataId}">
+             </td>
+            <td><textarea name="vrs_facteur_${rowIndex}" class="form-control form-control-sm" rows="1">${facteurValue}</textarea></td>
+            <td><textarea name="vrs_parametre_${rowIndex}" class="form-control form-control-sm" rows="1">${parametreValue}</textarea></td>
+            <td><textarea name="vrs_standard_${rowIndex}" class="form-control form-control-sm" rows="1">${standardValue}</textarea></td>
+            <td><textarea name="vrs_bonnes_${rowIndex}" class="form-control form-control-sm" rows="1">${bonnesValue}</textarea></td>
+            <td><textarea name="vrs_mauvaises_${rowIndex}" class="form-control form-control-sm" rows="1">${mauvaisesValue}</textarea></td>
+            <td class="text-center">
+                <input type="checkbox" name="vrs_suivi_${rowIndex}" class="form-check-input" value="1" ${suiviChecked}>
+            </td>
+            <td class="text-center">
+                <input type="checkbox" name="vrs_appro_${rowIndex}" class="form-check-input" value="1" ${approChecked}>
+            </td>
+            <td class="text-center">
+                <input type="checkbox" name="vrs_lien_${rowIndex}" class="form-check-input" value="1" ${lienChecked}>
+            </td>
+            <td class="text-center">
+                <input type="checkbox" name="vrs_prouve_${rowIndex}" class="form-check-input" value="1" ${prouveChecked}>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-danger remove-row" onclick="this.closest('tr').remove()">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
         
-        return row;
+        tbody.appendChild(newRow);
+        return newRow;
     }
     
-    // Bouton pour ajouter une ligne spécifique à la catégorie B (Méthodes)
-    function addMethodRow() {
-        addVRSRow('B');
+    // Fonction pour échapper les caractères HTML
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
+    
+    // Fonction pour ajouter une ligne (accessible globalement)
+    window.addVRSRow = addVRSRow;
     
     // Initialisation au chargement de la page
     document.addEventListener('DOMContentLoaded', function() {
         loadVRSData();
         
-        // Ajouter un bouton spécifique pour les méthodes
+        // Ajouter des boutons pour ajouter des lignes
         const modalContent = document.querySelector('#modal-vrs .method-modal-content');
         if (modalContent) {
-            // Vérifier si les boutons existent déjà
             if (!document.getElementById('vrs-button-container')) {
                 const buttonContainer = document.createElement('div');
                 buttonContainer.id = 'vrs-button-container';
@@ -494,7 +514,7 @@ function ajouterCauseIshikawa(cat) {
                         <button type="button" class="btn btn-sm btn-info" onclick="addVRSRow('C')">
                             <i class="fas fa-plus"></i> Ajouter Moyens
                         </button>
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="addVRSRow('E')">
+                        <button type="button" class="btn btn-sm btn-warning" onclick="addVRSRow('E')">
                             <i class="fas fa-plus"></i> Ajouter Matières
                         </button>
                         <button type="button" class="btn btn-sm btn-dark" onclick="addVRSRow('F')">

@@ -5045,8 +5045,8 @@ def _save_d4(request, huitd):
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_d5(request, huitd):
-    huitd.d5_causes_occurrence = request.POST.get('d5_causes_occurrence', '')
-    huitd.d5_causes_non_detection = request.POST.get('d5_causes_non_detection', '')
+    huitd.d5_causes_occurrence = request.POST.get('d5_causes_occurrence', "voir ishikawa et 5W2H see / Ishikawa and 5W2H")
+    huitd.d5_causes_non_detection = request.POST.get('d5_causes_non_detection', "voir ishikawa et 5W2H / see Ishikawa and 5W2H")
     huitd.save()
     messages.success(request, "✅ D5 enregistré")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
@@ -5153,111 +5153,49 @@ def _save_ishikawa(request, huitd):
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
 
 def _save_vrs(request, huitd):
-    """Sauvegarde du tableau VRS avec multiples lignes"""
+    """Sauvegarde du tableau VRS avec index numériques"""
     
     # Récupérer ou créer le VRS
     vrs, created = VRS.objects.get_or_create(huitd=huitd)
     
-    # Récupérer les données du formulaire
-    vrs_ids = request.POST.getlist('vrs_id[]')
-    vrs_categories = request.POST.getlist('vrs_categorie[]')
-    vrs_facteurs = request.POST.getlist('vrs_facteur[]')
-    vrs_parametres = request.POST.getlist('vrs_parametre[]')
-    vrs_standards = request.POST.getlist('vrs_standard[]')
-    vrs_bonnes = request.POST.getlist('vrs_bonnes[]')
-    vrs_mauvaises = request.POST.getlist('vrs_mauvaises[]')
-    vrs_suivis = request.POST.getlist('vrs_suivi[]')
-    vrs_appro = request.POST.getlist('vrs_appro[]')
-    vrs_liens = request.POST.getlist('vrs_lien[]')
-    vrs_prouves = request.POST.getlist('vrs_prouve[]')
+    # Supprimer toutes les anciennes entrées
+    vrs.facteurs.all().delete()
     
-    facteurs_a_conserver = []
+    # Trouver tous les indices
+    import re
+    indices = set()
+    for key in request.POST.keys():
+        match = re.search(r'vrs_categorie_(\d+)', key)
+        if match:
+            indices.add(int(match.group(1)))
     
-    # Compter combien de lignes par catégorie pour définir l'ordre
+    # Ordre par catégorie
     ordre_par_categorie = {}
     
-    for i in range(len(vrs_categories)):
-        categorie = vrs_categories[i]
-        if not categorie:
+    for idx in sorted(indices):
+        categorie = request.POST.get(f'vrs_categorie_{idx}', '')
+        if not categorie or categorie == 'D':
             continue
         
-        # Initialiser le compteur pour cette catégorie
         if categorie not in ordre_par_categorie:
             ordre_par_categorie[categorie] = 1
         
-        facteur = vrs_facteurs[i] if i < len(vrs_facteurs) else ''
-        parametre = vrs_parametres[i] if i < len(vrs_parametres) else ''
-        standard = vrs_standards[i] if i < len(vrs_standards) else ''
-        bonnes = vrs_bonnes[i] if i < len(vrs_bonnes) else ''
-        mauvaises = vrs_mauvaises[i] if i < len(vrs_mauvaises) else ''
-        suivi = i < len(vrs_suivis) and vrs_suivis[i] == 'on'
-        appro = i < len(vrs_appro) and vrs_appro[i] == 'on'
-        lien = i < len(vrs_liens) and vrs_liens[i] == 'on'
-        prouve = i < len(vrs_prouves) and vrs_prouves[i] == 'on'
+        FacteurVRS.objects.create(
+            vrs=vrs,
+            categorie=categorie,
+            facteur_probable=request.POST.get(f'vrs_facteur_{idx}', ''),
+            parametre_mesurable=request.POST.get(f'vrs_parametre_{idx}', ''),
+            standard_exigence=request.POST.get(f'vrs_standard_{idx}', ''),
+            donnees_bonnes=request.POST.get(f'vrs_bonnes_{idx}', ''),
+            donnees_mauvaises=request.POST.get(f'vrs_mauvaises_{idx}', ''),
+            standard_suivi=request.POST.get(f'vrs_suivi_{idx}') == '1',
+            standard_approprie=request.POST.get(f'vrs_appro_{idx}') == '1',
+            lien_prouve=request.POST.get(f'vrs_lien_{idx}') == '1',
+            facteur_prouve=request.POST.get(f'vrs_prouve_{idx}') == '1',
+            ordre=ordre_par_categorie[categorie]
+        )
         
-        # Ordre unique par catégorie
-        ordre = ordre_par_categorie[categorie]
         ordre_par_categorie[categorie] += 1
-        
-        facteur_id = vrs_ids[i] if i < len(vrs_ids) and vrs_ids[i].isdigit() else None
-        
-        if facteur_id:
-            # Mettre à jour existant
-            try:
-                f = FacteurVRS.objects.get(id=int(facteur_id), vrs=vrs)
-                f.categorie = categorie
-                f.facteur_probable = facteur
-                f.parametre_mesurable = parametre
-                f.standard_exigence = standard
-                f.donnees_bonnes = bonnes
-                f.donnees_mauvaises = mauvaises
-                f.standard_suivi = suivi
-                f.standard_approprie = appro
-                f.lien_prouve = lien
-                f.facteur_prouve = prouve
-                f.ordre = ordre
-                f.save()
-                facteurs_a_conserver.append(f.id)
-            except FacteurVRS.DoesNotExist:
-                # Créer nouveau
-                f = FacteurVRS.objects.create(
-                    vrs=vrs,
-                    categorie=categorie,
-                    facteur_probable=facteur,
-                    parametre_mesurable=parametre,
-                    standard_exigence=standard,
-                    donnees_bonnes=bonnes,
-                    donnees_mauvaises=mauvaises,
-                    standard_suivi=suivi,
-                    standard_approprie=appro,
-                    lien_prouve=lien,
-                    facteur_prouve=prouve,
-                    ordre=ordre
-                )
-                facteurs_a_conserver.append(f.id)
-        else:
-            # Créer nouveau
-            f = FacteurVRS.objects.create(
-                vrs=vrs,
-                categorie=categorie,
-                facteur_probable=facteur,
-                parametre_mesurable=parametre,
-                standard_exigence=standard,
-                donnees_bonnes=bonnes,
-                donnees_mauvaises=mauvaises,
-                standard_suivi=suivi,
-                standard_approprie=appro,
-                lien_prouve=lien,
-                facteur_prouve=prouve,
-                ordre=ordre
-            )
-            facteurs_a_conserver.append(f.id)
-    
-    # Supprimer les facteurs qui ne sont plus dans la liste
-    if facteurs_a_conserver:
-        vrs.facteurs.exclude(id__in=facteurs_a_conserver).delete()
-    else:
-        vrs.facteurs.all().delete()
     
     messages.success(request, "✅ VRS enregistré avec succès!")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)

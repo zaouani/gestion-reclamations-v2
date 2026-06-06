@@ -5,520 +5,897 @@
 
 {% block extra_css %}
 <style>
-    .huitd-container { max-width: 1200px; margin: 0 auto; font-family: Arial, sans-serif; }
-    .huitd-title { text-align: center; font-size: 1.5rem; font-weight: bold; margin: 20px 0; padding: 10px; border: 2px solid #000; }
-    .section-title { background-color: #1a5276; color: white; padding: 10px 15px; font-size: 1.1rem; font-weight: bold; margin: 25px 0 10px 0; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; border: 1px solid #999; padding: 15px; }
-    .info-item { display: flex; flex-direction: column; }
-    .info-item label { font-weight: bold; font-size: 0.8rem; color: #555; }
-    .info-item .info-value { padding: 6px; border-bottom: 1px solid #ddd; min-height: 30px; }
-    table.huitd-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-    table.huitd-table th, table.huitd-table td { border: 1px solid #999; padding: 8px; vertical-align: top; }
-    table.huitd-table th { background-color: #e9ecef; font-weight: bold; width: 40%; }
-    table.huitd-table td { width: 60%; }
-    .separator { border-top: 3px solid #1a5276; margin: 30px 0; }
-    .fin-4d { text-align: right; font-weight: bold; margin: 20px 0; color: #1a5276; font-size: 1.1rem; }
-    .fin-8d { text-align: right; font-weight: bold; margin: 20px 0; color: #c0392b; font-size: 1.1rem; }
+    /* Styles pour l'affichage et l'impression/PDF */
+    .huitd-container { 
+        max-width: 1200px; 
+        margin: 0 auto; 
+        font-family: 'Segoe UI', Arial, sans-serif;
+        background: white;
+        padding: 20px;
+    }
+    
+    .huitd-title { 
+        text-align: center; 
+        font-size: 1.8rem; 
+        font-weight: bold; 
+        margin: 20px 0; 
+        padding: 15px; 
+        background: linear-gradient(135deg, #1a5276 0%, #2c3e50 100%);
+        color: white;
+        border-radius: 8px;
+    }
+    
+    .section-title { 
+        background: linear-gradient(135deg, #1a5276 0%, #2471a3 100%);
+        color: white; 
+        padding: 10px 15px; 
+        font-size: 1.2rem; 
+        font-weight: bold; 
+        margin: 25px 0 10px 0;
+        border-radius: 5px;
+    }
+    
+    /* Grille d'informations */
+    .info-grid { 
+        display: grid; 
+        grid-template-columns: repeat(4, 1fr); 
+        gap: 12px; 
+        margin-bottom: 20px; 
+        border: 1px solid #dee2e6; 
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .info-item { 
+        display: flex; 
+        flex-direction: column; 
+    }
+    
+    .info-item label { 
+        font-weight: bold; 
+        font-size: 0.7rem; 
+        color: #1a5276; 
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-item .info-value { 
+        padding: 6px 0; 
+        border-bottom: 2px solid #dee2e6; 
+        min-height: 30px;
+        font-size: 0.9rem;
+    }
+    
+    /* Styles des tableaux */
+    table.huitd-table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin-bottom: 15px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    table.huitd-table th, 
+    table.huitd-table td { 
+        border: 1px solid #dee2e6; 
+        padding: 10px; 
+        vertical-align: top; 
+    }
+    
+    table.huitd-table th { 
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        font-weight: bold; 
+        width: 35%;
+        color: #1a5276;
+    }
+    
+    table.huitd-table td { 
+        width: 65%;
+        background: white;
+    }
+    
+    /* Badges d'état */
+    .badge-etat {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: white;
+    }
+    
     .badge-etat-OUVERT { background-color: #e74c3c; }
     .badge-etat-EN_COURS { background-color: #f39c12; color: #333; }
     .badge-etat-CLOTURE { background-color: #27ae60; }
-    @media print { .no-print { display: none !important; } body { font-size: 11px; } }
+    
+    /* Actions d'urgence et fin */
+    .fin-4d, .fin-8d { 
+        text-align: right; 
+        font-weight: bold; 
+        margin: 20px 0; 
+        font-size: 1.1rem; 
+    }
+    
+    .fin-4d { color: #2471a3; }
+    .fin-8d { color: #c0392b; }
+    
+    .separator { 
+        border-top: 3px solid #1a5276; 
+        margin: 30px 0; 
+    }
+    
+    /* ==================== STYLES ISHIKAWA EN ARÊTES DE POISSON ==================== */
+    .ishikawa-fishbone {
+        position: relative;
+        width: 100%;
+        min-height: 520px;
+        margin: 20px 0;
+        background: #fefefe;
+        border-radius: 8px;
+        padding: 20px 10px;
+        overflow-x: auto;
+    }
+    
+    .fishbone-svg-container {
+        position: relative;
+        width: 100%;
+        min-width: 900px;
+    }
+    
+    .fishbone-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    
+    .cause-box {
+        position: absolute;
+        background: white;
+        border: 2px solid;
+        border-radius: 6px;
+        padding: 6px 10px;
+        min-width: 160px;
+        max-width: 200px;
+        font-size: 0.7rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        z-index: 10;
+        transition: all 0.2s;
+    }
+    
+    .cause-box:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 20;
+    }
+    
+    .cause-box .branch-letter {
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 22px;
+        font-weight: bold;
+        font-size: 0.7rem;
+        color: white;
+        margin-right: 6px;
+    }
+    
+    .cause-box .branch-title {
+        font-weight: bold;
+        font-size: 0.75rem;
+        margin-bottom: 5px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 3px;
+    }
+    
+    .cause-item {
+        font-size: 0.65rem;
+        padding: 3px 0;
+        border-bottom: 1px dotted #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .cause-item:last-child {
+        border-bottom: none;
+    }
+    
+    .badge-occ {
+        background: #fadbd8;
+        color: #922b21;
+        font-size: 0.6rem;
+        padding: 1px 5px;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+    
+    .badge-nd {
+        background: #d6eaf8;
+        color: #1a5276;
+        font-size: 0.6rem;
+        padding: 1px 5px;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+    
+    /* Positions des boîtes de causes sur l'arête */
+    .cause-A { top: 15px; left: 3%; border-color: #e74c3c; }
+    .cause-B { top: 15px; left: 28%; border-color: #3498db; }
+    .cause-C { top: 15px; left: 53%; border-color: #2ecc71; }
+    .cause-D { bottom: 15px; left: 3%; border-color: #f39c12; }
+    .cause-E { bottom: 15px; left: 28%; border-color: #9b59b6; }
+    .cause-F { bottom: 15px; left: 53%; border-color: #1abc9c; }
+    
+    /* Version mobile du diagramme Ishikawa */
+    .ishikawa-mobile {
+        display: none;
+    }
+    
+    @media (max-width: 950px) {
+        .ishikawa-fishbone {
+            display: none;
+        }
+        .ishikawa-mobile {
+            display: block;
+        }
+    }
+    
+    /* Style pour l'impression */
+    @media print {
+        .no-print { 
+            display: none !important; 
+        }
+        
+        body { 
+            font-size: 10pt; 
+        }
+        
+        .huitd-container {
+            padding: 0;
+            margin: 0;
+        }
+        
+        .section-title {
+            background: #1a5276 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .huitd-title {
+            background: #1a5276 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .badge-etat, .badge-occ, .badge-nd {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .cause-box {
+            border: 1px solid #999;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .fishbone-svg {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        table.huitd-table {
+            page-break-inside: avoid;
+        }
+        
+        .info-grid {
+            page-break-inside: avoid;
+        }
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .info-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .huitd-title {
+            font-size: 1.2rem;
+        }
+        
+        table.huitd-table th,
+        table.huitd-table td {
+            padding: 6px;
+        }
+    }
+    
+    /* Cartes évidences */
+    .evidence-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.2s;
+        background: white;
+    }
+    
+    .evidence-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .evidence-card .card-header {
+        background: #f8f9fa;
+        padding: 8px 12px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .evidence-card .card-body {
+        padding: 12px;
+        text-align: center;
+    }
+    
+    .bilingual-text {
+        font-size: 0.85rem;
+    }
+    
+    .bilingual-text small {
+        display: block;
+        color: #666;
+        font-size: 0.7rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="huitd-container">
-
-    <!-- Boutons -->
+    
+    <!-- Boutons d'action (masqués à l'impression) -->
     <div class="row mb-4 no-print">
-        <div class="col">
-            <a href="{% url 'reclamations:huitd_modifier' huitd.id %}" class="btn btn-warning me-2"><i class="fas fa-edit"></i> Modifier</a>
-            <button onclick="window.print()" class="btn btn-primary me-2"><i class="fas fa-print"></i> Imprimer</button>
-            <a href="{% url 'reclamations:detail_reclamation' huitd.reclamation.id %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Retour</a>
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <a href="{% url 'reclamations:huitd_modifier' huitd.id %}" class="btn btn-warning">
+                    <i class="fas fa-edit"></i> Modifier / Edit
+                </a>
+                <button onclick="window.print()" class="btn btn-primary">
+                    <i class="fas fa-print"></i> Imprimer / Print
+                </button>
+                <button onclick="window.open('?download=pdf', '_blank')" class="btn btn-success">
+                    <i class="fas fa-download"></i> Télécharger PDF / Download PDF
+                </button>
+                <a href="{% url 'reclamations:detail_reclamation' huitd.reclamation.id %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour / Back
+                </a>
+            </div>
         </div>
     </div>
-
-    <!-- TITRE -->
+    
+    <!-- En-tête du document -->
     <div class="huitd-title">
-        FORMULAIRE 8D<br>
-        <small>Réf : {{ huitd.ref }} | Vers : {{ huitd.version }} | N° 8D : {{ huitd.numero_8d|default:"-" }} | 
-        État : <span class="badge badge-etat-{{ huitd.etat }}">{{ huitd.get_etat_display }}</span></small>
+        RAPPORT D'ANALYSE 8D / 8D ANALYSIS REPORT<br>
+        <small style="font-size: 0.9rem;">
+            Réf / Ref : {{ huitd.ref }} | Version : {{ huitd.version }} | N° 8D / 8D N° : {{ huitd.numero_8d|default:"-" }} | 
+            État / Status : <span class="badge-etat badge-etat-{{ huitd.etat }}">{{ huitd.get_etat_display }}</span>
+        </small>
     </div>
-
-    <!-- ==================== INFORMATIONS GÉNÉRALES ==================== -->
-    <div class="section-title">Informations Générales</div>
+    
+    <!-- ==================== INFORMATIONS GÉNÉRALES / GENERAL INFORMATION ==================== -->
+    <div class="section-title">
+        <i class="fas fa-info-circle"></i> Informations Générales / General Information
+    </div>
     <div class="info-grid">
-        <div class="info-item"><label>n°OF</label><div class="info-value">{{ huitd.numero_of|default:"-" }}</div></div>
-        <div class="info-item"><label>Date d'ouverture</label><div class="info-value">{{ huitd.date_ouverture|date:"d/m/Y"|default:"-" }}</div></div>
-        <div class="info-item"><label>Désignation pièces</label><div class="info-value">{{ huitd.designation_piece|default:"-" }}</div></div>
-        <div class="info-item"><label>n°article</label><div class="info-value">{{ huitd.numero_article|default:"-" }}</div></div>
-        <div class="info-item"><label>n° NC</label><div class="info-value">{{ huitd.numero_nc|default:"-" }}</div></div>
-        <div class="info-item"><label>Client</label><div class="info-value">{{ huitd.client|default:"-" }}</div></div>
-        <div class="info-item"><label>Lieu de détection</label><div class="info-value">{{ huitd.get_lieu_detection_display|default:"-" }}</div></div>
-        <div class="info-item"><label>Interne</label><div class="info-value">{{ huitd.get_interne_display|default:"-" }}</div></div>
+        <div class="info-item">
+            <label>N° OF / WO N°</label>
+            <div class="info-value">{{ huitd.numero_of|default:"-" }}</div>
+        </div>
+        <div class="info-item">
+            <label>Date d'ouverture / Opening date</label>
+            <div class="info-value">{{ huitd.date_ouverture|date:"d/m/Y"|default:"-" }}</div>
+        </div>
+        <div class="info-item">
+            <label>Désignation pièces / Part designation</label>
+            <div class="info-value">{{ huitd.designation_piece|default:"-" }}</div>
+        </div>
+        <div class="info-item">
+            <label>N° Article / Part N°</label>
+            <div class="info-value">{{ huitd.numero_article|default:"-" }}</div>
+        </div>
+        <div class="info-item">
+            <label>N° NC / NCR N°</label>
+            <div class="info-value">{{ huitd.numero_nc|default:"-" }}</div>
+        </div>
+        <div class="info-item">
+            <label>Client / Customer</label>
+            <div class="info-value"><strong>{{ huitd.client|default:"-" }}</strong></div>
+        </div>
+        <div class="info-item">
+            <label>Lieu de détection / Detection location</label>
+            <div class="info-value">{{ huitd.get_lieu_detection_display|default:"-" }}</div>
+        </div>
+        <div class="info-item">
+            <label>Interne / Internal</label>
+            <div class="info-value">{{ huitd.get_interne_display|default:"-" }}</div>
+        </div>
     </div>
-
+    
     <!-- ==================== D1 : 5W2H ==================== -->
-    <div class="section-title">D1 : Description du problème</div>
+    <div class="section-title">
+        <i class="fas fa-question-circle"></i> D1 : Description du problème / Problem Description (5W2H)
+    </div>
     <table class="huitd-table">
-        <tr><th>Qui ? / Who ?</th><td>{{ huitd.d1_qui|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Quoi ? / What ?</th><td>{{ huitd.d1_quoi|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Où ? / Where ?</th><td>{{ huitd.d1_ou|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Quand ? / When ?</th><td>{{ huitd.d1_quand|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Comment ? / How ?</th><td>{{ huitd.d1_comment|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Combien ? / How much ?</th><td>{{ huitd.d1_combien|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Pourquoi ? / Why ?</th><td>{{ huitd.d1_pourquoi|default:"-"|linebreaksbr }}</td></tr>
+        <tr><th>Qui ? / Who ?</th><td>{{ huitd.d1_qui|default:"-"|linebreaksbr }}<br><small class="text-muted">Who detected/reported?</small></td></tr>
+        <tr><th>Quoi ? / What ?</th><td>{{ huitd.d1_quoi|default:"-"|linebreaksbr }}<br><small class="text-muted">What is the defect?</small></td></tr>
+        <tr><th>Où ? / Where ?</th><td>{{ huitd.d1_ou|default:"-"|linebreaksbr }}<br><small class="text-muted">Where was it found?</small></td></tr>
+        <tr><th>Quand ? / When ?</th><td>{{ huitd.d1_quand|default:"-"|linebreaksbr }}<br><small class="text-muted">When did it occur?</small></td></tr>
+        <tr><th>Comment ? / How ?</th><td>{{ huitd.d1_comment|default:"-"|linebreaksbr }}<br><small class="text-muted">How was it detected?</small></td></tr>
+        <tr><th>Combien ? / How many ?</th><td>{{ huitd.d1_combien|default:"-"|linebreaksbr }}<br><small class="text-muted">Quantity affected?</small></td></tr>
+        <tr><th>Pourquoi ? / Why ?</th><td>{{ huitd.d1_pourquoi|default:"-"|linebreaksbr }}<br><small class="text-muted">Why is it important?</small></td></tr>
     </table>
+    
     <table class="huitd-table">
-        <tr><th>Caractérisation du défaut</th><td>{{ huitd.d1_caracterisation|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Problème déjà connu ?</th><td>{{ huitd.d1_probleme_connu|yesno:"Oui,Non" }}</td></tr>
-        <tr><th>Risque sur produit/process similaire ?</th><td>{{ huitd.d1_risque|yesno:"Oui,Non" }}{% if huitd.d1_risque_detail %} - {{ huitd.d1_risque_detail }}{% endif %}</td></tr>
+        <tr><th>Caractérisation du défaut / Defect characterization</th><td>{{ huitd.d1_caracterisation|default:"-"|linebreaksbr }}<br><small class="text-muted">What does the defect look like?</small></td></tr>
+        <tr><th>Problème déjà connu ? / Known issue ?</th><td>{{ huitd.d1_probleme_connu|yesno:"Oui/Yes,Non/No" }}<br><small class="text-muted">Has this happened before?</small></td></tr>
+        <tr><th>Risque sur produit/process similaire ? / Risk on similar products/processes ?</th><td>{{ huitd.d1_risque|yesno:"Oui/Yes,Non/No" }}{% if huitd.d1_risque_detail %} - {{ huitd.d1_risque_detail }}{% endif %}<br><small class="text-muted">Potential impact on other products?</small></td></tr>
     </table>
+    
     {% if huitd.d1_illustration_defectueux or huitd.d1_illustration_conforme %}
     <table class="huitd-table">
-        <tr><th>Photo défectueux</th><th>Photo conforme</th></tr>
+        <tr><th style="width:50%">Photo du défaut / Defect photo</th><th style="width:50%">Photo conforme / Conforming reference</th></tr>
         <tr>
-            <td>{% if huitd.d1_illustration_defectueux %}<img src="{{ huitd.d1_illustration_defectueux.url }}" style="max-width:100%;max-height:200px;">{% else %}-{% endif %}</td>
-            <td>{% if huitd.d1_illustration_conforme %}<img src="{{ huitd.d1_illustration_conforme.url }}" style="max-width:100%;max-height:200px;">{% else %}-{% endif %}</td>
+            <td style="text-align:center">{% if huitd.d1_illustration_defectueux %}<img src="{{ huitd.d1_illustration_defectueux.url }}" style="max-width:100%;max-height:250px;border-radius:5px;">{% else %}<span class="text-muted">-</span>{% endif %}</td>
+            <td style="text-align:center">{% if huitd.d1_illustration_conforme %}<img src="{{ huitd.d1_illustration_conforme.url }}" style="max-width:100%;max-height:250px;border-radius:5px;">{% else %}<span class="text-muted">-</span>{% endif %}</td>
         </tr>
     </table>
     {% endif %}
-
-    <!-- ==================== D2 : Actions d'urgence ==================== -->
-    <div class="section-title">D2 : Actions d'urgence</div>
+    
+    <!-- ==================== D2 : Actions d'urgence / Emergency Actions ==================== -->
+    <div class="section-title">
+        <i class="fas fa-ambulance"></i> D2 : Actions d'urgence / Emergency Containment Actions
+    </div>
     <table class="huitd-table">
-        <tr><th>Date</th><td>{{ huitd.d2_date|date:"d/m/Y"|default:"-" }}</td></tr>
-        <tr><th>Actions envisagées</th><td>{{ huitd.d2_actions|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Tri nécessaire ?</th><td>{{ huitd.d2_tri|yesno:"Oui,Non" }}</td></tr>
-        <tr><th>OF concernés</th><td>{{ huitd.d2_of_concernes|default:"-" }}</td></tr>
-        <tr><th>Qté rebutée</th><td>{{ huitd.d2_quantite_rebutee|default:"N/A" }}</td></tr>
-        <tr><th>Qté à retoucher</th><td>{{ huitd.d2_quantite_retoucher|default:"N/A" }}</td></tr>
+        <tr><th>Date de mise en œuvre / Implementation date</th><td>{{ huitd.d2_date|date:"d/m/Y"|default:"-" }}<br><small class="text-muted">When were actions taken?</small></td></tr>
+        <tr><th>Actions envisagées / Actions taken</th><td>{{ huitd.d2_actions|default:"-"|linebreaksbr }}<br><small class="text-muted">What immediate actions?</small></td></tr>
+        <tr><th>Tri nécessaire ? / Sorting required ?</th><td>{{ huitd.d2_tri|yesno:"Oui/Yes,Non/No" }}<br><small class="text-muted">Need to sort inventory?</small></td></tr>
+        <tr><th>OF concernés / Affected WOs</th><td>{{ huitd.d2_of_concernes|default:"-" }}<br><small class="text-muted">Which work orders?</small></td></tr>
+        <tr><th>Quantité rebutée / Scrap quantity</th><td><strong>{{ huitd.d2_quantite_rebutee|default:"0" }}</strong> pièces/pieces</td></tr>
+        <tr><th>Quantité à retoucher / Rework quantity</th><td><strong>{{ huitd.d2_quantite_retoucher|default:"0" }}</strong> pièces/pieces</td></tr>
     </table>
-
-    <!-- ==================== D3 : Équipe ==================== -->
-    <div class="section-title">D3 : Constitution de l'équipe</div>
+    
+    <!-- ==================== D3 : Équipe / Team ==================== -->
+    <div class="section-title">
+        <i class="fas fa-users"></i> D3 : Équipe 8D / 8D Team
+    </div>
     <table class="huitd-table">
-        <tr><th>Date</th><td>{{ huitd.d3_date|date:"d/m/Y"|default:"-" }}</td></tr>
+        <tr><th>Date de constitution / Team formation date</th><td>{{ huitd.d3_date|date:"d/m/Y"|default:"-" }}<br><small class="text-muted">When was team assembled?</small></td></tr>
     </table>
     <table class="huitd-table">
-        <thead><tr><th>Rôle</th><th>Nom</th><th>Fonction</th></tr></thead>
+        <thead>
+            <tr style="background: #1a5276; color: white;">
+                <th style="width:25%">Rôle / Role</th>
+                <th style="width:35%">Nom / Name</th>
+                <th style="width:40%">Fonction / Function</th>
+            </tr>
+        </thead>
         <tbody>
-            <tr><td><strong>Pilote</strong></td><td>{{ huitd.pilote|default:"-" }}</td><td>{{ huitd.pilote_fonction|default:"-" }}</td></tr>
-            <tr><td><strong>Animateur</strong></td><td>{{ huitd.animateur|default:"-" }}</td><td>{{ huitd.animateur_fonction|default:"-" }}</td></tr>
+            <tr><td><strong>Pilote / Leader</strong></td><td>{{ huitd.pilote|default:"-" }}</td><td>{{ huitd.pilote_fonction|default:"-" }}</td></tr>
+            <tr><td><strong>Animateur / Facilitator</strong></td><td>{{ huitd.animateur|default:"-" }}</td><td>{{ huitd.animateur_fonction|default:"-" }}</td></tr>
             {% for p in huitd.participants.all %}
-            <tr><td>Participant</td><td>{{ p.nom }}</td><td>{{ p.fonction|default:"-" }}</td></tr>
+            <tr><td>Membre / Member</td><td>{{ p.nom }}</td><td>{{ p.fonction|default:"-" }}</td></tr>
             {% empty %}
-            <tr><td colspan="3" class="text-muted">Aucun participant</td></tr>
+            <tr><td colspan="3" class="text-muted text-center">Aucun participant / No participants registered</td></tr>
             {% endfor %}
         </tbody>
     </table>
-
-    <!-- ==================== D4 : Analyse préliminaire ==================== -->
-    <div class="section-title">D4 : Analyse préliminaire</div>
+    
+    <!-- ==================== D4 : Analyse préliminaire / Preliminary Analysis ==================== -->
+    <div class="section-title">
+        <i class="fas fa-search"></i> D4 : Analyse préliminaire / Preliminary Analysis
+    </div>
     <table class="huitd-table">
-        <tr><th>Date</th><td>{{ huitd.d4_date|date:"d/m/Y"|default:"-" }}</td></tr>
-        <tr><th>Causes probables d'apparition</th><td>{{ huitd.d4_causes_apparition|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Causes probables de non détection</th><td>{{ huitd.d4_causes_non_detection|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Engager un 8D ?</th><td>{{ huitd.get_decision_8d_display }}</td></tr>
+        <tr><th>Date d'analyse / Analysis date</th><td>{{ huitd.d4_date|date:"d/m/Y"|default:"-" }}<br><small class="text-muted">When was analysis performed?</small></td></tr>
+        <tr><th>Causes probables d'apparition / Probable occurrence causes</th><td>{{ huitd.d4_causes_apparition|default:"-"|linebreaksbr }}<br><small class="text-muted">Why might it happen?</small></td></tr>
+        <tr><th>Causes probables de non-détection / Probable non-detection causes</th><td>{{ huitd.d4_causes_non_detection|default:"-"|linebreaksbr }}<br><small class="text-muted">Why wasn't it detected?</small></td></tr>
+        <tr><th>Engager un 8D complet ? / Launch full 8D ?</th><td><strong>{{ huitd.get_decision_8d_display }}</strong><br><small class="text-muted">Decision to proceed?</small></td></tr>
     </table>
-    <div class="fin-4d">fin du 4D</div><div class="separator"></div>
-
-    <!-- ==================== D5 : Causes racines ==================== -->
-    <div class="section-title">D5 : Analyse des causes racines</div>
+    <div class="fin-4d">✓ Fin du 4D / End of D4 - Décision prise / Decision made</div>
+    <div class="separator"></div>
+    
+    <!-- ==================== D5 : Causes racines / Root Causes ==================== -->
+    <div class="section-title">
+        <i class="fas fa-sitemap"></i> D5 : Analyse des causes racines / Root Cause Analysis
+    </div>
     <table class="huitd-table">
-        <tr><th>Causes racines de l'occurrence</th><td>{{ huitd.d5_causes_occurrence|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Causes racines de la non détection</th><td>{{ huitd.d5_causes_non_detection|default:"-"|linebreaksbr }}</td></tr>
+        <tr><th>Causes racines de l'occurrence / Occurrence root causes</th><td>{{ huitd.d5_causes_occurrence|default:"-"|linebreaksbr }}<br><small class="text-muted">Why did the problem occur?</small></td></tr>
+        <tr><th>Causes racines de la non-détection / Non-detection root causes</th><td>{{ huitd.d5_causes_non_detection|default:"-"|linebreaksbr }}<br><small class="text-muted">Why wasn't it detected?</small></td></tr>
     </table>
-
-    <!-- 5W2H -->
-    {% if huitd.cinq_w2h.c_what_happened or huitd.cinq_w2h.h_symptoms %}
-    <div class="section-title">📝 5W2H</div>
-    <h5 class="fw-bold text-primary">CUSTOMER VIEW</h5>
-    <table class="huitd-table">
-        <tr><th>What happened ?</th><td>{{ huitd.cinq_w2h.c_what_happened|default:"-" }}</td></tr>
-        <tr><th>Who detected it?</th><td>{{ huitd.cinq_w2h.c_who_detected|default:"-" }}</td></tr>
-        <tr><th>Where was it detected?</th><td>{{ huitd.cinq_w2h.c_where_detected|default:"-" }}</td></tr>
-        <tr><th>When did it happen?</th><td>{{ huitd.cinq_w2h.c_when_detected|default:"-" }}</td></tr>
-        <tr><th>How was it detected?</th><td>{{ huitd.cinq_w2h.c_how_detected|default:"-" }}</td></tr>
-        <tr><th>How many were detected?</th><td>{{ huitd.cinq_w2h.c_how_many|default:"-" }}</td></tr>
-        <tr><th>Why is it a problem ?</th><td>{{ huitd.cinq_w2h.c_why_problem|default:"-" }}</td></tr>
-        <tr><th>Logistic impact on customer ?</th><td>{{ huitd.cinq_w2h.c_logistic_impact|default:"-" }}</td></tr>
-        <tr><th>Delivered to other customer ?</th><td>{{ huitd.cinq_w2h.c_other_customers_delivered|default:"-" }}</td></tr>
-        <tr><th>Defect reported by other customers ?</th><td>{{ huitd.cinq_w2h.c_other_customers_defect|default:"-" }}</td></tr>
-    </table>
-    <h5 class="fw-bold text-success">HCIM VIEW</h5>
-    <table class="huitd-table">
-        <tr><th>What are the symptoms ?</th><td>{{ huitd.cinq_w2h.h_symptoms|default:"-" }}</td></tr>
-        <tr><th>Defects ruled out ?</th><td>{{ huitd.cinq_w2h.h_defects_ruled_out|default:"-" }}</td></tr>
-        <tr><th>Where was defect created ?</th><td>{{ huitd.cinq_w2h.h_where_created|default:"-" }}</td></tr>
-        <tr><th>When internally generated ?</th><td>{{ huitd.cinq_w2h.h_when_generated|default:"-" }}</td></tr>
-        <tr><th>Bad parts from rework ?</th><td>{{ huitd.cinq_w2h.h_rework|default:"-" }}</td></tr>
-        <tr><th>Where should be detected ?</th><td>{{ huitd.cinq_w2h.h_detection_expected|default:"-" }}</td></tr>
-        <tr><th>Capturing when reinjecting ?</th><td>{{ huitd.cinq_w2h.h_reinjection|default:"-" }}</td></tr>
-        <tr><th>Known/recurrent problem ?</th><td>{{ huitd.cinq_w2h.h_known_problem|default:"-" }}</td></tr>
-        <tr><th>Last reported problem?</th><td>{{ huitd.cinq_w2h.h_last_reported|default:"-" }}</td></tr>
-    </table>
-    {% endif %}
-
-    <!-- Ishikawa -->
-    <!-- Ishikawa -->
+    
+    <!-- ==================== ISHIKAWA EN ARÊTES DE POISSON / FISHBONE DIAGRAM ==================== -->
     {% if huitd.causes_ishikawa.exists %}
-    <div class="section-title">🐟 Ishikawa 6M</div>
-
-    <style>
-        .ishikawa-view {
-            position: relative;
-            width: 100%;
-            min-width: 850px;
-            height: 420px;
-            margin: 10px auto;
-            overflow: visible;
-        }
-        .ishikawa-view .spine {
-            position: absolute;
-            top: 50%;
-            left: 20px;
-            right: 160px;
-            height: 4px;
-            background: #2c3e50;
-            border-radius: 2px;
-            transform: translateY(-50%);
-            z-index: 1;
-        }
-        .ishikawa-view .spine::after {
-            content: '';
-            position: absolute;
-            right: -12px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 0;
-            height: 0;
-            border-top: 8px solid transparent;
-            border-bottom: 8px solid transparent;
-            border-left: 14px solid #2c3e50;
-        }
-        .ishikawa-view .effect-box {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 140px;
-            z-index: 2;
-            background: #fff5f5;
-            border: 2px solid #e74c3c;
-            border-radius: 6px;
-            padding: 8px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 0.75rem;
-            color: #2c3e50;
-        }
-        .ishikawa-view .effect-box label {
-            display: block;
-            font-size: 0.6rem;
-            font-weight: bold;
-            color: #e74c3c;
-            text-transform: uppercase;
-        }
-        .ishikawa-view .branch-box-view {
-            position: absolute;
-            background: white;
-            border: 2px solid;
-            border-radius: 6px;
-            padding: 8px;
-            width: 220px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-            z-index: 3;
-            max-height: 180px;
-            overflow-y: auto;
-        }
-        .ishikawa-view .box-top-1 { top: 10px; left: 4%; border-color: #e74c3c; }
-        .ishikawa-view .box-top-2 { top: 10px; left: 34%; border-color: #3498db; }
-        .ishikawa-view .box-top-3 { top: 10px; left: 64%; border-color: #2ecc71; }
-        .ishikawa-view .box-bottom-1 { bottom: 10px; left: 4%; border-color: #f39c12; }
-        .ishikawa-view .box-bottom-2 { bottom: 10px; left: 34%; border-color: #9b59b6; }
-        .ishikawa-view .box-bottom-3 { bottom: 10px; left: 64%; border-color: #1abc9c; }
-        .ishikawa-view .branch-title {
-            font-weight: bold;
-            font-size: 0.75rem;
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 4px;
-        }
-        .ishikawa-view .branch-title .letter {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.65rem;
-            font-weight: bold;
-        }
-        .ishikawa-view .cause-item {
-            font-size: 0.7rem;
-            padding: 3px 0;
-            border-bottom: 1px solid #f0f0f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .ishikawa-view .cause-item:last-child { border-bottom: none; }
-        .ishikawa-view .badge-occ { background: #fadbd8; color: #922b21; font-size: 0.6rem; padding: 1px 5px; border-radius: 8px; }
-        .ishikawa-view .badge-nd { background: #d6eaf8; color: #1a5276; font-size: 0.6rem; padding: 1px 5px; border-radius: 8px; }
-        
-        @media (max-width: 900px) {
-            .ishikawa-view { display: none; }
-            .ishikawa-table-mobile { display: block !important; }
-        }
-        .ishikawa-table-mobile { display: none; }
-    </style>
-
-    <div class="ishikawa-view">
-        <div class="spine"></div>
-        
-        <!-- Effet -->
-        <div class="effect-box">
-            <label>Effet / Problème</label>
-            {{ huitd.d1_caracterisation|truncatechars:80|default:"Défaut" }}
-        </div>
-        
-        <!-- SVG arêtes -->
-        <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;" viewBox="0 0 780 420">
-            <line x1="112" y1="105" x2="130" y2="210" stroke="#2c3e50" stroke-width="2"/>
-            <line x1="332" y1="105" x2="350" y2="210" stroke="#2c3e50" stroke-width="2"/>
-            <line x1="552" y1="105" x2="570" y2="210" stroke="#2c3e50" stroke-width="2"/>
-            <line x1="112" y1="315" x2="130" y2="210" stroke="#2c3e50" stroke-width="2"/>
-            <line x1="332" y1="315" x2="350" y2="210" stroke="#2c3e50" stroke-width="2"/>
-            <line x1="552" y1="315" x2="570" y2="210" stroke="#2c3e50" stroke-width="2"/>
-        </svg>
-        
-        <!-- Branche A -->
-        <div class="branch-box-view box-top-1">
-            <div class="branch-title" style="color:#e74c3c;"><span class="letter" style="background:#e74c3c;">A</span> Milieu</div>
-            {% for cause in huitd.causes_ishikawa.all %}
-            {% if cause.categorie == 'A' %}
-            <div class="cause-item">{{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
-            {% endif %}
-            {% empty %}
-            <div class="text-muted" style="font-size:0.7rem;">-</div>
-            {% endfor %}
-        </div>
-        
-        <!-- Branche B -->
-        <div class="branch-box-view box-top-2">
-            <div class="branch-title" style="color:#3498db;"><span class="letter" style="background:#3498db;">B</span> Méthodes</div>
-            {% for cause in huitd.causes_ishikawa.all %}
-            {% if cause.categorie == 'B' %}
-            <div class="cause-item">{{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
-            {% endif %}
-            {% empty %}<div class="text-muted" style="font-size:0.7rem;">-</div>{% endfor %}
-        </div>
-        
-        <!-- Branche C -->
-        <div class="branch-box-view box-top-3">
-            <div class="branch-title" style="color:#2ecc71;"><span class="letter" style="background:#2ecc71;">C</span> Moyens</div>
-            {% for cause in huitd.causes_ishikawa.all %}
-            {% if cause.categorie == 'C' %}
-            <div class="cause-item">{{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
-            {% endif %}
-            {% empty %}<div class="text-muted" style="font-size:0.7rem;">-</div>{% endfor %}
-        </div>
-        
-        <!-- Branche D -->
-        <div class="branch-box-view box-bottom-1">
-            <div class="branch-title" style="color:#f39c12;"><span class="letter" style="background:#f39c12;">D</span> Main d'œuvre</div>
-            {% for cause in huitd.causes_ishikawa.all %}
-            {% if cause.categorie == 'D' %}
-            <div class="cause-item">{{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
-            {% endif %}
-            {% empty %}<div class="text-muted" style="font-size:0.7rem;">-</div>{% endfor %}
-        </div>
-        
-        <!-- Branche E -->
-        <div class="branch-box-view box-bottom-2">
-            <div class="branch-title" style="color:#9b59b6;"><span class="letter" style="background:#9b59b6;">E</span> Matières</div>
-            {% for cause in huitd.causes_ishikawa.all %}
-            {% if cause.categorie == 'E' %}
-            <div class="cause-item">{{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
-            {% endif %}
-            {% empty %}<div class="text-muted" style="font-size:0.7rem;">-</div>{% endfor %}
-        </div>
-        
-        <!-- Branche F -->
-        <div class="branch-box-view box-bottom-3">
-            <div class="branch-title" style="color:#1abc9c;"><span class="letter" style="background:#1abc9c;">F</span> Mesures</div>
-            {% for cause in huitd.causes_ishikawa.all %}
-            {% if cause.categorie == 'F' %}
-            <div class="cause-item">{{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
-            {% endif %}
-            {% empty %}<div class="text-muted" style="font-size:0.7rem;">-</div>{% endfor %}
+    <div class="section-title">
+        <i class="fas fa-fish"></i> Diagramme d'Ishikawa (6M) / Fishbone Diagram
+    </div>
+    
+    <!-- Version graphique en arêtes de poisson - Style classique (Causes à gauche → Problème à droite) -->
+    <div class="ishikawa-fishbone">
+        <div class="fishbone-svg-container">
+            <svg class="fishbone-svg" viewBox="0 0 1100 520" preserveAspectRatio="xMidYMid meet" style="background: white;">
+                <defs>
+                    <style>
+                        .fishbone-line { stroke: #2c3e50; stroke-width: 2.5; }
+                        .fishbone-spine { stroke: #2c3e50; stroke-width: 4; }
+                        .fishbone-arrow { fill: #2c3e50; }
+                        .fishbone-label { font-size: 11px; font-weight: bold; font-family: Arial, sans-serif; }
+                        .effect-box { fill: #fff5f5; stroke: #c0392b; stroke-width: 2; }
+                        .effect-text { font-size: 8px; fill: #333; font-family: Arial, sans-serif; }
+                        .effect-title { font-size: 9px; font-weight: bold; fill: #c0392b; font-family: Arial, sans-serif; }
+                    </style>
+                </defs>
+                
+                <!-- Ligne centrale (arête principale) - de gauche à droite -->
+                <line x1="80" y1="260" x2="980" y2="260" class="fishbone-spine"/>
+                
+                <!-- Flèche à DROITE (tête du poisson = problème) -->
+                <polygon points="980,260 950,240 950,280" class="fishbone-arrow"/>
+                
+                <!-- Arêtes supérieures (causes) - partent de la ligne centrale vers le HAUT -->
+                <line x1="440" y1="260" x2="320" y2="140" class="fishbone-line"/>
+                <line x1="660" y1="260" x2="540" y2="140" class="fishbone-line"/>
+                <line x1="880" y1="260" x2="760" y2="140" class="fishbone-line"/>
+                
+                <!-- Arêtes inférieures (causes) - partent de la ligne centrale vers le BAS -->
+                <line x1="440" y1="260" x2="320" y2="380" class="fishbone-line"/>
+                <line x1="660" y1="260" x2="540" y2="380" class="fishbone-line"/>
+                <line x1="880" y1="260" x2="760" y2="380" class="fishbone-line"/>
+                
+                <!-- Étiquettes des arêtes supérieures -->
+                <text x="270" y="125" text-anchor="middle" class="fishbone-label" fill="#e74c3c">Milieu (A)</text>
+                <text x="490" y="125" text-anchor="middle" class="fishbone-label" fill="#3498db">Méthodes (B)</text>
+                <text x="710" y="125" text-anchor="middle" class="fishbone-label" fill="#2ecc71">Moyens (C)</text>
+                
+                <!-- Étiquettes des arêtes inférieures -->
+                <text x="270" y="405" text-anchor="middle" class="fishbone-label" fill="#f39c12">Main d'œuvre (D)</text>
+                <text x="490" y="405" text-anchor="middle" class="fishbone-label" fill="#9b59b6">Matières (E)</text>
+                <text x="710" y="405" text-anchor="middle" class="fishbone-label" fill="#1abc9c">Mesures (F)</text>
+                
+                <!-- Boîte de l'effet (tête de poisson à DROITE - Problème) -->
+                <rect x="985" y="225" width="100" height="70" rx="8" class="effect-box"/>
+                <text x="1035" y="248" text-anchor="middle" class="effect-title">EFFET</text>
+                <text x="1035" y="262" text-anchor="middle" class="effect-title" style="font-size:7px;">PROBLÈME</text>
+                <text x="1035" y="278" text-anchor="middle" class="effect-text">
+                    <tspan x="1035" dy="0">{{ huitd.d1_caracterisation|truncatechars:30|default:"Défaut" }}</tspan>
+                </text>
+                
+                <!-- Petites lignes de connexion secondaires -->
+                <line x1="280" y1="140" x2="320" y2="140" stroke="#e74c3c" stroke-width="2" stroke-dasharray="3,3"/>
+                <line x1="500" y1="140" x2="540" y2="140" stroke="#3498db" stroke-width="2" stroke-dasharray="3,3"/>
+                <line x1="720" y1="140" x2="760" y2="140" stroke="#2ecc71" stroke-width="2" stroke-dasharray="3,3"/>
+                <line x1="260" y1="380" x2="320" y2="380" stroke="#f39c12" stroke-width="2" stroke-dasharray="3,3"/>
+                <line x1="500" y1="380" x2="540" y2="380" stroke="#9b59b6" stroke-width="2" stroke-dasharray="3,3"/>
+                <line x1="720" y1="380" x2="760" y2="380" stroke="#1abc9c" stroke-width="2" stroke-dasharray="3,3"/>
+            </svg>
+            
+            <!-- Boîtes de causes (positionnées à gauche du problème) -->
+            <!-- Branche A - Milieu -->
+            <div class="cause-box cause-A" style="top: 5px; left: 8%; border-color: #e74c3c;">
+                <div class="branch-title"><span class="branch-letter" style="background:#e74c3c;">A</span> Milieu / Environment</div>
+                {% for cause in huitd.causes_ishikawa.all %}
+                {% if cause.categorie == 'A' %}
+                <div class="cause-item">• {{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
+                {% endif %}
+                {% empty %}
+                <div class="text-muted" style="font-size:0.65rem;">Aucune cause</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Branche B - Méthodes -->
+            <div class="cause-box cause-B" style="top: 5px; left: 33%; border-color: #3498db;">
+                <div class="branch-title"><span class="branch-letter" style="background:#3498db;">B</span> Méthodes / Methods</div>
+                {% for cause in huitd.causes_ishikawa.all %}
+                {% if cause.categorie == 'B' %}
+                <div class="cause-item">• {{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
+                {% endif %}
+                {% empty %}
+                <div class="text-muted" style="font-size:0.65rem;">Aucune cause</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Branche C - Moyens -->
+            <div class="cause-box cause-C" style="top: 5px; left: 58%; border-color: #2ecc71;">
+                <div class="branch-title"><span class="branch-letter" style="background:#2ecc71;">C</span> Moyens / Equipment</div>
+                {% for cause in huitd.causes_ishikawa.all %}
+                {% if cause.categorie == 'C' %}
+                <div class="cause-item">• {{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
+                {% endif %}
+                {% empty %}
+                <div class="text-muted" style="font-size:0.65rem;">Aucune cause</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Branche D - Main d'œuvre -->
+            <div class="cause-box cause-D" style="bottom: 5px; left: 8%; border-color: #f39c12;">
+                <div class="branch-title"><span class="branch-letter" style="background:#f39c12;">D</span> Main d'œuvre / Manpower</div>
+                {% for cause in huitd.causes_ishikawa.all %}
+                {% if cause.categorie == 'D' %}
+                <div class="cause-item">• {{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
+                {% endif %}
+                {% empty %}
+                <div class="text-muted" style="font-size:0.65rem;">Aucune cause</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Branche E - Matières -->
+            <div class="cause-box cause-E" style="bottom: 5px; left: 33%; border-color: #9b59b6;">
+                <div class="branch-title"><span class="branch-letter" style="background:#9b59b6;">E</span> Matières / Materials</div>
+                {% for cause in huitd.causes_ishikawa.all %}
+                {% if cause.categorie == 'E' %}
+                <div class="cause-item">• {{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
+                {% endif %}
+                {% empty %}
+                <div class="text-muted" style="font-size:0.65rem;">Aucune cause</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Branche F - Mesures -->
+            <div class="cause-box cause-F" style="bottom: 5px; left: 58%; border-color: #1abc9c;">
+                <div class="branch-title"><span class="branch-letter" style="background:#1abc9c;">F</span> Mesures / Measurement</div>
+                {% for cause in huitd.causes_ishikawa.all %}
+                {% if cause.categorie == 'F' %}
+                <div class="cause-item">• {{ cause.cause|truncatechars:50 }} <span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display|slice:":3" }}</span></div>
+                {% endif %}
+                {% empty %}
+                <div class="text-muted" style="font-size:0.65rem;">Aucune cause</div>
+                {% endfor %}
+            </div>
         </div>
     </div>
-
-    <!-- Version mobile tableau -->
-    <div class="ishikawa-table-mobile">
+    
+    <!-- Version mobile (tableau responsive) -->
+    <div class="ishikawa-mobile">
         <table class="huitd-table">
-            <thead><tr><th>6M</th><th>Cause</th><th>Type</th></tr></thead>
+            <thead><tr><th>6M</th><th>Causes</th><th>Type</th></tr></thead>
             <tbody>
                 {% for cause in huitd.causes_ishikawa.all %}
-                <tr>
-                    <td><strong>{{ cause.get_categorie_display }}</strong></td>
-                    <td>{{ cause.cause }}</td>
-                    <td><span class="badge {% if cause.type_cause == 'OCCURRENCE' %}bg-danger{% else %}bg-primary{% endif %}">{{ cause.get_type_cause_display }}</span></td>
+                <tr style="vertical-align: top;">
+                    <td style="width:20%"><strong>{{ cause.get_categorie_display }}</strong></td>
+                    <td style="width:60%">{{ cause.cause }}</td>
+                    <td style="width:20%"><span class="{% if cause.type_cause == 'OCCURRENCE' %}badge-occ{% else %}badge-nd{% endif %}">{{ cause.get_type_cause_display }}</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% endif %}
-
-    <!-- VRS -->
-    {% if huitd.vrs.facteurs.exists %}
-    <div class="section-title">VRS</div>
-    <div class="table-responsive">
-        <table class="huitd-table">
-            <thead><tr><th>6M</th><th>Facteur</th><th>Standard</th><th>Suivi</th><th>Approprié</th><th>Lien</th><th>Prouvé</th></tr></thead>
-            <tbody>
-                {% for f in huitd.vrs.facteurs.all %}
-                <tr>
-                    <td><strong>{{ f.get_categorie_display }}</strong></td>
-                    <td>{{ f.facteur_probable|default:"-" }}</td>
-                    <td>{{ f.standard_exigence|default:"-" }}</td>
-                    <td>{% if f.standard_suivi %}YES{% else %}NO{% endif %}</td>
-                    <td>{% if f.standard_approprie %}YES{% else %}NO{% endif %}</td>
-                    <td>{% if f.lien_prouve %}YES{% else %}NO{% endif %}</td>
-                    <td>{% if f.facteur_prouve %}YES{% else %}NO{% endif %}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    
+    <!-- 5W2H détaillé si présent -->
+    {% if huitd.cinq_w2h.c_what_happened or huitd.cinq_w2h.h_symptoms %}
+    <div class="section-title" style="background: #2c3e50;">
+        <i class="fas fa-chart-line"></i> Analyse 5W2H détaillée / Detailed 5W2H Analysis
     </div>
+    
+    <h5 style="color: #1a5276; margin-top: 15px;">📊 Point de vue Client / Customer View</h5>
+    <table class="huitd-table">
+        <tr><th>What happened? (Que s'est-il passé ?)</th><td>{{ huitd.cinq_w2h.c_what_happened|default:"-" }}<br><small class="text-muted">Description of the non-conformity</small></td></tr>
+        <tr><th>Who detected it? (Qui a détecté ?)</th><td>{{ huitd.cinq_w2h.c_who_detected|default:"-" }}<br><small class="text-muted">Who identified the issue?</small></td></tr>
+        <tr><th>Where was it detected? (Où détecté ?)</th><td>{{ huitd.cinq_w2h.c_where_detected|default:"-" }}<br><small class="text-muted">Location of detection</small></td></tr>
+        <tr><th>When did it happen? (Quand ?)</th><td>{{ huitd.cinq_w2h.c_when_detected|default:"-" }}<br><small class="text-muted">Date/time of occurrence</small></td></tr>
+        <tr><th>How was it detected? (Comment ?)</th><td>{{ huitd.cinq_w2h.c_how_detected|default:"-" }}<br><small class="text-muted">Detection method</small></td></tr>
+        <tr><th>How many? (Combien ?)</th><td><strong>{{ huitd.cinq_w2h.c_how_many|default:"-" }}</strong><br><small class="text-muted">Quantity affected</small></td></tr>
+        <tr><th>Why is it a problem? (Pourquoi problème ?)</th><td>{{ huitd.cinq_w2h.c_why_problem|default:"-" }}<br><small class="text-muted">Impact on customer</small></td></tr>
+        <tr><th>Logistic impact on customer? (Impact logistique ?)</th><td>{{ huitd.cinq_w2h.c_logistic_impact|default:"-" }}<br><small class="text-muted">Supply chain impact</small></td></tr>
+        <tr><th>Delivered to other customer? (Livré ailleurs ?)</th><td>{{ huitd.cinq_w2h.c_other_customers_delivered|default:"-" }}<br><small class="text-muted">Other customers affected?</small></td></tr>
+    </table>
+    
+    <h5 style="color: #27ae60; margin-top: 15px;">🏭 Point de vue HCIM / HCIM View</h5>
+    <table class="huitd-table">
+        <tr><th>What are the symptoms? (Symptômes ?)</th><td>{{ huitd.cinq_w2h.h_symptoms|default:"-" }}<br><small class="text-muted">Observable symptoms</small></td></tr>
+        <tr><th>Defects ruled out? (Défauts exclus ?)</th><td>{{ huitd.cinq_w2h.h_defects_ruled_out|default:"-" }}<br><small class="text-muted">What it is NOT</small></td></tr>
+        <tr><th>Where was defect created? (Création du défaut ?)</th><td>{{ huitd.cinq_w2h.h_where_created|default:"-" }}<br><small class="text-muted">Origin of the defect</small></td></tr>
+        <tr><th>When internally generated? (Génération interne ?)</th><td>{{ huitd.cinq_w2h.h_when_generated|default:"-" }}<br><small class="text-muted">Internal occurrence timing</small></td></tr>
+        <tr><th>Bad parts from rework? (Reprises ?)</th><td>{{ huitd.cinq_w2h.h_rework|default:"-" }}<br><small class="text-muted">Linked to rework operations?</small></td></tr>
+        <tr><th>Where should be detected? (Détection prévue ?)</th><td>{{ huitd.cinq_w2h.h_detection_expected|default:"-" }}<br><small class="text-muted">Expected detection point</small></td></tr>
+        <tr><th>Known/recurrent problem? (Connu/récurrent ?)</th><td>{{ huitd.cinq_w2h.h_known_problem|default:"-" }}<br><small class="text-muted">Historical recurrence</small></td></tr>
+    </table>
     {% endif %}
-
-    <!-- 5P -->
+    
+    <!-- 5 Pourquoi / 5 Whys -->
     {% if huitd.causes_5p.exists %}
-    <div class="section-title">❓ 5 Pourquoi</div>
+    <div class="section-title">
+        <i class="fas fa-question"></i> Analyse 5 Pourquoi / 5 Whys Analysis
+    </div>
     {% for cp in huitd.causes_5p.all %}
     <table class="huitd-table">
-        <tr><th>Type</th><td><span class="badge {% if cp.type_cause == 'OCCURRENCE' %}bg-danger{% else %}bg-primary{% endif %}">{{ cp.get_type_cause_display }}</span> - Facteur {{ cp.facteur_prouve }}</td></tr>
-        <tr><th>1. Pourquoi ?</th><td>{{ cp.pourquoi_1|default:"-" }}</td></tr>
-        <tr><th>2. Pourquoi ?</th><td>{{ cp.pourquoi_2|default:"-" }}</td></tr>
-        <tr><th>3. Pourquoi ?</th><td>{{ cp.pourquoi_3|default:"-" }}</td></tr>
-        <tr><th>4. Pourquoi ?</th><td>{{ cp.pourquoi_4|default:"-" }}</td></tr>
-        <tr><th>5. Pourquoi ?</th><td>{{ cp.pourquoi_5|default:"-" }}</td></tr>
+        <tr>
+            <th style="width:20%">Type</th>
+            <td>
+                <span class="badge-etat" style="background: {% if cp.type_cause == 'OCCURRENCE' %}#e74c3c{% else %}#3498db{% endif %}">
+                    {{ cp.get_type_cause_display }}
+                </span>
+                - Facteur prouvé / Proven factor : {% if cp.facteur_prouve %}✓ Oui/Yes{% else %}✗ Non/No{% endif %}
+            </td>
+        </tr>
+        <tr><th>1. Pourquoi ? / Why ?</th><td>{{ cp.pourquoi_1|default:"-" }}<br><small class="text-muted">First why</small></td></tr>
+        <tr><th>2. Pourquoi ? / Why ?</th><td>{{ cp.pourquoi_2|default:"-" }}<br><small class="text-muted">Second why</small></td></tr>
+        <tr><th>3. Pourquoi ? / Why ?</th><td>{{ cp.pourquoi_3|default:"-" }}<br><small class="text-muted">Third why</small></td></tr>
+        <tr><th>4. Pourquoi ? / Why ?</th><td>{{ cp.pourquoi_4|default:"-" }}<br><small class="text-muted">Fourth why</small></td></tr>
+        <tr><th>5. Pourquoi ? / Why ?</th><td>{{ cp.pourquoi_5|default:"-" }}<br><small class="text-muted">Fifth why (root cause)</small></td></tr>
     </table>
     {% endfor %}
     {% endif %}
-
-    <!-- Facteur Humain -->
+    
+    <!-- Facteur Humain / Human Factor -->
     {% if huitd.facteur_humain.evaluations.exists %}
-    <div class="section-title">👤 Facteur Humain</div>
+    <div class="section-title">
+        <i class="fas fa-user-friends"></i> Facteur Humain / Human Factor
+    </div>
     {% for ev in huitd.facteur_humain.evaluations.all %}
     {% if ev.evaluation %}
     <table class="huitd-table">
-        <tr><th>{{ ev.critere }}</th><td>Eval: {{ ev.evaluation }}{% if ev.commentaire %} | Commentaire: {{ ev.commentaire }}{% endif %}</td></tr>
+        <tr><th>{{ ev.critere }}<br><small class="text-muted">Criterion</small></th>
+        <td>Eval: {{ ev.evaluation }}{% if ev.commentaire %} | Commentaire / Comment: {{ ev.commentaire }}{% endif %}</td>
+        </tr>
     </table>
     {% endif %}
     {% endfor %}
     {% endif %}
-
-    <!-- ==================== D6 : Actions ==================== -->
-    <div class="section-title">D6 : Actions correctives et préventives</div>
+    
+    <!-- ==================== D6 : Actions / Actions ==================== -->
+    <div class="section-title">
+        <i class="fas fa-tasks"></i> D6 : Actions correctives et préventives / Corrective & Preventive Actions
+    </div>
     <table class="huitd-table">
-        <thead><tr><th>Type</th><th>Causes</th><th>Actions</th><th>Pilote</th><th>Délai</th><th>Statut</th></tr></thead>
+        <thead>
+            <tr style="background: #1a5276; color: white;">
+                <th>Type</th>
+                <th>Causes associées / Associated causes</th>
+                <th>Action</th>
+                <th>Pilote / Owner</th>
+                <th>Délai (semaines) / Deadline (weeks)</th>
+                <th>Statut / Status</th>
+             </tr>
+        </thead>
         <tbody>
             {% for action in huitd.actions.all %}
             <tr>
-                <td><span class="badge {% if action.type_action == 'CORRECTIVE' %}bg-primary{% else %}bg-warning{% endif %}">{{ action.get_type_action_display }}</span></td>
-                <td>{{ action.numero_cause|default:"-" }}</td>
-                <td>{{ action.action }}</td>
+                <td>
+                    <span class="badge-etat" style="background: {% if action.type_action == 'CORRECTIVE' %}#27ae60{% else %}#f39c12{% endif %}">
+                        {{ action.get_type_action_display }}
+                    </span>
+                 </td>
+                <td>{{ action.numero_cause|default:"-" }}<br><small class="text-muted">Cause reference</small></td>
+                <td>{{ action.action|linebreaksbr }}</td>
                 <td>{{ action.pilote|default:"-" }}</td>
-                <td>{{ action.delai_semaines|default:"-" }}</td>
+                <td style="text-align:center">{{ action.delai_semaines|default:"-" }}</td>
                 <td>{{ action.get_statut_display }}</td>
-            </tr>
+             </tr>
             {% empty %}
-            <tr><td colspan="6" class="text-muted">Aucune action</td></tr>
+            <tr><td colspan="6" class="text-muted text-center">Aucune action / No actions recorded</td></tr>
             {% endfor %}
         </tbody>
-    </table>
-
-    <!-- ==================== D7 : Vérification ==================== -->
-    <div class="section-title">D7 : Vérification de l'efficacité</div>
+     </table>
+    
+    <!-- ==================== D7 : Vérification / Verification ==================== -->
+    <div class="section-title">
+        <i class="fas fa-check-circle"></i> D7 : Vérification de l'efficacité / Effectiveness Verification
+    </div>
     <table class="huitd-table">
-        <tr><th>Comment est vérifié l'efficacité ?</th><td>{{ huitd.d7_verification|default:"-"|linebreaksbr }}</td></tr>
-        <tr><th>Ces actions sont-elles suffisantes ?</th><td>{{ huitd.d7_suffisant|default:"-"|linebreaksbr }}</td></tr>
-    </table>
-
-    <!-- ==================== D8 : Transversalisation ==================== -->
-    <div class="section-title">D8 : Transversalisation</div>
+        <tr><th>Méthode de vérification / Verification method</th><td>{{ huitd.d7_verification|default:"-"|linebreaksbr }}<br><small class="text-muted">How is effectiveness measured?</small></td></tr>
+        <tr><th>Actions suffisantes ? / Actions sufficient ?</th><td><strong>{{ huitd.d7_suffisant|default:"-"|linebreaksbr }}</strong><br><small class="text-muted">Are actions adequate?</small></td></tr>
+     </table>
+    
+    <!-- ==================== D8 : Transversalisation / Standardization ==================== -->
+    <div class="section-title">
+        <i class="fas fa-share-alt"></i> D8 : Transversalisation / Standardization
+    </div>
     <table class="huitd-table">
-        <tr><th>Sur quels périmètres ?</th><td>{{ huitd.d8_transversalisation|default:"-"|linebreaksbr }}</td></tr>
-    </table>
+        <tr><th>Périmètres impactés / Scope affected</th><td>{{ huitd.d8_transversalisation|default:"-"|linebreaksbr }}<br><small class="text-muted">Where to deploy solutions?</small></td></tr>
+     </table>
+    
     {% if huitd.alterations.exists %}
     <table class="huitd-table">
-        <thead><tr><th>Alteration</th><th>Remark</th><th>Pilot</th><th>Deadline</th></tr></thead>
+        <thead>
+            <tr style="background: #1a5276; color: white;">
+                <th>Document modifié / Document updated</th>
+                <th>Remarque / Remark</th>
+                <th>Pilote / Owner</th>
+                <th>Date limite / Deadline</th>
+             </tr>
+        </thead>
         <tbody>
             {% for alt in huitd.alterations.all %}
-            <tr><td>{{ alt.type_document }}</td><td>{{ alt.remarque|default:"-" }}</td><td>{{ alt.pilote|default:"-" }}</td><td>{{ alt.deadline|date:"d/m/Y"|default:"-" }}</td></tr>
+            <tr>
+                <td>{{ alt.type_document }}</td>
+                <td>{{ alt.remarque|default:"-" }}</td>
+                <td>{{ alt.pilote|default:"-" }}</td>
+                <td>{{ alt.deadline|date:"d/m/Y"|default:"-" }}</td>
+             </tr>
             {% endfor %}
         </tbody>
-    </table>
+     </table>
     {% endif %}
-    <div class="fin-8d">fin du 8D</div>
-
-    <!-- ==================== DÉCISION HCIM ==================== -->
-    <div class="section-title">Décision HCIM</div>
+    
+    <div class="fin-8d">✓ Fin du 8D / End of 8D - Clôture de l'analyse / Analysis closed</div>
+    
+    <!-- ==================== DÉCISION FINALE / FINAL DECISION ==================== -->
+    <div class="section-title">
+        <i class="fas fa-gavel"></i> Décision finale HCIM / HCIM Final Decision
+    </div>
     <table class="huitd-table">
-        <tr><th>8D accepté ?</th><td>{{ huitd.huitd_accepte|yesno:"Oui,Non" }}{% if not huitd.huitd_accepte and huitd.decision_hcim %} - Exigé par : {{ huitd.decision_hcim }}{% endif %}</td></tr>
-    </table>
-
-    <div class="section-title">Fin du 8D</div>
-    <table class="huitd-table">
-        <tr><th>Date & Signature</th><td>{{ huitd.fin_huitd|date:"d/m/Y"|default:"-" }}{% if huitd.fin_huitd_signature %} - {{ huitd.fin_huitd_signature }}{% endif %}</td></tr>
-    </table>
-
-    <!-- ==================== ÉVIDENCES ==================== -->
-   {% if huitd.evidences.exists %}
-<div class="section-title">📎 Évidences</div>
-<div class="mb-4">
+        <tr><th>8D accepté ? / 8D accepted ?</th><td>
+            {% if huitd.huitd_accepte %}
+            <span style="color:#27ae60; font-weight:bold;">✓ OUI / YES - 8D validé / validated</span>
+            {% else %}
+            <span style="color:#e74c3c; font-weight:bold;">✗ NON / NO - À reprendre / To be revised</span>
+            {% endif %}
+            {% if not huitd.huitd_accepte and huitd.decision_hcim %}
+            <br><small>Exigence / Requirement : {{ huitd.decision_hcim }}</small>
+            {% endif %}
+         </td>
+         </tr>
+         <tr>
+            <th>Date de clôture / Closing date</th>
+            <td>{{ huitd.fin_huitd|date:"d/m/Y"|default:"-" }}<br><small class="text-muted">When was 8D closed?</small></td>
+         </tr>
+         <tr>
+            <th>Signature responsable / Responsible signature</th>
+            <td>{{ huitd.fin_huitd_signature|default:"-" }}</td>
+         </tr>
+     </table>
+    
+    <!-- ==================== ÉVIDENCES / EVIDENCES ==================== -->
+    {% if huitd.evidences.exists %}
+    <div class="section-title">
+        <i class="fas fa-paperclip"></i> Évidences et pièces jointes / Attachments & Evidences
+    </div>
     <div class="row">
         {% for ev in huitd.evidences.all %}
-        <div class="col-md-6 col-lg-4 mb-3">
-            <div class="card h-100">
-                <div class="card-header bg-light">
-                    <strong><i class="fas fa-tag me-1"></i> {{ ev.titre }}</strong>
+        <div class="col-md-4 col-lg-3 mb-3">
+            <div class="evidence-card">
+                <div class="card-header">
+                    <strong><i class="fas fa-tag"></i> {{ ev.titre }}</strong>
                 </div>
-                <div class="card-body text-center">
-                    {% if ev.fichier.url|lower|slice:"-3:" == "jpg" or ev.fichier.url|lower|slice:"-4:" == "jpeg" or ev.fichier.url|lower|slice:"-3:" == "png" or ev.fichier.url|lower|slice:"-3:" == "gif" %}
-                    <img src="{{ ev.fichier.url }}" alt="{{ ev.titre }}" 
-                         style="max-width: 100%; max-height: 200px; object-fit: cover; cursor: pointer;"
-                         class="img-fluid rounded mb-2" 
-                         onclick="window.open(this.src, '_blank')">
+                <div class="card-body">
+                    {% if ev.fichier.url|lower|slice:"-3:" == "jpg" or ev.fichier.url|lower|slice:"-4:" == "jpeg" or ev.fichier.url|lower|slice:"-3:" == "png" %}
+                        <img src="{{ ev.fichier.url }}" alt="{{ ev.titre }}" 
+                             style="max-width: 100%; max-height: 150px; object-fit: cover; border-radius: 5px; cursor: pointer;"
+                             onclick="window.open(this.src, '_blank')">
                     {% elif ev.fichier.url|lower|slice:"-3:" == "pdf" %}
-                    <i class="fas fa-file-pdf fa-5x text-danger mb-2"></i>
+                        <i class="fas fa-file-pdf fa-4x text-danger"></i>
+                        <div><small>PDF Document</small></div>
                     {% else %}
-                    <i class="fas fa-file fa-5x text-secondary mb-2"></i>
+                        <i class="fas fa-file fa-4x text-secondary"></i>
+                        <div><small>Fichier joint / Attachment</small></div>
                     {% endif %}
                     
-                    <small class="text-muted d-block">
-                        <i class="fas fa-calendar-alt me-1"></i> {{ ev.date_ajout|date:"d/m/Y H:i" }}
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-calendar-alt"></i> {{ ev.date_ajout|date:"d/m/Y" }}
                     </small>
                     
                     {% if ev.description %}
-                    <p class="small text-muted mt-2 mb-0">{{ ev.description|truncatechars:100 }}</p>
+                    <p class="small text-muted mt-2 mb-0">{{ ev.description|truncatechars:80 }}</p>
                     {% endif %}
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
+    {% endif %}
+    
+    <!-- Pied de page pour l'impression -->
+    <div class="text-center text-muted mt-5 pt-3" style="border-top: 1px solid #dee2e6; font-size: 0.7rem;">
+        Document généré le / Generated on {% now "d/m/Y à H:i" %} - HCIM Quality System
+    </div>
+    
 </div>
-{% endif %}
+{% endblock %}
 
-</div>
+{% block extra_js %}
+<script>
+    // Fonction pour le téléchargement PDF
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('download') === 'pdf') {
+            window.print();
+        }
+    });
+</script>
 {% endblock %}
