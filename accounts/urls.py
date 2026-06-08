@@ -14,4 +14,6 @@ urlpatterns = [
     path('utilisateurs/<int:user_id>/modifier/', views.modifier_utilisateur, name='modifier_utilisateur'),
     path('utilisateurs/<int:user_id>/supprimer/', views.supprimer_utilisateur, name='supprimer_utilisateur'),
     path('profil/', views.mon_profil, name='mon_profil'),
+    
+    path('redirect/', views.redirect_by_role, name='redirect_by_role'),
 ]

@@ -12,6 +12,7 @@ from .models import (Reclamation, Client, Produit, LigneReclamation, NonConformi
     EvaluationFacteurHumain, Action8D, Alteration8D, Evidence8D, CinqW2H,
        )
 from django.http import JsonResponse
+from accounts.decorators import role_required, permission_required
 from django.db.models import Count, Q, F, Avg,Max, Sum, Prefetch
 from django.db.models.functions import TruncMonth, ExtractMonth
 from datetime import timedelta, datetime
@@ -43,6 +44,8 @@ from django.views.decorators.http import require_http_methods
 from urllib.parse import unquote
 from .services.fai_service import FAIService
 
+
+
 # CONFIGURATION LOGGER
 logger = logging.getLogger(__name__)
 ollama_service = OllamaService(model="phi3:mini") 
@@ -51,6 +54,7 @@ ollama_service = OllamaService(model="llama3.2:3b")
 
 # ================ EXPORT PDF  ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def export_dashboard_pdf(request):
     """Exporte le tableau de bord en PDF avec ReportLab"""
     
@@ -181,6 +185,7 @@ def export_dashboard_pdf(request):
 
 # ================ EXPORT EXCEL ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def export_reclamations_excel(request):
     """Exporte toutes les réclamations en Excel avec les non-conformités"""
     
@@ -458,6 +463,7 @@ def export_reclamations_excel(request):
     return response
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def export_dashboard_excel(request):
     """Exporte les données du dashboard en Excel"""
     
@@ -538,6 +544,7 @@ def export_dashboard_excel(request):
 
 # ================ GESTION DES KPIs ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer','viewer'])
 def dashboard(request):
     """Tableau de bord avec toutes les statistiques"""
     
@@ -702,6 +709,7 @@ def dashboard(request):
     return render(request, 'reclamations/dashboard.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def taux_recurrence_produits(request):
     """Calcule le taux de récurrence des défauts par produit"""
     
@@ -747,6 +755,7 @@ def taux_recurrence_produits(request):
     return render(request, 'reclamations/produit/recurrence.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def detail_recurrence_produit(request, product_id):
     """Détail de la récurrence pour un produit spécifique"""
     from django.db import models
@@ -795,6 +804,7 @@ def detail_recurrence_produit(request, product_id):
     return render(request, 'reclamations/produit/recurrence_detail.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def taux_recurrence_nc(request):
     """
     Calcule le taux de récurrence des descriptions de non-conformité (NC)
@@ -877,6 +887,7 @@ def taux_recurrence_nc(request):
     return render(request, 'reclamations/produit/recurrence_nc.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def detail_recurrence_nc(request, description):
     """
     Détail de la récurrence pour une description de non-conformité spécifique
@@ -1070,6 +1081,7 @@ def detail_recurrence_nc(request, description):
     return render(request, 'reclamations/produit/detail_recurrence_nc.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def exporter_recurrence_nc_excel(request):
     """
     Exporte les données de taux de récurrence NC vers un fichier Excel
@@ -1229,6 +1241,7 @@ def exporter_recurrence_nc_excel(request):
     return response
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def export_recurrence_produits_excel(request):
     """Exporte les données de récurrence des produits en Excel"""
     
@@ -1632,6 +1645,7 @@ def calculer_duree_moyenne_sql():
         return round(result[0], 1) if result and result[0] else 0
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def ppm_detail_client(request, client_id):
     """Détail PPM pour un client spécifique"""
     annee = request.GET.get('annee', datetime.now().year)
@@ -1652,6 +1666,7 @@ def ppm_detail_client(request, client_id):
 
 # ================ GESTION DES RECLAMATIONS ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_reclamations(request):
     """Liste des réclamations avec pagination et recherche"""
     
@@ -1780,6 +1795,7 @@ def liste_reclamations(request):
     return render(request, 'reclamations/liste.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def creer_reclamation(request):
     """Créer une nouvelle réclamation avec gestion des multiples NC par ligne"""
     if request.method == 'POST':
@@ -1942,6 +1958,7 @@ def creer_reclamation(request):
     return render(request, 'reclamations/creer.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def rechercher_descriptions_nc(request):
     """Recherche les descriptions de NC existantes pour autocomplétion"""
     term = request.GET.get('term', '')
@@ -1961,6 +1978,7 @@ def rechercher_descriptions_nc(request):
     return JsonResponse(results, safe=False)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def programmes_par_client(request):
     """Endpoint AJAX pour récupérer les programmes d'un client (ManyToMany)"""
     client_id = request.GET.get('client_id')
@@ -1988,6 +2006,7 @@ def programmes_par_client(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def sites_client_par_client(request):
     """Endpoint AJAX pour récupérer les sites client d'un client"""
     client_id = request.GET.get('client_id')
@@ -2000,6 +2019,7 @@ def sites_client_par_client(request):
     return JsonResponse([], safe=False)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer','product_quality_engineer'])
 def detail_reclamation(request, pk):
     """Voir le détail d'une réclamation avec analyse NC intégrée"""
     reclamation = get_object_or_404(
@@ -2023,6 +2043,7 @@ def detail_reclamation(request, pk):
     return render(request, 'reclamations/detail.html', {'reclamation': reclamation})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_etats(request, pk):
     """Mettre à jour les états d'une réclamation"""
     reclamation = get_object_or_404(Reclamation, pk=pk)
@@ -2070,6 +2091,7 @@ def modifier_etats(request, pk):
     return render(request, 'reclamations/modifier_etats.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_reclamation(request, pk):
     """Modifier une réclamation complète avec gestion des multiples NC"""
     reclamation = get_object_or_404(
@@ -2324,6 +2346,7 @@ def modifier_reclamation(request, pk):
     return render(request, 'reclamations/modifier_reclamation.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_reclamation(request, pk):
     """Supprimer une réclamation"""
     reclamation = get_object_or_404(Reclamation, pk=pk)
@@ -2347,6 +2370,7 @@ def supprimer_reclamation(request, pk):
     return render(request, 'reclamations/supprimer.html', {'reclamation': reclamation})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def reclamations_en_retard(request):
     """Affiche les réclamations en retard"""
     reclamations_retard = NotificationService.get_reclamations_a_notifier()
@@ -2360,6 +2384,8 @@ def reclamations_en_retard(request):
     return render(request, 'reclamations/notifications/liste.html', context)
 
 # ================ GESTION DES UAP ================
+@login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_uap(request):
     """Liste des UAP avec statistiques"""
     uaps = UAP.objects.all().order_by('nom')
@@ -2383,6 +2409,7 @@ def liste_uap(request):
     return render(request, 'reclamations/uap/liste.html', {'uaps_data': uaps_data})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def creer_uap(request):
     """Créer une nouvelle UAP"""
     if request.method == 'POST':
@@ -2397,6 +2424,7 @@ def creer_uap(request):
     return render(request, 'reclamations/uap/creer.html')
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_uap(request, pk):
     """Modifier une UAP"""
     uap = get_object_or_404(UAP, pk=pk)
@@ -2419,6 +2447,7 @@ def modifier_uap(request, pk):
     return render(request, 'reclamations/uap/modifier.html', {'uap': uap})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_uap(request, pk):
     """Supprimer une UAP"""
     uap = get_object_or_404(UAP, pk=pk)
@@ -2459,12 +2488,14 @@ def supprimer_uap(request, pk):
 
 # ================ GESTION DES SITES ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_sites(request):
     """Liste des sites"""
     sites = Site.objects.all().select_related('uap').order_by('nom')
     return render(request, 'reclamations/site/liste.html', {'sites': sites})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def creer_site(request):
     """Créer un nouveau site"""
     if request.method == 'POST':
@@ -2483,6 +2514,7 @@ def creer_site(request):
     return render(request, 'reclamations/site/creer.html', {'uaps': uaps})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_site(request, pk):
     """Modifier un site"""
     site = get_object_or_404(Site, pk=pk)
@@ -2513,6 +2545,7 @@ def modifier_site(request, pk):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_site(request, pk):
     """Supprimer un site"""
     site = get_object_or_404(Site, pk=pk)
@@ -2541,6 +2574,7 @@ def supprimer_site(request, pk):
 
 # ================ GESTION DES CLIENTS ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_clients(request):
     """Liste des clients"""
     # CORRECTION : Enlever select_related('site') car Client n'a pas de champ site
@@ -2562,6 +2596,7 @@ def liste_clients(request):
     return render(request, 'reclamations/client/liste.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def creer_client(request):
     """Créer un nouveau client avec ses sites"""
     if request.method == 'POST':
@@ -2651,6 +2686,7 @@ def creer_client(request):
     return render(request, 'reclamations/client/creer.html')
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_client(request, pk):
     """Modifier un client et ses sites"""
     client = get_object_or_404(Client.objects.prefetch_related('sites_client'), pk=pk)
@@ -2758,6 +2794,7 @@ def modifier_client(request, pk):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_client(request, pk):
     """Supprimer un client"""
     client = get_object_or_404(Client, pk=pk)
@@ -2790,6 +2827,7 @@ def supprimer_client(request, pk):
 
 # ================ GESTION DES PRODUITS ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_produits(request):
     """Liste des produits avec pagination et recherche"""
     
@@ -2824,6 +2862,7 @@ def liste_produits(request):
     return render(request, 'reclamations/produit/liste.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def creer_produit(request):
     """Créer un nouveau produit"""
     if request.method == 'POST':
@@ -2849,6 +2888,7 @@ def creer_produit(request):
     return render(request, 'reclamations/produit/creer.html')
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_produit(request, pk):
     """Modifier un produit"""
     produit = get_object_or_404(Produit, pk=pk)
@@ -2875,6 +2915,7 @@ def modifier_produit(request, pk):
     return render(request, 'reclamations/produit/modifier.html', {'produit': produit})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_produit(request, pk):
     """Supprimer un produit"""
     produit = get_object_or_404(Produit, pk=pk)
@@ -2903,6 +2944,7 @@ def supprimer_produit(request, pk):
 
 # ================ GESTION DES OBJECTIFS ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_objectifs(request):
     """Liste des objectifs par année avec moyennes"""
     # Récupérer toutes les années distinctes
@@ -2948,6 +2990,7 @@ def liste_objectifs(request):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def creer_objectifs_annee(request):
     """Créer des objectifs pour une année (tous les sites)"""
     if request.method == 'POST':
@@ -3001,6 +3044,7 @@ def creer_objectifs_annee(request):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_objectifs_annee(request, annee):
     """Modifier les objectifs pour une année"""
     objectifs = ObjectifsAnnuel.objects.filter(annee=annee).select_related('site')
@@ -3033,6 +3077,7 @@ def modifier_objectifs_annee(request, annee):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_objectifs_annee(request, annee):
     """Supprimer tous les objectifs d'une année"""
     objectifs = ObjectifsAnnuel.objects.filter(annee=annee)
@@ -3053,12 +3098,14 @@ def supprimer_objectifs_annee(request, annee):
 
 # ================ GESTION DES PROGRAMMES ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_programmes(request):
     """Liste des programmes"""
     programmes = Programme.objects.all().prefetch_related('clients').order_by('nom')
     return render(request, 'reclamations/programme/liste.html', {'programmes': programmes})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def creer_programme(request):
     """Créer un nouveau programme"""
     if request.method == 'POST':
@@ -3088,6 +3135,7 @@ def creer_programme(request):
     return render(request, 'reclamations/programme/creer.html', {'clients': clients})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_programme(request, pk):
     """Modifier un programme"""
     programme = get_object_or_404(Programme, pk=pk)
@@ -3121,6 +3169,7 @@ def modifier_programme(request, pk):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_programme(request, pk):
     """Supprimer un programme"""
     programme = get_object_or_404(Programme, pk=pk)
@@ -3149,6 +3198,7 @@ def supprimer_programme(request, pk):
 
 # API pour charger les programmes d'un client en AJAX
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def get_programmes_by_client(request):
     """Endpoint AJAX pour récupérer les programmes d'un client"""
     client_id = request.GET.get('client_id')
@@ -3158,6 +3208,7 @@ def get_programmes_by_client(request):
     return JsonResponse([], safe=False)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_livraisons(request):
     """Liste des livraisons"""
     livraisons = Livraison.objects.all().select_related('client').order_by('-date_livraison')
@@ -3173,6 +3224,7 @@ def liste_livraisons(request):
     return render(request, 'reclamations/livraison/liste.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def ajouter_livraison(request):
     """Ajouter une livraison"""
     if request.method == 'POST':
@@ -3216,6 +3268,7 @@ def ajouter_livraison(request):
     return render(request, 'reclamations/livraison/ajouter.html', {'clients': clients})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def modifier_livraison(request, pk):
     """Modifier une livraison"""
     livraison = get_object_or_404(Livraison, pk=pk)
@@ -3263,6 +3316,7 @@ def modifier_livraison(request, pk):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def supprimer_livraison(request, pk):
     """Supprimer une livraison"""
     livraison = get_object_or_404(Livraison, pk=pk)
@@ -3279,6 +3333,7 @@ def supprimer_livraison(request, pk):
 
 # ================ IMPORT PRODUITS DEPUIS EXCEL ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def import_produits_excel(request):
     """Importe des produits depuis un fichier Excel"""
     
@@ -3363,6 +3418,7 @@ def import_produits_excel(request):
 
 # ================ IMPORT CLIENTS DEPUIS EXCEL ================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def import_clients_excel(request):
     """Importe des clients depuis un fichier Excel"""
     
@@ -3452,6 +3508,7 @@ def extraire_produits(produits_raw):
     return produits
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def import_reclamations_excel(request):
     """Importe des réclamations depuis un fichier Excel"""
     step = request.POST.get('step', '1')
@@ -3716,6 +3773,8 @@ def import_reclamations_excel(request):
     
     return render(request, 'reclamations/import/reclamations.html', {'step': 1})
 
+@login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def extraire_non_conformites(description_raw):
     """
     Extrait les non-conformités d'une chaîne de caractères.
@@ -3736,6 +3795,8 @@ def extraire_non_conformites(description_raw):
     
     return nc_list
 
+@login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def valider_ligne_import(row_data):
     """Valide une ligne d'import et ajoute les erreurs dans row_data['erreurs']"""
     erreurs = []
@@ -3782,6 +3843,7 @@ def valider_ligne_import(row_data):
     return len(erreurs) == 0
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def recherche_produits(request):
     """Endpoint AJAX pour rechercher des produits"""
     term = request.GET.get('term', '')
@@ -3822,6 +3884,7 @@ def recherche_produits(request):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def recherche_produits_ajax(request):
     """Recherche de produits avec pagination via AJAX"""
     search = request.GET.get('search', '')
@@ -3876,6 +3939,7 @@ def recherche_produits_ajax(request):
     })
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def api_reclamations_client_mois(request):
     """API pour récupérer les données de réclamations par mois pour un client"""
     client_id = request.GET.get('client_id')
@@ -3891,6 +3955,7 @@ def api_reclamations_client_mois(request):
 
 #=============8D=============================================
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def dashboard_pdca(request):
     """Dashboard centralisé des actions PDCA (basé sur Action8D)
     Optimisé : n'affiche que les actions non réalisées par défaut
@@ -4028,6 +4093,7 @@ def dashboard_pdca(request):
     return render(request, 'reclamations/pdca/dashboard.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer'])
 def pdca_modifier(request, pk):
     """Modifier une action PDCA (Action8D)"""
     action = get_object_or_404(
@@ -4333,6 +4399,7 @@ def api_analyse_kpis(request):
         }, status=500)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_coordinator'])
 def envoyer_notifications(request):
     """Envoyer les notifications groupées"""
     if request.method == 'POST':
@@ -4363,6 +4430,7 @@ def envoyer_notifications(request):
 #=========FAI Service===============
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_coordinator'])
 def importer_fai(request):
     """Importe un fichier Excel FAI depuis l'ERP"""
     if request.method == 'POST':
@@ -4386,6 +4454,7 @@ def importer_fai(request):
     return render(request, 'reclamations/fai/importer.html')
 
 @login_required
+@role_required(['admin', 'quality_manager'])
 def configurer_chemin_fai(request):
     """Configure le chemin d'accès au fichier Excel ERP"""
     if request.method == 'POST':
@@ -4417,6 +4486,7 @@ def synchroniser_fai(request):
     return redirect('reclamations:liste_fai')
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_coordinator', 'production_manager'])
 def liste_fai(request):
     """Liste des articles FAI avec pagination, recherche et filtre par statut"""
     
@@ -4482,6 +4552,7 @@ def exporter_alertes_fai(request):
     response['Content-Disposition'] = f'attachment; filename="alertes_fai_{timezone.now().date()}.xlsx"'
     return response
 
+@login_required
 def exporter_alertes_excel(self):
     """Exporte les alertes FAI vers un fichier Excel avec onglets séparés"""
     output = BytesIO()
@@ -4588,6 +4659,8 @@ def exporter_alertes_excel(self):
     
     return output
 
+@login_required
+@role_required(['admin', 'quality_manager'])
 def envoyer_alertes_email(self, destinataires=None):
     """Envoie un email avec fichier Excel des alertes (sans liste dans le corps)"""
     if not destinataires:
@@ -4652,6 +4725,7 @@ def envoyer_alertes_email(self, destinataires=None):
         return {'success': False, 'error': str(e)}
   
 @login_required
+@role_required(['admin', 'quality_manager'])
 def envoyer_alertes_fai_email(request):
     """Envoie les alertes FAI par email"""
     if request.method == 'POST':
@@ -4686,6 +4760,7 @@ def envoyer_alertes_fai_email(request):
 
 #Gestion des 8d
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer', 'product_quality_engineer'])
 def huitd_creer(request, reclamation_id):
     """Créer une fiche 8D avec toutes les méthodes initialisées"""
     reclamation = get_object_or_404(Reclamation, pk=reclamation_id)
@@ -4757,6 +4832,7 @@ def _init_evaluations_fh(fh):
         )
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer', 'product_quality_engineer'])
 def huitd_detail(request, pk):
     """Afficher la fiche 8D"""
     huitd = get_object_or_404(
@@ -4772,6 +4848,7 @@ def huitd_detail(request, pk):
     return render(request, 'reclamations/huitd/huitd_detail.html', {'huitd': huitd})
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer', 'product_quality_engineer'])
 def huitd_modifier(request, pk):
     """Modifier la fiche 8D - dispatch selon section"""
     huitd = get_object_or_404(
@@ -4838,6 +4915,7 @@ def huitd_modifier(request, pk):
     return render(request, 'reclamations/huitd/huitd_formulaire.html', context)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer', 'product_quality_engineer'])
 def huitd_supprimer_evidence(request, pk):
     evidence = get_object_or_404(Evidence8D, pk=pk)
     huitd_id = evidence.huitd.id
@@ -4846,6 +4924,7 @@ def huitd_supprimer_evidence(request, pk):
     return redirect('reclamations:huitd_modifier', pk=huitd_id)
 
 @login_required
+@role_required(['admin', 'quality_manager', 'quality_engineer', 'product_quality_engineer'])
 def qualite_dashboard(request):
     """
     Dashboard pour l'équipe Qualité Produit

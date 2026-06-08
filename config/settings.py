@@ -103,7 +103,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Login URLs
 LOGIN_URL = 'accounts:login'
-LOGIN_REDIRECT_URL = 'reclamations:dashboard'
+LOGIN_REDIRECT_URL = 'accounts:redirect_by_role'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
 # Email configuration

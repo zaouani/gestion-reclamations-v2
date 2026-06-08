@@ -4,6 +4,7 @@
 {% block title %}Liste des articles FAI{% endblock %}
 
 {% block content %}
+{% if 'gestion_fai' in user.get_menu_permissions %}
 <div class="container-fluid mt-4">
     <!-- En-tête -->
     <div class="row mb-4">
@@ -16,18 +17,22 @@
         </div>
         <div class="col text-end">
             <div class="btn-group">
+                {% if user.role == 'admin' or user.role == 'quality_manager' %}
                 <a href="{% url 'reclamations:configurer_chemin_fai' %}" class="btn btn-outline-primary">
                     <i class="fas fa-folder-open"></i> Configurer source
                 </a>
+                {% endif %}
                 <a href="{% url 'reclamations:synchroniser_fai' %}" class="btn btn-primary" onclick="return confirm('Synchroniser avec le fichier Excel ?')">
                     <i class="fas fa-sync-alt"></i> Synchroniser
                 </a>
+                {% if user.role == 'admin' or user.role == 'quality_manager' %}
                 <a href="{% url 'reclamations:importer_fai' %}" class="btn btn-success">
                     <i class="fas fa-file-excel"></i> Importer fichier
                 </a>
                 <a href="{% url 'reclamations:envoyer_alertes_email' %}" class="btn btn-info">
                     <i class="fas fa-envelope"></i> Envoyer alertes
                 </a>
+                {% endif %}
                 <a href="{% url 'reclamations:exporter_alertes_fai' %}" class="btn btn-success">
                     <i class="fas fa-file-excel"></i> Exporter alertes
                 </a>
@@ -256,4 +261,5 @@ document.getElementById('recherche_pn')?.addEventListener('keypress', function(e
     }
 });
 </script>
+{% endif %}
 {% endblock %}

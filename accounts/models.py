@@ -6,11 +6,11 @@ class Role(models.Model):
     """Modèle pour les rôles personnalisés"""
     ROLE_CHOICES = [
         ('admin', 'Administrateur'),
-        ('quality_manager', 'Responsable Qualité'),
-        ('quality_engineer', 'Ingénieur Qualité'),
+        ('quality_manager', 'Responsable Qualité Client'),
+        ('quality_engineer', 'Ingénieur Qualité Client'),
+        ('product_quality_engineer', 'Ingénieur Qualité Produit'),
         ('production_manager', 'Responsable Production'),
-        ('production_operator', 'Opérateur Production'),
-        ('supplier', 'Fournisseur'),
+        ('quality_coordinator', 'Coordonnateur Qualité'),
         ('viewer', 'Consultant'),
     ]
     
@@ -31,11 +31,11 @@ class Role(models.Model):
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('admin', 'Administrateur'),
-        ('quality_manager', 'Responsable Qualité'),
-        ('quality_engineer', 'Ingénieur Qualité'),
+        ('quality_manager', 'Responsable Qualité Client'),
+        ('quality_engineer', 'Ingénieur Qualité Client'),
+        ('product_quality_engineer', 'Ingénieur Qualité Produit'),
         ('production_manager', 'Responsable Production'),
-        ('production_operator', 'Opérateur Production'),
-        ('supplier', 'Fournisseur'),
+        ('quality_coordinator', 'Coordonnateur Qualité'),
         ('viewer', 'Consultant'),
     ]
     
@@ -79,35 +79,29 @@ class User(AbstractUser):
     
     def get_menu_permissions(self):
         """Retourne les menus accessibles selon le rôle"""
+        FULL_MENU = [
+            'dashboard', 'liste', 'creer', 'modifier_reclamation', 'supprimer_reclamation',
+            'gestion_clients', 'gestion_produits', 'gestion_sites',
+            'gestion_uap', 'gestion_programmes', 'gestion_objectifs',
+            'gestion_utilisateurs', 'rapports', 'import_export', 'parametres',
+            'gestion_8d', 'gestion_fai', 'gestion_livraisons',
+                     ]
+        
         menus = {
-            'admin': [
-                'dashboard', 'liste', 'creer', 'modifier_reclamation',
-                'gestion_clients', 'gestion_produits', 'gestion_sites',
-                'gestion_uap', 'gestion_programmes', 'gestion_objectifs',
-                'gestion_utilisateurs', 'rapports', 'import_export', 'parametres'
-            ],
-            'quality_manager': [
-                'dashboard', 'liste', 'creer', 'modifier_reclamation',
-                'gestion_clients', 'gestion_produits', 'gestion_sites',
-                'gestion_uap', 'gestion_programmes', 'gestion_objectifs',
-                'rapports', 'import_export'
-            ],
-            'quality_engineer': [
-                'dashboard', 'liste', 'creer', 'modifier_reclamation',
-                'gestion_produits', 'rapports'
-            ],
+            'admin': FULL_MENU, 
+            'quality_manager': FULL_MENU,
+            'quality_engineer': FULL_MENU,
             'production_manager': [
-                'dashboard', 'liste', 'creer', 'modifier_reclamation',
-                'gestion_produits', 'gestion_sites'
-            ],
-            'production_operator': [
-                'dashboard', 'liste', 'creer'
-            ],
-            'supplier': [
-                'dashboard', 'liste'
+                'gestion_fai'
+                ],
+            'quality_coordinator': [
+              'gestion_fai'
+                ],
+            'product_quality_engineer': [
+                'gestion_8d'
             ],
             'viewer': [
-                'dashboard', 'liste'
-            ],
+                'dashboard'
+             ],
         }
         return menus.get(self.role, menus['viewer'])

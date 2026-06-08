@@ -18,7 +18,9 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         {% endif %}
+        
         <div class="col text-end">
+            {% if user.role == 'admin' or user.role == 'quality_manager' %}
             <a href="{% url 'reclamations:liste' %}" class="btn btn-secondary">
                 <i class="fas fa-list"></i> Liste
             </a>
@@ -28,6 +30,7 @@
             <a href="{% url 'reclamations:modifier_etats' reclamation.id %}" class="btn btn-warning">
                 <i class="fas fa-flag"></i> Modifier états
             </a>
+            {% endif %}
             {% if reclamation.huitd %}
                 <a href="{% url 'reclamations:huitd_detail' reclamation.huitd.id %}" class="btn btn-info">
                     <i class="fas fa-chart-line"></i> Voir 8D
@@ -37,9 +40,11 @@
                     <i class="fas fa-plus-circle"></i> Créer 8D
                 </a>
             {% endif %}
+            {% if user.role == 'admin' or user.role == 'quality_manager' %}
             <a href="{% url 'reclamations:supprimer_reclamation' reclamation.id %}" class="btn btn-danger">
                 <i class="fas fa-trash"></i> Supprimer
             </a>
+            {% endif %}
         </div>
     </div>
     

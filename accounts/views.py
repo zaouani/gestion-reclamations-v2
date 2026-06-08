@@ -41,7 +41,7 @@ def liste_utilisateurs(request):
     return render(request, 'accounts/liste_utilisateurs.html', context)
 
 @login_required
-@role_required(['admin'])
+@role_required(['admin', 'quality_manager'])
 def creer_utilisateur(request):
     """Créer un nouvel utilisateur"""
     if request.method == 'POST':
@@ -95,7 +95,7 @@ def creer_utilisateur(request):
     return render(request, 'accounts/creer_utilisateur.html', context)
 
 @login_required
-@role_required(['admin'])
+@role_required(['admin', 'quality_manager'])
 def modifier_utilisateur(request, user_id):
     """Modifier un utilisateur"""
     user = get_object_or_404(User, id=user_id)
@@ -178,3 +178,35 @@ def mon_profil(request):
         return redirect('accounts:mon_profil')
     
     return render(request, 'accounts/mon_profil.html')
+
+
+@login_required
+def redirect_by_role(request):
+    """
+    Redirige l'utilisateur vers son dashboard selon son rôle
+    """
+    user = request.user
+    
+    # Super admin
+    if user.is_superuser:
+        return redirect('reclamations:dashboard')
+    
+    # Vérifier le profil
+    role = user.role
+        
+        # Mapping rôle → dashboard
+    dashboards = {
+        'admin': 'reclamations:dashboard',
+        'quality_manager': 'reclamations:dashboard',
+        'quality_engineer': 'reclamations:dashboard',
+        'product_quality_engineer': 'reclamations:qualite_dashboard',
+        'production_manager': 'reclamations:liste_fai',
+        'quality_coordinator': 'reclamations:liste_fai',
+        'viewer': 'reclamations:dashboard',
+    }
+        
+    dashboard_url = dashboards.get(role)
+    if dashboard_url:
+        return redirect(dashboard_url)
+    # Par défaut, dashboard qualité
+    return redirect('reclamations:dashboard')
