@@ -1,0 +1,531 @@
+<!-- templates/reclamations/dashboard/big_screen_dashboard.html -->
+
+{% load static %}
+
+{% block title %}Dashboard Qualité - Vue Grand Écran{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Style fullscreen pour grand écran */
+    body {
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+        margin: 0;
+        padding: 20px;
+        min-height: 100vh;
+        font-family: 'Segoe UI', 'Courier New', monospace;
+    }
+    
+    .fullscreen-container {
+        max-width: 1920px;
+        margin: 0 auto;
+    }
+    
+    /* En-tête du dashboard */
+    .dashboard-header {
+        background: rgba(0,0,0,0.5);
+        border-radius: 16px;
+        padding: 15px 25px;
+        margin-bottom: 25px;
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+    }
+    
+    .dashboard-title {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #fff;
+        margin: 0;
+    }
+    
+    .dashboard-subtitle {
+        color: #888;
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
+    
+    .refresh-indicator {
+        text-align: right;
+        color: #00e676;
+        font-size: 0.8rem;
+        font-family: monospace;
+    }
+    
+    .refresh-indicator i {
+        animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    /* Grille KPI améliorée */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+    
+    @media (min-width: 1600px) {
+        .kpi-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    .kpi-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+        border-radius: 20px;
+        padding: 25px;
+        border: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #00e676, #00b0ff);
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-5px);
+        background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    
+    .kpi-label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #888;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .kpi-label i {
+        font-size: 1.1rem;
+    }
+    
+    .kpi-value {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #fff;
+        margin-bottom: 10px;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .kpi-trend {
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(0,0,0,0.3);
+    }
+    
+    .trend-up {
+        color: #00e676;
+    }
+    
+    .trend-up::before {
+        content: "▲";
+        margin-right: 4px;
+    }
+    
+    .trend-down {
+        color: #ff5252;
+    }
+    
+    .trend-down::before {
+        content: "▼";
+        margin-right: 4px;
+    }
+    
+    .trend-stable {
+        color: #ffc107;
+    }
+    
+    .trend-stable::before {
+        content: "●";
+        margin-right: 4px;
+    }
+    
+    .kpi-footer {
+        margin-top: 15px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        font-size: 0.7rem;
+        color: #666;
+    }
+    
+    /* Section secondaire - 2 colonnes */
+    .dashboard-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+    
+    /* Cartes d'informations */
+    .info-card {
+        background: rgba(0,0,0,0.3);
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .info-card-header {
+        font-size: 1rem;
+        color: #00e676;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    /* Liste des réclamations récentes */
+    .reclamations-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .reclamation-item {
+        padding: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+    }
+    
+    .reclamation-item:hover {
+        background: rgba(255,255,255,0.05);
+    }
+    
+    .reclamation-num {
+        font-weight: bold;
+        color: #fff;
+        font-family: monospace;
+    }
+    
+    .reclamation-client {
+        font-size: 0.8rem;
+        color: #888;
+    }
+    
+    .reclamation-date {
+        font-size: 0.7rem;
+        color: #666;
+    }
+    
+    .badge-urgent {
+        background: #ff5252;
+        color: #fff;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+    }
+    
+    /* Animation de rafraîchissement */
+    .refreshing {
+        animation: fadeOutIn 0.5s ease;
+    }
+    
+    @keyframes fadeOutIn {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    /* Scrollbar personnalisée */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #00e676;
+        border-radius: 4px;
+    }
+    
+    /* Badge 8D */
+    .badge-8d {
+        background: #00b0ff;
+        color: #fff;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fullscreen-container">
+    <!-- En-tête -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="dashboard-subtitle">
+                    Suivi en temps réel | {{ current_year }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="refresh-indicator">
+                    <i class="fas fa-sync-alt fa-spin"></i>
+                    Dernière mise à jour: <span id="lastUpdate">{{ now|date:"H:i:s" }}</span>
+                    <span id="countdown" style="margin-left: 10px;">prochain rafraîchissement dans 30s</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grille KPI -->
+    <div class="kpi-grid" id="kpiContainer">
+        <!-- Total Réclamations -->
+        <div class="kpi-card">
+            <div class="kpi-label">
+                <i class="fas fa-file-alt"></i> TOTAL RÉCLAMATIONS
+            </div>
+            <div class="kpi-value" id="totalReclamations">{{ kpi_stats.total_reclamations|default:0 }}</div>
+            <div>
+                <span class="kpi-trend {% if kpi_variation.total_reclamations > 0 %}trend-up{% elif kpi_variation.total_reclamations < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {% if kpi_variation.total_reclamations > 0 %}+{% endif %}{{ kpi_variation.total_reclamations|default:0 }}%
+                </span>
+                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
+            </div>
+            <div class="kpi-footer">
+                <i class="fas fa-chart-line"></i> Cumul {{ current_year }}
+            </div>
+        </div>
+        
+        <!-- Non Clôturées -->
+        <div class="kpi-card">
+            <div class="kpi-label">
+                <i class="fas fa-clock"></i> NON CLÔTURÉES
+            </div>
+            <div class="kpi-value" id="nonCloturees">{{ kpi_stats.ouvertes|default:0 }}</div>
+            <div>
+                <span class="kpi-trend {% if kpi_variation.ouvertes > 0 %}trend-up{% elif kpi_variation.ouvertes < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {% if kpi_variation.ouvertes > 0 %}+{% endif %}{{ kpi_variation.ouvertes|default:0 }}%
+                </span>
+                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
+            </div>
+            <div class="kpi-footer">
+                <i class="fas fa-percent"></i> Taux clôture: {{ kpi_stats.taux_cloture|default:0 }}%
+            </div>
+        </div>
+        
+        <!-- Taux de Réactivité -->
+        <div class="kpi-card">
+            <div class="kpi-label">
+                <i class="fas fa-bolt"></i> TAUX DE RÉACTIVITÉ
+            </div>
+            <div class="kpi-value" id="tauxReact">{{ kpi_stats.taux_reactivite|default:0 }}<span style="font-size:1.5rem;">%</span></div>
+            <div>
+                <span class="kpi-trend {% if kpi_variation.taux_reactivite > 0 %}trend-up{% elif kpi_variation.taux_reactivite < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {% if kpi_variation.taux_reactivite > 0 %}+{% endif %}{{ kpi_variation.taux_reactivite|default:0 }}%
+                </span>
+                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs mois dernier</span>
+            </div>
+            <div class="kpi-footer">
+                <i class="fas fa-calendar"></i> Clôturées dans les 30 jours
+            </div>
+        </div>
+        
+        <!-- Délai Moyen -->
+        <div class="kpi-card">
+            <div class="kpi-label">
+                <i class="fas fa-hourglass-half"></i> DÉLAI MOYEN
+            </div>
+            <div class="kpi-value" id="delaiMoyen">{{ kpi_stats.delai_moyen|default:0 }}<span style="font-size:1.5rem;">j</span></div>
+            <div>
+                <span class="kpi-trend {% if kpi_variation.delai_moyen > 0 %}trend-up{% elif kpi_variation.delai_moyen < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {% if kpi_variation.delai_moyen > 0 %}+{% endif %}{{ kpi_variation.delai_moyen|default:0 }}%
+                </span>
+                <span style="color:#666; font-size:0.7rem; margin-left:8px;">évolution</span>
+            </div>
+            <div class="kpi-footer">
+                <i class="fas fa-chart-line"></i> Délai moyen de clôture
+            </div>
+        </div>
+        
+        <!-- Coût NQC -->
+        <div class="kpi-card">
+            <div class="kpi-label">
+                <i class="fas fa-euro-sign"></i> COÛT NQC TOTAL
+            </div>
+            <div class="kpi-value" id="coutNqc">{{ kpi_stats.cout_nqc_total|default:0|floatformat:0 }}<span style="font-size:1rem;"> MAD</span></div>
+            <div>
+                <span class="kpi-trend {% if kpi_variation.cout_nqc > 0 %}trend-up{% elif kpi_variation.cout_nqc < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {% if kpi_variation.cout_nqc > 0 %}+{% endif %}{{ kpi_variation.cout_nqc|default:0 }}%
+                </span>
+                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs mois dernier</span>
+            </div>
+            <div class="kpi-footer">
+                <i class="fas fa-chart-line"></i> Coût total {{ current_year }}
+            </div>
+        </div>
+        
+        <!-- Taux de Récurrence -->
+        <div class="kpi-card">
+            <div class="kpi-label">
+                <i class="fas fa-sync-alt"></i> TAUX DE RÉCURRENCE
+            </div>
+            <div class="kpi-value" id="tauxRecurrence">{{ kpi_stats.taux_recurrence|default:0 }}<span style="font-size:1.5rem;">%</span></div>
+            <div>
+                <span class="kpi-trend {% if kpi_variation.taux_recurrence > 0 %}trend-up{% elif kpi_variation.taux_recurrence < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {% if kpi_variation.taux_recurrence > 0 %}+{% endif %}{{ kpi_variation.taux_recurrence|default:0 }}%
+                </span>
+                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs mois dernier</span>
+            </div>
+            <div class="kpi-footer">
+                <i class="fas fa-chart-line"></i> Défauts récurrents
+            </div>
+        </div>
+    </div>
+    
+    <!-- Section des alertes et réclamations urgentes -->
+    <div class="dashboard-row">
+        <div class="info-card">
+            <div class="info-card-header">
+                <span><i class="fas fa-exclamation-triangle"></i> RÉCLAMATIONS SANS 8D (URGENTES)</span>
+                <span id="countSans8d" class="badge-8d">{{ reclamations_sans_8d|length }}</span>
+            </div>
+            <div class="reclamations-list" id="sans8dList">
+                {% for rec in reclamations_sans_8d|slice:":10" %}
+                <div class="reclamation-item">
+                    <div>
+                        <div class="reclamation-num">{{ rec.numero_reclamation }}</div>
+                        <div class="reclamation-client">{{ rec.client.nom }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="reclamation-date">{{ rec.date_reclamation|date:"d/m/Y" }}</div>
+                        <span class="badge-urgent">Urgent</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div style="text-align:center; padding:20px; color:#666;">Aucune réclamation sans 8D</div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <span><i class="fas fa-chart-line"></i> 8D EN COURS</span>
+                <span id="countAvec8d" class="badge-8d">{{ reclamations_avec_8d|length }}</span>
+            </div>
+            <div class="reclamations-list" id="avec8dList">
+                {% for rec in reclamations_avec_8d|slice:":10" %}
+                <div class="reclamation-item">
+                    <div>
+                        <div class="reclamation-num">{{ rec.numero_reclamation }}</div>
+                        <div class="reclamation-client">{{ rec.client.nom }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="reclamation-date">Pilote: {{ rec.huitd.pilote|default:"-" }}</div>
+                        <span class="badge-8d">{{ rec.huitd.get_etat_display }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div style="text-align:center; padding:20px; color:#666;">Aucun 8D en cours</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-refresh du dashboard toutes les 30 secondes
+    let countdown = 30;
+    let refreshTimer;
+    let countdownInterval;
+    
+    function startCountdown() {
+        countdownInterval = setInterval(function() {
+            countdown--;
+            document.getElementById('countdown').innerHTML = `prochain rafraîchissement dans ${countdown}s`;
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                refreshDashboard();
+            }
+        }, 1000);
+    }
+    
+    function refreshDashboard() {
+        // Ajouter animation de rafraîchissement
+        document.getElementById('kpiContainer').classList.add('refreshing');
+        document.getElementById('sans8dList').classList.add('refreshing');
+        document.getElementById('avec8dList').classList.add('refreshing');
+        
+        // Requête AJAX pour récupérer les nouvelles données
+        fetch('{% url "reclamations:api_dashboard_data" %}')
+            .then(response => response.json())
+            .then(data => {
+                // Mettre à jour les KPI
+                document.getElementById('totalReclamations').innerText = data.total_reclamations;
+                document.getElementById('nonCloturees').innerText = data.ouvertes;
+                document.getElementById('tauxReact').innerHTML = data.taux_reactivite + '<span style="font-size:1.5rem;">%</span>';
+                document.getElementById('delaiMoyen').innerHTML = data.delai_moyen + '<span style="font-size:1.5rem;">j</span>';
+                document.getElementById('coutNqc').innerHTML = data.cout_nqc_total + '<span style="font-size:1rem;"> MAD</span>';
+                document.getElementById('tauxRecurrence').innerHTML = data.taux_recurrence + '<span style="font-size:1.5rem;">%</span>';
+                
+                // Mettre à jour les variations
+                document.querySelectorAll('.kpi-trend').forEach((el, idx) => {
+                    const variations = data.variations;
+                    const keys = ['total_reclamations', 'ouvertes', 'taux_reactivite', 'delai_moyen', 'cout_nqc', 'taux_recurrence'];
+                    if (idx < keys.length) {
+                        let v = variations[keys[idx]];
+                        el.innerHTML = (v > 0 ? '+' : '') + v + '%';
+                        el.className = 'kpi-trend';
+                        if (v > 0) el.classList.add('trend-up');
+                        else if (v < 0) el.classList.add('trend-down');
+                        else el.classList.add('trend-stable');
+                    }
+                });
+                
+                // Mettre à jour les listes
+                document.getElementById('sans8dList').innerHTML = data.sans_8d_html;
+                document.getElementById('avec8dList').innerHTML = data.avec_8d_html;
+                document.getElementById('countSans8d').innerHTML = data.sans_8d_count;
+                document.getElementById('countAvec8d').innerHTML = data.avec_8d_count;
+                
+                // Mettre à jour l'heure
+                document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('fr-FR');
+                
+                // Retirer l'animation
+                setTimeout(() => {
+                    document.getElementById('kpiContainer').classList.remove('refreshing');
+                    document.getElementById('sans8dList').classList.remove('refreshing');
+                    document.getElementById('avec8dList').classList.remove('refreshing');
+                }, 500);
+                
+                // Redémarrer le compte à rebours
+                countdown = 30;
+                startCountdown();
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                countdown = 30;
+                startCountdown();
+            });
+    }
+    
+    // Démarrer le compte à rebours au chargement
+    startCountdown();
+</script>
+{% endblock %}

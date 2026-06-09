@@ -151,6 +151,16 @@
                             {% endfor %}
                         </select>
                     </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" 
+                                id="besoin_4dp" name="besoin_4dp" 
+                                {% if reclamation.besoin_4dp %}checked{% endif %}>
+                            <label class="form-check-label" for="besoin_4dp">
+                                <strong>4DP nécessaire ?</strong>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -210,11 +220,12 @@
                         <div class="row">
                             <div class="col-md-3 mb-2">
                                 <label class="form-label">Produit *</label>
+                                <!-- Modifier les selects pour utiliser les données paginées -->
                                 <select class="form-control select2-produit" name="produit[]" required>
                                     <option value="">Sélectionnez un produit</option>
                                     {% for produit in produits %}
                                     <option value="{{ produit.id }}" {% if ligne.produit.id == produit.id %}selected{% endif %}>
-                                        {{ produit.product_number }} - {{ produit.designation }}
+                                        {{ produit.product_number }} - {{ produit.designation|truncatechars:50 }}
                                     </option>
                                     {% endfor %}
                                 </select>

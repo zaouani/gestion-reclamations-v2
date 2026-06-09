@@ -119,7 +119,6 @@ class Reclamation(models.Model):
     ]
     
     ETAT_CHOICES = [
-        ('OUVERT', 'Ouvert'),
         ('EN_COURS', 'En cours'),
         ('CLOTURE', 'Clôturé'),
     ]
@@ -144,6 +143,7 @@ class Reclamation(models.Model):
     numero_8d = models.CharField("N° 8D", max_length=50, blank=True, null=True,help_text="Numéro de la démarche 8D" )
     # États
     etat_4d = models.CharField("État 4D", max_length=20, choices=ETAT_CHOICES, default='OUVERT')
+    huitd_non_applicable = models.BooleanField("8D non applicable", default=False)
     etat_8d = models.CharField("État 8D", max_length=20, choices=ETAT_CHOICES, default='OUVERT')
     besoin_4dp = models.BooleanField("4DP nécessaire ?", default=False, help_text="Cocher si une démarche 4DP est nécessaire")
     # Métadonnées
@@ -899,6 +899,7 @@ class HuitD(models.Model):
     # ================================================================
     # EN-TÊTE
     # ================================================================
+    numero_8d = models.CharField("N° 8D", max_length=50, blank=True)
     ref = models.CharField("Réf", max_length=50, blank=True)
     version = models.CharField("Version", max_length=20, blank=True)
     date_maj = models.DateField("Date MàJ", auto_now=True, null=True, blank=True)

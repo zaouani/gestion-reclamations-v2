@@ -4,10 +4,13 @@ from . import views
 app_name = 'reclamations'
 
 urlpatterns = [
+    #kpis et dashboard
     path('', views.dashboard, name='dashboard'),
     path('produits/recurrence/', views.taux_recurrence_produits, name='taux_recurrence_produits'),
     path('produits/<int:product_id>/recurrence/', views.detail_recurrence_produit, name='detail_recurrence_produit'),
-    
+    path('dashboard/big-screen/', views.big_screen_dashboard, name='big_screen_dashboard'),
+    path('api/dashboard-data/', views.api_dashboard_data, name='api_dashboard_data'),
+
     # Taux de récurrence des NC (tous produits confondus)
     path('recurrence/nc/', views.taux_recurrence_nc, name='taux_recurrence_nc'),
     path('recurrence/nc/<path:description>/', views.detail_recurrence_nc, name='detail_recurrence_nc'),
@@ -99,6 +102,8 @@ urlpatterns = [
     path('8d/<int:pk>/modifier/', views.huitd_modifier, name='huitd_modifier'),
     path('8d/evidence/<int:pk>/supprimer/', views.huitd_supprimer_evidence, name='huitd_supprimer_evidence'),
     path('qualite/', views.qualite_dashboard, name='qualite_dashboard'),
+    path('reclamation/<int:pk>/marquer-8d-na/', views.marquer_8d_non_applicable, name='marquer_8d_na'),
+    path('reclamation/<int:pk>/annuler-8d-na/', views.annuler_8d_non_applicable, name='annuler_8d_na'),
     
     # ========== PDCA ==========
     path('pdca/dashboard/', views.dashboard_pdca, name='dashboard_pdca'),

@@ -216,12 +216,44 @@
         {% csrf_token %}<input type="hidden" name="section" value="general">
         
         <!-- ==================== TITRE ==================== -->
-        <div class="huitd-title">
-            FORMULAIRE 8D 
+        <div class="huitd-title" style="text-align: center;">
+            <div>
+            <strong style="font-size: 1.2rem;">FORMULAIRE 8D</strong>
             <br>
             <small>Réf : {{ huitd.ref }} | Vers : {{ huitd.version }} | Date MàJ : {% now "d/m/Y" %}</small>
+            {% if huitd.etat == 'CLOTURE' %}
+                <span class="badge bg-success ms-2">
+                    <i class="fas fa-check-circle"></i> Clôturé
+                </span>
+            {% elif huitd.etat == 'EN_COURS' %}
+                <span class="badge bg-warning ms-2">
+                    <i class="fas fa-spinner fa-pulse"></i> En cours
+                </span>
+            {% else %}
+                <span class="badge bg-secondary ms-2">
+                    <i class="fas fa-clock"></i> Ouvert
+                </span>
+            {% endif %}
         </div>
-        
+
+        <div style="margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
+            <div>
+                <label style="margin-right: 8px; font-weight: bold;">N° 8D :</label>
+                <input type="text" name="numero_8d" value="{{ huitd.numero_8d }}" 
+                    class="form-control form-control-sm" style="width: 150px; display: inline-block;" 
+                    placeholder="N° 8D">
+            </div>
+            <div>
+                <label style="margin-right: 8px; font-weight: bold;">État :</label>
+                <select name="huitd_etat" class="form-control form-control-sm" style="width: 130px; display: inline-block;">
+                    <option value="OUVERT" {% if huitd.etat == 'OUVERT' %}selected{% endif %}>🟡 Ouvert</option>
+                    <option value="EN_COURS" {% if huitd.etat == 'EN_COURS' %}selected{% endif %}>🔵 En cours</option>
+                    <option value="CLOTURE" {% if huitd.etat == 'CLOTURE' %}selected{% endif %}>🟢 Clôturé</option>
+                </select>
+            </div>
+        </div>
+            
+    </div>    
         <!-- ==================== INFORMATIONS GÉNÉRALES ==================== -->
         <div class="section-title">Informations Générales</div>
         

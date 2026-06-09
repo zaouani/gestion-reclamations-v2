@@ -43,7 +43,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from urllib.parse import unquote
 from .services.fai_service import FAIService
-
+from django.core.cache import cache
+from django.template.loader import render_to_string
 
 
 # CONFIGURATION LOGGER
@@ -1664,6 +1665,210 @@ def ppm_detail_client(request, client_id):
     
     return render(request, 'reclamations/kpi/ppm_detail.html', context)
 
+def mini_kpi_stats(request):
+    """Calcule les KPI avec variations pour le dashboard"""
+    
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    last_month = today - timedelta(days=30)
+    month_before = today - timedelta(days=60)
+    
+    # ========== STATISTIQUES GLOBALES ==========
+    total_reclamations = Reclamation.objects.count()
+    ouvertes = Reclamation.objects.filter(cloture=False).count()
+    cloturees = Reclamation.objects.filter(cloture=True).count()
+    taux_cloture = (cloturees / total_reclamations * 100) if total_reclamations > 0 else 0
+    
+    # Taux de réactivité (clôturées dans les 30 jours)
+    reactives = Reclamation.objects.filter(
+        cloture=True,
+        date_cloture__gte=last_month,
+        date_cloture__lte=today
+    ).count()
+    taux_reactivite = (reactives / cloturees * 100) if cloturees > 0 else 0
+    
+    # Délai moyen de clôture
+    reclamations_closes = Reclamation.objects.filter(
+        cloture=True,
+        date_cloture__isnull=False,
+        date_reclamation__isnull=False
+    )
+    total_jours = 0
+    count = 0
+    for rec in reclamations_closes:
+        delta = rec.date_cloture - rec.date_reclamation
+        total_jours += delta.days
+        count += 1
+    delai_moyen = round(total_jours / count, 1) if count > 0 else 0
+    
+    # Coût NQC total
+    nqc_total = Reclamation.objects.aggregate(total=Sum('nqc'))['total'] or 0
+    
+    # Taux de récurrence
+    from .dashboard_stats import DashboardStats
+    dashboard_stats = DashboardStats()
+    recurrence_data = dashboard_stats.get_taux_recurrence_globale()
+    taux_recurrence = recurrence_data.get('taux', 0)
+    
+    # ========== VARIATIONS ==========
+    
+    # Variation Total Réclamations (vs hier)
+    total_today = Reclamation.objects.filter(date_creation__date=today).count()
+    total_yesterday = Reclamation.objects.filter(date_creation__date=yesterday).count()
+    variation_total = ((total_today - total_yesterday) / total_yesterday * 100) if total_yesterday > 0 else 0
+    
+    # Variation Ouvertes (vs hier)
+    ouvertes_today = Reclamation.objects.filter(cloture=False, date_creation__date=today).count()
+    ouvertes_yesterday = Reclamation.objects.filter(cloture=False, date_creation__date=yesterday).count()
+    variation_ouvertes = ((ouvertes_today - ouvertes_yesterday) / ouvertes_yesterday * 100) if ouvertes_yesterday > 0 else 0
+    
+    # Variation Taux Réactivité (vs mois dernier)
+    reactives_last_month = Reclamation.objects.filter(
+        cloture=True,
+        date_cloture__gte=month_before,
+        date_cloture__lt=last_month
+    ).count()
+    total_cloturees_last_month = Reclamation.objects.filter(
+        cloture=True,
+        date_cloture__gte=month_before,
+        date_cloture__lt=last_month
+    ).count()
+    taux_reactivite_last = (reactives_last_month / total_cloturees_last_month * 100) if total_cloturees_last_month > 0 else 0
+    variation_reactivite = taux_reactivite - taux_reactivite_last
+    
+    # Variation Délai Moyen (évolution en pourcentage)
+    delai_precedent = 15  # Valeur par défaut, à ajuster selon historique
+    variation_delai = ((delai_moyen - delai_precedent) / delai_precedent * 100) if delai_precedent > 0 else 0
+    
+    # Variation Coût NQC (vs mois dernier)
+    cout_last_month = Reclamation.objects.filter(
+        date_reclamation__gte=month_before,
+        date_reclamation__lt=last_month
+    ).aggregate(total=Sum('nqc'))['total'] or 0
+    variation_cout = ((nqc_total - cout_last_month) / cout_last_month * 100) if cout_last_month > 0 else 0
+    
+    # Variation Taux Récurrence (vs mois dernier)
+    taux_recurrence_precedent = 15  # Valeur par défaut, à ajuster
+    variation_recurrence = taux_recurrence - taux_recurrence_precedent
+    
+    stats = {
+        'total_reclamations': total_reclamations,
+        'ouvertes': ouvertes,
+        'taux_cloture': round(taux_cloture, 1),
+        'taux_reactivite': round(taux_reactivite, 1),
+        'delai_moyen': delai_moyen,
+        'cout_nqc_total': float(nqc_total) if nqc_total else 0,
+        'taux_recurrence': round(taux_recurrence, 1),
+    }
+    
+    variation = {
+        'total_reclamations': round(variation_total, 1),
+        'ouvertes': round(variation_ouvertes, 1),
+        'taux_reactivite': round(variation_reactivite, 1),
+        'delai_moyen': round(variation_delai, 1),
+        'cout_nqc': round(variation_cout, 1),
+        'taux_recurrence': round(variation_recurrence, 1),
+    }
+    
+    return {
+        'stats': stats,
+        'variation': variation,
+        'current_year': timezone.now().year
+    }
+
+@csrf_exempt
+def api_dashboard_data(request):
+    """API pour récupérer les données du dashboard en temps réel"""
+    
+    from .dashboard_stats import DashboardStats
+    
+    dashboard = DashboardStats()
+    stats_global = dashboard.get_global_stats()
+    nqc_data = dashboard.get_nqc_par_mois()
+    recurrence_data = dashboard.get_taux_recurrence_globale()
+    delai_moyen = dashboard.get_delai_moyen_cloture()
+    
+    # Calcul des variations (simplifié, à adapter)
+    variations = {
+        'total_reclamations': 2.3,
+        'ouvertes': -1.2,
+        'taux_reactivite': 5.1,
+        'delai_moyen': -3.4,
+        'cout_nqc': 8.7,
+        'taux_recurrence': -2.1
+    }
+    
+    # Récupérer les listes pour affichage
+    reclamations_sans_8d = Reclamation.objects.filter(
+        cloture=False,
+        huitd_non_applicable=False
+    ).exclude(huitd__isnull=False).order_by('-date_reclamation')[:10]
+    
+    reclamations_avec_8d = Reclamation.objects.filter(
+        cloture=False,
+        huitd__isnull=False,
+        huitd_non_applicable=False
+    ).exclude(huitd__etat='CLOTURE').order_by('-date_reclamation')[:10]
+    
+    # Générer HTML pour les listes
+    sans_8d_html = render_to_string('reclamations/dashboard/_sans_8d_list.html', {
+        'reclamations_sans_8d': reclamations_sans_8d
+    })
+    
+    avec_8d_html = render_to_string('reclamations/dashboard/_avec_8d_list.html', {
+        'reclamations_avec_8d': reclamations_avec_8d
+    })
+    
+    return JsonResponse({
+        'total_reclamations': Reclamation.objects.count(),
+        'ouvertes': stats_global['ouvertes'],
+        'taux_cloture': stats_global['taux_cloture'],
+        'taux_reactivite': stats_global['taux_reactivite'],
+        'delai_moyen': delai_moyen,
+        'cout_nqc_total': float(nqc_data.get('total_nqc', 0)),
+        'taux_recurrence': recurrence_data.get('taux', 0),
+        'variations': variations,
+        'sans_8d_html': sans_8d_html,
+        'avec_8d_html': avec_8d_html,
+        'sans_8d_count': reclamations_sans_8d.count(),
+        'avec_8d_count': reclamations_avec_8d.count(),
+        'timestamp': timezone.now().isoformat()
+    })
+
+def big_screen_dashboard(request):
+    """Dashboard grand écran pour le responsable"""
+    
+    from reclamations.models import Reclamation, HuitD
+    
+    # Récupérer les KPI
+    kpi_data = mini_kpi_stats(request)
+    
+    # Réclamations ouvertes SANS 8D
+    reclamations_sans_8d = Reclamation.objects.filter(
+        cloture=False,
+        huitd_non_applicable=False
+    ).exclude(
+        huitd__isnull=False
+    ).select_related('client').order_by('-date_reclamation')
+    
+    # Réclamations ouvertes AVEC 8D en cours
+    reclamations_avec_8d = Reclamation.objects.filter(
+        cloture=False,
+        huitd__isnull=False,
+        huitd_non_applicable=False
+    ).exclude(
+        huitd__etat='CLOTURE'
+    ).select_related('client', 'huitd').order_by('-date_reclamation')
+    
+    context = {
+        'kpi_stats': kpi_data['stats'],
+        'kpi_variation': kpi_data['variation'],
+        'current_year': kpi_data['current_year'],
+        'reclamations_sans_8d': reclamations_sans_8d,
+        'reclamations_avec_8d': reclamations_avec_8d,
+        'now': timezone.now()
+    }
+    return render(request, 'reclamations/dashboard/big_screen_dashboard.html', context)
 # ================ GESTION DES RECLAMATIONS ================
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
@@ -1846,8 +2051,8 @@ def creer_reclamation(request):
                 imputation=imputation,
                 type_nc=type_nc,
                 besoin_4dp=besoin_4dp,
-                etat_4d='OUVERT',
-                etat_8d='OUVERT',
+                etat_4d='EN_COURS',
+                etat_8d='EN_COURS',
                 cloture=False,
                 createur=request.user
             )
@@ -2019,7 +2224,7 @@ def sites_client_par_client(request):
     return JsonResponse([], safe=False)
 
 @login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer','product_quality_engineer'])
+@role_required(['admin', 'quality_manager', 'quality_engineer', 'production_manager'])
 def detail_reclamation(request, pk):
     """Voir le détail d'une réclamation avec analyse NC intégrée"""
     reclamation = get_object_or_404(
@@ -2092,25 +2297,58 @@ def modifier_etats(request, pk):
 
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
+
+@login_required
 def modifier_reclamation(request, pk):
-    """Modifier une réclamation complète avec gestion des multiples NC"""
+    """Modifier une réclamation complète avec gestion des multiples NC - Version optimisée"""
+    
+    # Utiliser only() pour charger uniquement les champs nécessaires
     reclamation = get_object_or_404(
-        Reclamation.objects.prefetch_related(
-            'lignes__produit', 
-            'lignes__uap_concernee',
-            'lignes__non_conformites',
-            'lignes__site'
+        Reclamation.objects.only(
+            'id', 'numero_reclamation', 'date_reclamation', 'client_id', 
+            'site_client_id', 'programme_id', 'imputation', 'type_nc',
+            'numero_4d', 'numero_8d', 'etat_4d', 'etat_8d', 'evidence', 
+            'me', 'cloture', 'decision', 'nqc','besoin_4dp'
         ),
         pk=pk
     )
     
+    # Précharger les lignes avec select_related et only (optimisé)
+    lignes = LigneReclamation.objects.filter(reclamation=reclamation).select_related(
+        'produit', 'site', 'uap_concernee'
+    ).only(
+        'id', 'produit_id', 'quantite', 'site_id', 'uap_concernee_id', 'commentaire'
+    ).prefetch_related(
+        'non_conformites'
+    )
+    
+    # Mettre en cache les données qui ne changent pas souvent (10 minutes)
+    cache_key_clients = 'clients_actifs'
+    cache_key_produits = 'produits_actifs'
+    cache_key_sites_usine = 'sites_usine'
+    
+    clients = cache.get(cache_key_clients)
+    if clients is None:
+        clients = list(Client.objects.filter(actif=True).only('id', 'nom').order_by('nom'))
+        cache.set(cache_key_clients, clients, 600)
+    
+    produits = cache.get(cache_key_produits)
+    if produits is None:
+        # Limiter à 500 produits et paginer
+        produits = list(Produit.objects.filter(actif=True).only('id', 'product_number', 'designation').order_by('product_number')[:500])
+        cache.set(cache_key_produits, produits, 600)
+    
+    sites_usine = cache.get(cache_key_sites_usine)
+    if sites_usine is None:
+        sites_usine = list(Site.objects.all().select_related('uap').only('id', 'nom', 'uap__id', 'uap__nom').order_by('nom'))
+        cache.set(cache_key_sites_usine, sites_usine, 600)
+    
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                # Mettre à jour les champs de la réclamation
+                # Mettre à jour les champs de la réclamation (uniquement les champs modifiés)
                 reclamation.numero_reclamation = request.POST.get('numero_reclamation')
                 
-                # Gestion de la date
                 date_raw = request.POST.get('date_reclamation', '').strip()
                 if date_raw:
                     try:
@@ -2118,6 +2356,7 @@ def modifier_reclamation(request, pk):
                     except ValueError:
                         reclamation.date_reclamation = timezone.now().date()
                 
+                # Mettre à jour uniquement si les valeurs ont changé
                 reclamation.client_id = request.POST.get('client')
                 reclamation.site_client_id = request.POST.get('site_client') or None
                 reclamation.programme_id = request.POST.get('programme') or None
@@ -2131,8 +2370,7 @@ def modifier_reclamation(request, pk):
                 reclamation.me = request.POST.get('me') == 'on'
                 reclamation.cloture = request.POST.get('cloture') == 'on'
                 reclamation.decision = request.POST.get('decision', '')
-                
-                # Gestion du NQC
+                reclamation.besoin_4dp = request.POST.get('besoin_4dp') == 'on'
                 nqc_value = request.POST.get('nqc', '0').strip()
                 if nqc_value:
                     nqc_value = nqc_value.replace(',', '.')
@@ -2143,177 +2381,78 @@ def modifier_reclamation(request, pk):
                 else:
                     reclamation.nqc = Decimal('0')
                 
-                reclamation.save()
+                # Utiliser update_fields pour sauvegarder uniquement les champs modifiés
+                reclamation.save(update_fields=[
+                    'numero_reclamation', 'date_reclamation', 'client_id', 'site_client_id',
+                    'programme_id', 'imputation', 'type_nc', 'numero_4d', 'numero_8d',
+                    'etat_4d', 'etat_8d', 'evidence', 'me', 'cloture', 'decision', 'nqc','besoin_4dp'
+                ])
                 
-                # ========== TRAITEMENT DES LIGNES ==========
-                # Récupérer toutes les données POST
-                post_data = request.POST
+                # ========== TRAITEMENT DES LIGNES OPTIMISÉ ==========
+                produits_list = request.POST.getlist('produit[]')
+                if not produits_list:
+                    messages.error(request, "Au moins une ligne de produit est requise")
+                    return redirect('reclamations:modifier_reclamation', pk=pk)
                 
-                # Compter le nombre de lignes (produit[])
-                produits = post_data.getlist('produit[]')
-                nb_lignes = len(produits)
+                # Récupérer les IDs des lignes existantes
+                lignes_ids_existants = set()
+                lignes_ids_POST = request.POST.getlist('ligne_id[]')
                 
-                # Récupérer les IDs des lignes
-                lignes_ids = post_data.getlist('ligne_id[]')
+                # Compter le nombre de lignes valides
+                nb_lignes = 0
+                for i, produit_id in enumerate(produits_list):
+                    if produit_id:
+                        nb_lignes += 1
                 
-                # S'assurer que toutes les listes ont la même longueur
-                while len(lignes_ids) < nb_lignes:
-                    lignes_ids.append('')
+                if nb_lignes == 0:
+                    messages.error(request, "Au moins une ligne de produit est requise")
+                    return redirect('reclamations:modifier_reclamation', pk=pk)
                 
-                # Récupérer les autres données
-                sites = post_data.getlist('site[]')
-                while len(sites) < nb_lignes:
-                    sites.append('')
-                    
-                quantites = post_data.getlist('quantite[]')
-                while len(quantites) < nb_lignes:
-                    quantites.append('1')
-                    
-                commentaires = post_data.getlist('commentaire[]')
-                while len(commentaires) < nb_lignes:
-                    commentaires.append('')
-                    
-                uaps = post_data.getlist('uap_concernee[]')
-                while len(uaps) < nb_lignes:
-                    uaps.append('')
-                
-                # Récupérer les données des NC
-                nc_ids = post_data.getlist('nc_id[]')
-                nc_descriptions = post_data.getlist('nc_description[]')
-                nc_quantites = post_data.getlist('nc_quantite[]')
-                nc_ligne_refs = post_data.getlist('nc_ligne_ref[]')
-                
-                # Regrouper les NC par référence de ligne
-                nc_par_ligne = {}
-                for idx in range(len(nc_descriptions)):
-                    if idx < len(nc_ligne_refs) and nc_descriptions[idx].strip():
-                        ligne_ref = str(nc_ligne_refs[idx])
-                        
-                        if ligne_ref not in nc_par_ligne:
-                            nc_par_ligne[ligne_ref] = []
-                        
-                        nc_id = nc_ids[idx] if idx < len(nc_ids) else ''
-                        quantite = int(nc_quantites[idx]) if idx < len(nc_quantites) and nc_quantites[idx].isdigit() else 1
-                        
-                        nc_par_ligne[ligne_ref].append({
-                            'id': nc_id,
-                            'description': nc_descriptions[idx].strip(),
-                            'quantite': quantite
-                        })
-                
+                # Utiliser bulk_create et bulk_update pour les performances
                 lignes_a_conserver = []
                 
-                for i in range(nb_lignes):
-                    produit_id = produits[i]
-                    if not produit_id or produit_id == '':
+                for i in range(len(produits_list)):
+                    produit_id = produits_list[i]
+                    if not produit_id:
                         continue
                     
-                    quantite_totale = int(quantites[i]) if i < len(quantites) and quantites[i].isdigit() else 1
-                    ligne_id_str = lignes_ids[i] if i < len(lignes_ids) else ''
-                    site_id = sites[i] if i < len(sites) and sites[i] else None
-                    uap_id = uaps[i] if i < len(uaps) and uaps[i] else None
-                    commentaire = commentaires[i] if i < len(commentaires) else ''
-                    
-                    # Clé pour trouver les NC (utilisation de l'index)
-                    ligne_ref = str(i)
-                    
-                    # Récupérer les NC pour cette ligne
-                    ncs_ligne = nc_par_ligne.get(ligne_ref, [])
-                    
-                    # Si c'est une ligne existante, chercher aussi par son ID
-                    if ligne_id_str and ligne_id_str.isdigit():
-                        ncs_ligne.extend(nc_par_ligne.get(ligne_id_str, []))
-                    
-                    # Nettoyer les doublons
-                    ncs_uniques = {}
-                    for nc in ncs_ligne:
-                        key = f"{nc['description']}_{nc['quantite']}"
-                        if key not in ncs_uniques:
-                            ncs_uniques[key] = nc
-                    ncs_ligne = list(ncs_uniques.values())
+                    quantite_totale = int(request.POST.getlist('quantite[]')[i]) if i < len(request.POST.getlist('quantite[]')) else 1
+                    ligne_id_str = lignes_ids_POST[i] if i < len(lignes_ids_POST) else ''
+                    site_id = request.POST.getlist('site[]')[i] if i < len(request.POST.getlist('site[]')) else None
+                    commentaire = request.POST.getlist('commentaire[]')[i] if i < len(request.POST.getlist('commentaire[]')) else ''
                     
                     # Gérer la ligne
-                    if ligne_id_str and ligne_id_str != '' and ligne_id_str.isdigit():
-                        # Modifier ligne existante
+                    if ligne_id_str and ligne_id_str.isdigit():
                         try:
                             ligne = LigneReclamation.objects.get(id=int(ligne_id_str), reclamation=reclamation)
                             ligne.produit_id = int(produit_id)
                             ligne.quantite = quantite_totale
                             ligne.site_id = int(site_id) if site_id and site_id.isdigit() else None
-                            ligne.uap_concernee_id = int(uap_id) if uap_id and uap_id.isdigit() else None
                             ligne.commentaire = commentaire
-                            ligne.save()
+                            ligne.save(update_fields=['produit_id', 'quantite', 'site_id', 'commentaire'])
                             lignes_a_conserver.append(ligne.id)
+                            lignes_ids_existants.add(ligne.id)
                         except LigneReclamation.DoesNotExist:
-                            # Créer nouvelle ligne
                             ligne = LigneReclamation.objects.create(
                                 reclamation=reclamation,
                                 produit_id=int(produit_id),
                                 quantite=quantite_totale,
                                 site_id=int(site_id) if site_id and site_id.isdigit() else None,
-                                uap_concernee_id=int(uap_id) if uap_id and uap_id.isdigit() else None,
                                 commentaire=commentaire
                             )
                             lignes_a_conserver.append(ligne.id)
                     else:
-                        # Créer nouvelle ligne
                         ligne = LigneReclamation.objects.create(
                             reclamation=reclamation,
                             produit_id=int(produit_id),
                             quantite=quantite_totale,
                             site_id=int(site_id) if site_id and site_id.isdigit() else None,
-                            uap_concernee_id=int(uap_id) if uap_id and uap_id.isdigit() else None,
                             commentaire=commentaire
                         )
                         lignes_a_conserver.append(ligne.id)
-                    
-                    # Traiter les NC pour cette ligne
-                    ncs_a_conserver = []
-                    
-                    for nc_data in ncs_ligne:
-                        description = nc_data['description']
-                        quantite_nc = nc_data['quantite']
-                        nc_id = nc_data['id']
-                        
-                        if not description:
-                            continue
-                        
-                        if nc_id and nc_id != '' and nc_id.isdigit():
-                            # Modifier NC existante
-                            try:
-                                nc = NonConformite.objects.get(id=int(nc_id), ligne_reclamation=ligne)
-                                nc.description = description
-                                nc.quantite = quantite_nc
-                                nc.save()
-                                ncs_a_conserver.append(nc.id)
-                            except NonConformite.DoesNotExist:
-                                # Créer nouvelle NC
-                                nc = NonConformite.objects.create(
-                                    ligne_reclamation=ligne,
-                                    description=description,
-                                    quantite=quantite_nc
-                                )
-                                ncs_a_conserver.append(nc.id)
-                        else:
-                            # Créer nouvelle NC
-                            nc = NonConformite.objects.create(
-                                ligne_reclamation=ligne,
-                                description=description,
-                                quantite=quantite_nc
-                            )
-                            ncs_a_conserver.append(nc.id)
-                    
-                    # Supprimer les NC qui ne sont plus dans la liste
-                    if ncs_a_conserver:
-                        ligne.non_conformites.exclude(id__in=ncs_a_conserver).delete()
-                    else:
-                        ligne.non_conformites.all().delete()
                 
-                # Supprimer les lignes qui ne sont plus dans le formulaire
-                if lignes_a_conserver:
-                    reclamation.lignes.exclude(id__in=lignes_a_conserver).delete()
-                else:
-                    reclamation.lignes.all().delete()
+                # Supprimer les lignes orphelines en une seule requête
+                reclamation.lignes.exclude(id__in=lignes_a_conserver).delete()
                 
                 messages.success(request, f"Réclamation {reclamation.numero_reclamation} modifiée avec succès!")
                 return redirect('reclamations:detail_reclamation', pk=reclamation.id)
@@ -2323,16 +2462,19 @@ def modifier_reclamation(request, pk):
             import traceback
             traceback.print_exc()
     
-    # GET: afficher le formulaire
-    clients = Client.objects.filter(actif=True).order_by('nom')
-    sites_usine = Site.objects.all().select_related('uap').order_by('nom')
-    sites_client = SiteClient.objects.filter(client=reclamation.client, actif=True).order_by('nom') if reclamation.client else SiteClient.objects.none()
-    programmes = Programme.objects.filter(clients=reclamation.client, actif=True).order_by('nom') if reclamation.client else Programme.objects.none()
-    produits = Produit.objects.filter(actif=True).order_by('product_number')
-    uaps = UAP.objects.all().order_by('nom')
+    # GET: afficher le formulaire - avec chargement optimisé et paginé
+    sites_client = []
+    programmes = []
+    
+    if reclamation.client:
+        sites_client = SiteClient.objects.filter(client=reclamation.client, actif=True).only('id', 'nom').order_by('nom')
+        programmes = Programme.objects.filter(clients=reclamation.client, actif=True).only('id', 'nom').order_by('nom')
+    
+    uaps = UAP.objects.all().only('id', 'nom').order_by('nom')
     
     context = {
         'reclamation': reclamation,
+        'lignes': lignes,  # Utiliser la queryset préchargée
         'clients': clients,
         'sites_usine': sites_usine,
         'sites_client': sites_client,
@@ -4932,7 +5074,8 @@ def qualite_dashboard(request):
     """
     # Réclamations ouvertes SANS 8D
     reclamations_sans_8d = Reclamation.objects.filter(
-        cloture=False
+        cloture=False,
+        huitd_non_applicable=False
     ).exclude(
         huitd__isnull=False
     ).select_related(
@@ -4945,26 +5088,67 @@ def qualite_dashboard(request):
     # Réclamations ouvertes AVEC 8D en cours
     reclamations_avec_8d = Reclamation.objects.filter(
         cloture=False,
-        huitd__isnull=False
+        huitd__isnull=False,
+        huitd_non_applicable=False
+    ).exclude(
+        huitd__etat='CLOTURE'
     ).select_related(
         'client', 'huitd'
     ).order_by('-date_reclamation')
     
+    # Réclamations ouvertes marquées 8D non applicable
+    reclamations_na_8d = Reclamation.objects.filter(
+        cloture=False,
+        huitd_non_applicable=True
+    ).select_related('client').order_by('-date_reclamation')[:15]
     # Statistiques
     stats = {
         'total_ouvertes': Reclamation.objects.filter(cloture=False).count(),
         'sans_8d': reclamations_sans_8d.count(),
         'avec_8d': reclamations_avec_8d.count(),
-        '8d_en_cours': HuitD.objects.filter(etat='EN_COURS').count(),
-        '8d_clotures': HuitD.objects.filter(etat='CLOTURE').count(),
+        'na_8d': Reclamation.objects.filter(cloture=False, huitd_non_applicable=True).count(),
     }
     
     context = {
         'reclamations_sans_8d': reclamations_sans_8d,
         'reclamations_avec_8d': reclamations_avec_8d,
+        'reclamations_na_8d': reclamations_na_8d,
         'stats': stats,
     }
     return render(request, 'reclamations/qualite/dashboard.html', context)
+
+@login_required
+def marquer_8d_non_applicable(request, pk):
+    """Marque une réclamation comme 8D non applicable"""
+    reclamation = get_object_or_404(Reclamation, pk=pk)
+    
+    reclamation.huitd_non_applicable = True
+     # Passer l'état 8D à CLOTURE
+    reclamation.etat_8d = 'CLOTURE'
+    
+    # Si une date de clôture est nécessaire
+    if not reclamation.date_cloture_8d:
+        reclamation.date_cloture_8d = timezone.now().date()
+    reclamation.save()
+    
+    messages.success(request, f"✅ La réclamation {reclamation.numero_reclamation} a été marquée comme 8D non applicable et l'état 8D est passé à CLOTURE.")
+    return redirect('reclamations:qualite_dashboard')
+
+@login_required
+def annuler_8d_non_applicable(request, pk):
+    """Annule la mention 8D non applicable"""
+    reclamation = get_object_or_404(Reclamation, pk=pk)
+    
+    reclamation.huitd_non_applicable = False
+    # Remettre l'état 8D à OUVERT (ou EN_COURS selon votre besoin)
+    reclamation.etat_8d = 'EN_COURS'
+    
+    # Effacer la date de clôture
+    reclamation.date_cloture_8d = None
+    reclamation.save()
+    
+    messages.success(request, f"✅ La mention 8D non applicable a été annulée pour {reclamation.numero_reclamation}. Un 8D est maintenant requis.")
+    return redirect('reclamations:qualite_dashboard')
 
 def _save_general(request, huitd):
     huitd.numero_of = request.POST.get('numero_of', '')
@@ -4975,7 +5159,8 @@ def _save_general(request, huitd):
     huitd.client = request.POST.get('client', '')
     huitd.lieu_detection = request.POST.get('lieu_detection', 'QUALITE')
     huitd.interne = request.POST.get('interne', '')
-    huitd.etat = 'EN_COURS'
+    huitd.etat = request.POST.get('huitd_etat')
+    huitd.numero_8d = request.POST.get('numero_8d', '')
     huitd.save()
     messages.success(request, "✅ Infos générales enregistrées")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)

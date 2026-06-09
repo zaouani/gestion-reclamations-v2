@@ -1,0 +1,15 @@
+<!-- templates/reclamations/dashboard/_sans_8d_list.html -->
+{% for rec in reclamations_sans_8d %}
+<div class="reclamation-item">
+    <div>
+        <div class="reclamation-num">{{ rec.numero_reclamation }}</div>
+        <div class="reclamation-client">{{ rec.client.nom }}</div>
+    </div>
+    <div class="text-end">
+        <div class="reclamation-date">{{ rec.date_reclamation|date:"d/m/Y" }}</div>
+        <span class="badge-urgent">Urgent</span>
+    </div>
+</div>
+{% empty %}
+<div style="text-align:center; padding:20px; color:#666;">Aucune réclamation sans 8D</div>
+{% endfor %}
