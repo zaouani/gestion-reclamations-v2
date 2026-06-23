@@ -21,27 +21,35 @@
 
     <!-- Statistiques -->
     <div class="row g-4 mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card bg-primary text-white">
                 <div class="card-body text-center">
-                    <h3>{{ nb_reclamations }}</h3>
+                    <h3>{{ stats.nb_reclamations|default:0 }}</h3>
                     <p class="mb-0">Réclamations</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card bg-info text-white">
                 <div class="card-body text-center">
-                    <h3>{{ defauts|length }}</h3>
+                    <h3>{{ stats.nb_defauts_distincts|default:0 }}</h3>
                     <p class="mb-0">Types de défauts</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.total_nc|default:0 }}</h3>
+                    <p class="mb-0">Total NC</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card bg-warning text-white">
                 <div class="card-body text-center">
-                    <h3>{{ defauts|length|floatformat:0 }}</h3>
-                    <p class="mb-0">Défauts différents</p>
+                    <h3>{{ stats.taux_recurrence|default:0 }}%</h3>
+                    <p class="mb-0">Taux de récurrence</p>
                 </div>
             </div>
         </div>
@@ -61,6 +69,7 @@
                             <th>Description du défaut</th>
                             <th class="text-end">Occurrences</th>
                             <th class="text-end">Quantité totale</th>
+                            <th class="text-end">Réclamations</th>
                             <th class="text-end">Taux de récurrence</th>
                         </tr>
                     </thead>
@@ -72,10 +81,13 @@
                                 <i class="fas fa-exclamation-triangle text-warning me-2"></i>
                                 {{ defaut.description|default:"Non spécifié" }}
                             </td>
-                            <td class="text-end">{{ defaut.nb_occurences }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-primary">{{ defaut.nb_occurences }}</span>
+                            </td>
                             <td class="text-end">{{ defaut.quantite_totale|floatformat:0 }}</td>
+                            <td class="text-end">{{ defaut.nb_reclamations|default:0 }}</td>
                             <td class="text-end" style="width: 200px;">
-                                <div class="progress">
+                                <div class="progress" style="height: 20px;">
                                     <div class="progress-bar 
                                         {% if defaut.taux < 10 %}bg-success
                                         {% elif defaut.taux < 30 %}bg-warning
@@ -84,6 +96,12 @@
                                         {{ defaut.taux }}%
                                     </div>
                                 </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">
+                                <i class="fas fa-info-circle"></i> Aucun défaut enregistré pour ce produit
                             </td>
                         </tr>
                         {% endfor %}
@@ -100,13 +118,13 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-sm">
+                <table class="table table-sm table-hover">
                     <thead>
                         <tr>
                             <th>Date</th>
                             <th>Réclamation</th>
                             <th>Client</th>
-                            <th>Description</th>
+                            <th>Non-conformités</th>
                             <th>Quantité</th>
                         </tr>
                     </thead>
@@ -115,17 +133,25 @@
                         <tr>
                             <td>{{ ligne.reclamation.date_reclamation|date:"d/m/Y" }}</td>
                             <td>
-                                <a href="{% url 'reclamations:detail_reclamation' ligne.reclamation.id %}">
+                                <a href="{% url 'reclamations:detail_reclamation' ligne.reclamation.id %}" class="text-decoration-none">
                                     {{ ligne.reclamation.numero_reclamation }}
                                 </a>
                             </td>
                             <td>{{ ligne.reclamation.client.nom }}</td>
-                            <td>{{ ligne.description_non_conformite|truncatechars:50 }}</td>
-                            <td class="text-end">{{ ligne.quantite }}</td>
+                            <td>
+                                {% for nc in ligne.non_conformites.all %}
+                                <span class="badge bg-danger me-1 mb-1">{{ nc.description|truncatechars:30 }}</span>
+                                {% empty %}
+                                <span class="text-muted">Aucune NC</span>
+                                {% endfor %}
+                            </td>
+                            <td >{{ ligne.quantite }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center">Aucune réclamation</td>
+                            <td colspan="5" class="text-center text-muted">
+                                <i class="fas fa-info-circle"></i> Aucune réclamation pour ce produit
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -133,5 +159,59 @@
             </div>
         </div>
     </div>
+
+    <!-- Évolution des NC (si disponible) -->
+    {% if evolution %}
+    <div class="card mt-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Évolution mensuelle des NC</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Mois</th>
+                            <th class="text-end">Nombre de NC</th>
+                            <th class="text-end">Quantité totale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in evolution %}
+                        <tr>
+                            <td>{{ item.mois }}</td>
+                            <td class="text-end">{{ item.nb_occurences }}</td>
+                            <td class="text-end">{{ item.quantite_totale }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<style>
+    .progress {
+        background-color: #e9ecef;
+        border-radius: 0.25rem;
+    }
+    .progress-bar {
+        transition: width 0.3s ease;
+        line-height: 20px;
+        font-size: 0.75rem;
+    }
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease;
+    }
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .badge {
+        font-size: 0.75rem;
+    }
+</style>
 {% endblock %}

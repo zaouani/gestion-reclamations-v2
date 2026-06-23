@@ -759,7 +759,6 @@ def taux_recurrence_produits(request):
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
 def detail_recurrence_produit(request, product_id):
     """Détail de la récurrence pour un produit spécifique"""
-    from django.db import models
     
     produit = get_object_or_404(Produit, pk=product_id)
     
@@ -770,36 +769,59 @@ def detail_recurrence_produit(request, product_id):
         'reclamation', 
         'reclamation__client', 
         'uap_concernee'
+    ).prefetch_related(
+        'non_conformites'  # ← Précharger les non-conformités
     ).order_by('-reclamation__date_reclamation')
     
     # Nombre de réclamations distinctes
     nb_reclamations = lignes.values('reclamation').distinct().count()
     
+    # CORRECTION : Utiliser NonConformite pour les descriptions
+    non_conformites = NonConformite.objects.filter(
+        ligne_reclamation__produit=produit
+    )
+    
     # Analyser les descriptions de non-conformité
-    descriptions = lignes.values('description_non_conformite').annotate(
-        nb_occurences=models.Count('id'),
-        quantite_totale=models.Sum('quantite')
+    descriptions = non_conformites.values('description').annotate(
+        nb_occurences=Count('id'),
+        quantite_totale=Sum('quantite'),
+        nb_reclamations=Count('ligne_reclamation__reclamation', distinct=True)
     ).order_by('-nb_occurences')
     
     defauts_data = []
+    total_nc = non_conformites.count()
+    
     for desc in descriptions:
-        if nb_reclamations > 0:
-            taux = (desc['nb_occurences'] / nb_reclamations) * 100
+        # Calcul du taux basé sur le nombre total de NC
+        if total_nc > 0:
+            taux = (desc['nb_occurences'] / total_nc) * 100
         else:
             taux = 0
         
         defauts_data.append({
-            'description': desc['description_non_conformite'] or "Non spécifié",
+            'description': desc['description'] or "Non spécifié",
             'nb_occurences': desc['nb_occurences'],
             'quantite_totale': desc['quantite_totale'] or 0,
+            'nb_reclamations': desc['nb_reclamations'],
             'taux': round(taux, 2)
         })
+    
+    # Statistiques supplémentaires
+    stats = {
+        'total_nc': total_nc,
+        'total_quantite': non_conformites.aggregate(total=Sum('quantite'))['total'] or 0,
+        'nb_reclamations': nb_reclamations,
+        'nb_lignes': lignes.count(),
+        'nb_defauts_distincts': descriptions.count(),
+    }
     
     context = {
         'produit': produit,
         'nb_reclamations': nb_reclamations,
         'defauts': defauts_data,
         'lignes': lignes[:20],  # Dernières 20 réclamations
+        'stats': stats,
+        'non_conformites': non_conformites[:50],  # Dernières 50 NC
     }
     
     return render(request, 'reclamations/produit/recurrence_detail.html', context)
@@ -1667,26 +1689,47 @@ def ppm_detail_client(request, client_id):
 
 def mini_kpi_stats(request):
     """Calcule les KPI avec variations pour le dashboard"""
-    
+    dashboard_stats = DashboardStats()
     today = timezone.now().date()
     yesterday = today - timedelta(days=1)
     last_month = today - timedelta(days=30)
     month_before = today - timedelta(days=60)
-    
+
     # ========== STATISTIQUES GLOBALES ==========
     total_reclamations = Reclamation.objects.count()
     ouvertes = Reclamation.objects.filter(cloture=False).count()
     cloturees = Reclamation.objects.filter(cloture=True).count()
     taux_cloture = (cloturees / total_reclamations * 100) if total_reclamations > 0 else 0
-    
+    reclamations_sans_8d = Reclamation.objects.filter(cloture=False, huitd_non_applicable=False).exclude(huitd__isnull=False).count()
+    print(f"Reclamations sans 8D : {reclamations_sans_8d}")
+    # Réclamations ouvertes AVEC 8D en cours
+    reclamations_avec_8d = Reclamation.objects.filter(cloture=False, huitd__isnull=False, huitd_non_applicable=False).exclude(huitd__etat='CLOTURE').count()
+    SECURISATION_EN_COURS = Reclamation.objects.filter(cloture=False, etat_4d='EN_COURS').count()
     # Taux de réactivité (clôturées dans les 30 jours)
-    reactives = Reclamation.objects.filter(
-        cloture=True,
-        date_cloture__gte=last_month,
-        date_cloture__lte=today
-    ).count()
-    taux_reactivite = (reactives / cloturees * 100) if cloturees > 0 else 0
+    reactivite_uap_data = dashboard_stats.get_taux_reactivite_par_uap()
+    taux_reactivite = 0
+    annee_courante = timezone.now().year
     
+    if reactivite_uap_data and annee_courante in reactivite_uap_data:
+        annees_data = reactivite_uap_data.get(annee_courante, {})
+        data_mensuelle = annees_data.get('data', {})
+        
+        # Récupérer tous les taux
+        tous_les_taux = []
+        for mois, uap_data in data_mensuelle.items():
+            for uap, taux in uap_data.items():
+                if taux > 0:  # Ne compter que les UAP avec des données
+                    tous_les_taux.append(taux)
+        
+        # Calculer la moyenne
+        if tous_les_taux:
+            taux_reactivite = sum(tous_les_taux) / len(tous_les_taux)
+
+    actions_encours = Action8D.objects.select_related(
+            'huitd__reclamation__client',
+        ).filter(
+            statut__in=['PLANIFIE', 'EN_COURS']
+        ).count()
     # Délai moyen de clôture
     reclamations_closes = Reclamation.objects.filter(
         cloture=True,
@@ -1701,11 +1744,8 @@ def mini_kpi_stats(request):
         count += 1
     delai_moyen = round(total_jours / count, 1) if count > 0 else 0
     
-    # Coût NQC total
-    nqc_total = Reclamation.objects.aggregate(total=Sum('nqc'))['total'] or 0
     
     # Taux de récurrence
-    from .dashboard_stats import DashboardStats
     dashboard_stats = DashboardStats()
     recurrence_data = dashboard_stats.get_taux_recurrence_globale()
     taux_recurrence = recurrence_data.get('taux', 0)
@@ -1740,13 +1780,7 @@ def mini_kpi_stats(request):
     delai_precedent = 15  # Valeur par défaut, à ajuster selon historique
     variation_delai = ((delai_moyen - delai_precedent) / delai_precedent * 100) if delai_precedent > 0 else 0
     
-    # Variation Coût NQC (vs mois dernier)
-    cout_last_month = Reclamation.objects.filter(
-        date_reclamation__gte=month_before,
-        date_reclamation__lt=last_month
-    ).aggregate(total=Sum('nqc'))['total'] or 0
-    variation_cout = ((nqc_total - cout_last_month) / cout_last_month * 100) if cout_last_month > 0 else 0
-    
+   
     # Variation Taux Récurrence (vs mois dernier)
     taux_recurrence_precedent = 15  # Valeur par défaut, à ajuster
     variation_recurrence = taux_recurrence - taux_recurrence_precedent
@@ -1757,8 +1791,11 @@ def mini_kpi_stats(request):
         'taux_cloture': round(taux_cloture, 1),
         'taux_reactivite': round(taux_reactivite, 1),
         'delai_moyen': delai_moyen,
-        'cout_nqc_total': float(nqc_total) if nqc_total else 0,
         'taux_recurrence': round(taux_recurrence, 1),
+        'actions_encours': actions_encours,
+        'reclamations_sans_8d': reclamations_sans_8d,
+        'reclamations_avec_8d': reclamations_avec_8d,
+        'securisation_en_cours': SECURISATION_EN_COURS
     }
     
     variation = {
@@ -1766,7 +1803,6 @@ def mini_kpi_stats(request):
         'ouvertes': round(variation_ouvertes, 1),
         'taux_reactivite': round(variation_reactivite, 1),
         'delai_moyen': round(variation_delai, 1),
-        'cout_nqc': round(variation_cout, 1),
         'taux_recurrence': round(variation_recurrence, 1),
     }
     
@@ -1779,62 +1815,27 @@ def mini_kpi_stats(request):
 @csrf_exempt
 def api_dashboard_data(request):
     """API pour récupérer les données du dashboard en temps réel"""
-    
-    from .dashboard_stats import DashboardStats
-    
-    dashboard = DashboardStats()
-    stats_global = dashboard.get_global_stats()
-    nqc_data = dashboard.get_nqc_par_mois()
-    recurrence_data = dashboard.get_taux_recurrence_globale()
-    delai_moyen = dashboard.get_delai_moyen_cloture()
-    
-    # Calcul des variations (simplifié, à adapter)
-    variations = {
-        'total_reclamations': 2.3,
-        'ouvertes': -1.2,
-        'taux_reactivite': 5.1,
-        'delai_moyen': -3.4,
-        'cout_nqc': 8.7,
-        'taux_recurrence': -2.1
-    }
-    
-    # Récupérer les listes pour affichage
-    reclamations_sans_8d = Reclamation.objects.filter(
-        cloture=False,
-        huitd_non_applicable=False
-    ).exclude(huitd__isnull=False).order_by('-date_reclamation')[:10]
-    
-    reclamations_avec_8d = Reclamation.objects.filter(
-        cloture=False,
-        huitd__isnull=False,
-        huitd_non_applicable=False
-    ).exclude(huitd__etat='CLOTURE').order_by('-date_reclamation')[:10]
-    
-    # Générer HTML pour les listes
-    sans_8d_html = render_to_string('reclamations/dashboard/_sans_8d_list.html', {
-        'reclamations_sans_8d': reclamations_sans_8d
-    })
-    
-    avec_8d_html = render_to_string('reclamations/dashboard/_avec_8d_list.html', {
-        'reclamations_avec_8d': reclamations_avec_8d
-    })
+    # Récupérer les KPI
+    kpi_data = mini_kpi_stats(request)
+    stats = kpi_data['stats']
+    variations = kpi_data['variation']
     
     return JsonResponse({
-        'total_reclamations': Reclamation.objects.count(),
-        'ouvertes': stats_global['ouvertes'],
-        'taux_cloture': stats_global['taux_cloture'],
-        'taux_reactivite': stats_global['taux_reactivite'],
-        'delai_moyen': delai_moyen,
-        'cout_nqc_total': float(nqc_data.get('total_nqc', 0)),
-        'taux_recurrence': recurrence_data.get('taux', 0),
+        'total_reclamations': stats.get('total_reclamations', 0),
+        'ouvertes': stats.get('ouvertes', 0),
+        'securisation_en_cours': stats.get('securisation_en_cours', 0),
+        'reclamations_sans_8d': stats.get('reclamations_sans_8d', 0),
+        'reclamations_avec_8d': stats.get('reclamations_avec_8d', 0),
+        'actions_encours': stats.get('actions_encours', 0),
+        'taux_cloture': stats.get('taux_cloture', 0),
+        'taux_reactivite': stats.get('taux_reactivite', 0),
+        'delai_moyen': stats.get('delai_moyen', 0),
+        'cout_nqc_total': stats.get('cout_nqc_total', 0),
+        'taux_recurrence': stats.get('taux_recurrence', 0),
         'variations': variations,
-        'sans_8d_html': sans_8d_html,
-        'avec_8d_html': avec_8d_html,
-        'sans_8d_count': reclamations_sans_8d.count(),
-        'avec_8d_count': reclamations_avec_8d.count(),
         'timestamp': timezone.now().isoformat()
     })
-
+    
 def big_screen_dashboard(request):
     """Dashboard grand écran pour le responsable"""
     
@@ -1864,8 +1865,8 @@ def big_screen_dashboard(request):
         'kpi_stats': kpi_data['stats'],
         'kpi_variation': kpi_data['variation'],
         'current_year': kpi_data['current_year'],
-        'reclamations_sans_8d': reclamations_sans_8d,
-        'reclamations_avec_8d': reclamations_avec_8d,
+        'reclamations_sans_8d': reclamations_sans_8d.count(),
+        'reclamations_avec_8d': reclamations_avec_8d.count(),
         'now': timezone.now()
     }
     return render(request, 'reclamations/dashboard/big_screen_dashboard.html', context)

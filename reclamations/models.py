@@ -142,9 +142,9 @@ class Reclamation(models.Model):
     numero_4d = models.CharField("N° 4D", max_length=50, blank=True, null=True, help_text="Numéro de la démarche 4D" )
     numero_8d = models.CharField("N° 8D", max_length=50, blank=True, null=True,help_text="Numéro de la démarche 8D" )
     # États
-    etat_4d = models.CharField("État 4D", max_length=20, choices=ETAT_CHOICES, default='OUVERT')
+    etat_4d = models.CharField("État 4D", max_length=20, choices=ETAT_CHOICES, default='EN_COURS')
     huitd_non_applicable = models.BooleanField("8D non applicable", default=False)
-    etat_8d = models.CharField("État 8D", max_length=20, choices=ETAT_CHOICES, default='OUVERT')
+    etat_8d = models.CharField("État 8D", max_length=20, choices=ETAT_CHOICES, default='EN_COURS')
     besoin_4dp = models.BooleanField("4DP nécessaire ?", default=False, help_text="Cocher si une démarche 4DP est nécessaire")
     # Métadonnées
     evidence = models.TextField(blank=True)
@@ -210,29 +210,19 @@ class Reclamation(models.Model):
     
     def peut_etre_cloturee_auto(self):
         """
-        Vérifie si la réclamation peut être clôturée automatiquement :
-        1. Toutes les actions sont réalisées
-        2. La dernière action date de plus de 3 mois
-        3. La réclamation n'est pas déjà clôturée
+        Vérifie si la réclamation peut être clôturée automatiquement
         """
-        # Vérifier que la réclamation n'est pas déjà clôturée
         if self.cloture:
             return False
         
-        # Vérifier que toutes les actions sont réalisées
-        if not self.toutes_actions_realisees():
+        if not self.toutes_actions_realisees:  # ← Plus de parenthèses
             return False
         
-        # Récupérer la date de la dernière action réalisée
         date_derniere_action = self.get_date_derniere_action_realisee()
-        
         if not date_derniere_action:
             return False
         
-        # Calculer la date limite (3 mois après la dernière action)
         date_limite = date_derniere_action + timedelta(days=90)
-        
-        # Vérifier si on est après la date limite
         return timezone.now().date() >= date_limite
     
     def auto_cloturer(self):
@@ -259,7 +249,8 @@ class Reclamation(models.Model):
         """
         Calcule le nombre de jours restants avant clôture automatique
         """
-        if not self.toutes_actions_realisees():
+
+        if not self.toutes_actions_realisees:  # ← Plus de parenthèses
             return None
         
         date_derniere_action = self.get_date_derniere_action_realisee()
@@ -274,7 +265,7 @@ class Reclamation(models.Model):
         
         delta = date_limite - aujourd_hui
         return delta.days
-    
+
     def save(self, *args, **kwargs):
         today = timezone.now().date()
         
@@ -384,6 +375,17 @@ class Reclamation(models.Model):
                 jours_restants += 1
                 
         return jours_restants
+
+    def verifier_et_cloturer(self):
+        """
+        Vérifie si la réclamation peut être clôturée et la clôture si c'est le cas
+        """
+        # Vérifier si toutes les actions 8D sont terminées
+        if self.toutes_actions_realisees and not self.cloture:
+            self.cloture = True
+            self.date_cloture = timezone.now().date()
+            self.save()
+            return False
 
 class LigneReclamation(models.Model):
     """Lignes de réclamation"""

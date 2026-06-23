@@ -11,7 +11,7 @@ SECRET_KEY = 'django-insecure-votre-clé-ici'  # Django génère ça automatique
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.100.111','127.0.0.1']
+ALLOWED_HOSTS = ['*']
 AUTH_USER_MODEL = 'accounts.User'
 # Application definition
 INSTALLED_APPS = [
