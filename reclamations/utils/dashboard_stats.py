@@ -2,51 +2,125 @@
 from django.db.models import Count, Avg, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta
 import json
-from .models import Reclamation, Client, UAP, Produit, ObjectifsAnnuel, LigneReclamation, NonConformite
-from .utils import PPMCalculator
+from reclamations.models import Reclamation, Client, UAP, Produit, ObjectifsAnnuel, LigneReclamation, NonConformite, SiteClient
+from . import PPMCalculator
 from collections import defaultdict
-
+from dateutil.relativedelta import relativedelta
 
 class DashboardStats:
     """Classe pour calculer toutes les statistiques du dashboard"""
     
-    def __init__(self):
+    def __init__(self, filters=None):
         self.annee_courante = timezone.now().year
         self.today = timezone.now().date()
         self.date_limite_30j = self.today - timedelta(days=30)
         self.date_debut_12m = self.today - timedelta(days=365)
-    
+
+        # Filtres dashboard
+        self.filters = filters or {}
+
+        self.selected_client = self.filters.get('client') or ''
+        self.selected_year = self.filters.get('year') or ''
+        self.selected_uap = self.filters.get('uap') or ''
+        self.selected_imputation = self.filters.get('imputation') or ''
+
+    def _filter_reclamations(self, queryset):
+        """
+        Applique les filtres dashboard sur un queryset Reclamation.
+        Ne modifie pas la logique des fonctions, filtre seulement les données source.
+        """
+        if self.selected_client:
+            queryset = queryset.filter(client_id=self.selected_client)
+
+        if self.selected_year:
+            queryset = queryset.filter(date_reclamation__year=self.selected_year)
+        else:
+            # Par défaut, filtrer sur les 12 derniers mois
+            queryset = queryset.filter(date_reclamation__gte=self.date_debut_12m)
+
+        if self.selected_uap:
+            queryset = queryset.filter(
+                lignes__uap_concernee_id=self.selected_uap
+            ).distinct()
+
+        if self.selected_imputation:
+            queryset = queryset.filter(imputation=self.selected_imputation)
+
+        return queryset
+
+    def _filter_lignes_reclamation(self, queryset):
+        """
+        Applique les filtres dashboard sur un queryset LigneReclamation.
+        """
+        if self.selected_client:
+            queryset = queryset.filter(reclamation__client_id=self.selected_client)
+
+        if self.selected_year:
+            queryset = queryset.filter(reclamation__date_reclamation__year=self.selected_year)
+        else:
+            # Par défaut, filtrer sur les 12 derniers mois
+            queryset = queryset.filter(reclamation__date_reclamation__gte=self.date_debut_12m)
+
+        if self.selected_uap:
+            queryset = queryset.filter(uap_concernee_id=self.selected_uap)
+
+        if self.selected_imputation:
+            queryset = queryset.filter(reclamation__imputation=self.selected_imputation)
+
+        return queryset
+
+    def _filter_non_conformites(self, queryset):
+        """
+        Applique les filtres dashboard sur un queryset NonConformite.
+        """
+        if self.selected_client:
+            queryset = queryset.filter(ligne_reclamation__reclamation__client_id=self.selected_client)
+
+        if self.selected_year:
+            queryset = queryset.filter(ligne_reclamation__reclamation__date_reclamation__year=self.selected_year)
+        else:
+            # Par défaut, filtrer sur les 12 derniers mois
+            queryset = queryset.filter(ligne_reclamation__reclamation__date_reclamation__gte=self.date_debut_12m)
+        if self.selected_uap:
+            queryset = queryset.filter(ligne_reclamation__uap_concernee_id=self.selected_uap)
+
+        if self.selected_imputation:
+            queryset = queryset.filter(ligne_reclamation__reclamation__imputation=self.selected_imputation)
+
+        return queryset
+
     def get_global_stats(self):
         """Statistiques globales"""
-        total = Reclamation.objects.count()
-        ouvertes = Reclamation.objects.filter(cloture=False).count()
-        cloturees = Reclamation.objects.filter(cloture=True).count()
+        """Statistiques globales sur les 12 derniers mois"""
+
+        # Filtrer les réclamations selon les filtres dashboard
+        qs_base = self._filter_reclamations( Reclamation.objects.all() )
+        total = qs_base.count()
+        ouvertes = qs_base.filter(cloture=False).count()
+        cloturees = qs_base.filter(cloture=True).count()
         
         # Taux de clôture
         taux_cloture = (cloturees / total * 100) if total > 0 else 0
         
-        # Taux de réactivité (clôturées dans les 30 jours)
-        reactives = Reclamation.objects.filter(
-            cloture=True,
-            date_cloture__gte=self.date_limite_30j,
-            date_cloture__lte=self.today
-        ).count()
-        taux_reactivite = (reactives / cloturees * 100) if cloturees > 0 else 0
         
         return {
             'total': total,
             'ouvertes': ouvertes,
             'cloturees': cloturees,
             'taux_cloture': round(taux_cloture, 1),
-            'taux_reactivite': round(taux_reactivite, 1)
         }
     
     def get_reclamations_par_client(self):
         """Répartition des réclamations par client (Top 10)"""
-        clients = Client.objects.filter(actif=True).annotate(
-            nb_reclamations=Count('reclamations')
+        qs = self._filter_reclamations(Reclamation.objects.all())
+
+        clients = Client.objects.filter(
+            actif=True,
+            reclamations__in=qs
+        ).annotate(
+            nb_reclamations=Count('reclamations', filter=Q(reclamations__in=qs), distinct=True)
         ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:10]
         
         return {
@@ -56,8 +130,16 @@ class DashboardStats:
     
     def get_reclamations_par_uap(self):
         """Répartition des réclamations par UAP"""
-        uaps = UAP.objects.annotate(
-            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True)
+        lignes = self._filter_lignes_reclamation(LigneReclamation.objects.all())
+
+        uaps = UAP.objects.filter(
+            lignes_reclamation__in=lignes
+        ).annotate(
+            nb_reclamations=Count(
+                'lignes_reclamation__reclamation',
+                filter=Q(lignes_reclamation__in=lignes),
+                distinct=True
+            )
         ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')
         
         return {
@@ -66,9 +148,9 @@ class DashboardStats:
         }
     
     def get_reclamations_par_mois(self):
-        """Évolution mensuelle des réclamations (12 derniers mois)"""
-        mois_data = Reclamation.objects.filter(
-            date_reclamation__gte=self.date_debut_12m
+        """Évolution mensuelle des réclamations"""
+        mois_data = self._filter_reclamations(
+            Reclamation.objects.all()
         ).annotate(
             mois=TruncMonth('date_reclamation')
         ).values('mois').annotate(
@@ -90,8 +172,8 @@ class DashboardStats:
         type_nc_labels = [type[1] for type in Reclamation.TYPE_NC_CHOICES]
         
         # Récupérer d'abord tous les mois
-        reclamations_par_mois = Reclamation.objects.filter(
-            date_reclamation__gte=self.date_debut_12m
+        reclamations_par_mois = self._filter_reclamations(
+            Reclamation.objects.all()
         ).annotate(
             mois=TruncMonth('date_reclamation')
         ).values('mois').annotate(
@@ -100,9 +182,11 @@ class DashboardStats:
         
         typologie = []
         for i, type_nc in enumerate(type_nc_list):
-            data_par_mois = Reclamation.objects.filter(
-                date_reclamation__gte=self.date_debut_12m,
-                type_nc=type_nc
+            data_par_mois = self._filter_reclamations(
+                Reclamation.objects.filter(
+                    date_reclamation__gte=self.date_debut_12m,
+                    type_nc=type_nc
+                )
             ).annotate(
                 mois=TruncMonth('date_reclamation')
             ).values('mois').annotate(
@@ -132,10 +216,11 @@ class DashboardStats:
     
     def get_repartition_imputation(self):
             """Répartition par imputation"""
-            imputations = Reclamation.objects.values('imputation').annotate(
+            imputations = self._filter_reclamations(
+                Reclamation.objects.all()
+            ).values('imputation').annotate(
                 total=Count('id')
-            ).order_by('-total')
-            
+            ).order_by('-total')     
             labels = []
             data = []
             for item in imputations:
@@ -150,24 +235,38 @@ class DashboardStats:
     
     def get_delai_moyen_cloture(self):
         """Délai moyen de clôture en jours"""
-        reclamations_closes = Reclamation.objects.filter(
-            cloture=True,
-            date_cloture__isnull=False,
+
+        # Filtrer sur les 12 derniers mois + appliquer les filtres dashboard
+        qs_base = self._filter_reclamations(
+            Reclamation.objects.all()
+        )
+
+        # Définir correctement les réclamations à traiter
+        reclamations_closes = qs_base.filter(
             date_reclamation__isnull=False
         )
-        
+
         total_jours = 0
         count = 0
+
         for rec in reclamations_closes:
-            delta = rec.date_cloture - rec.date_reclamation
-            total_jours += delta.days
-            count += 1
-        
+            if rec.date_cloture and rec.date_reclamation:
+                delta = rec.date_cloture - rec.date_reclamation
+                total_jours += delta.days
+                count += 1
+
+            elif rec.date_reclamation and not rec.date_cloture:
+                delta = datetime.now().date() - rec.date_reclamation
+                total_jours += delta.days
+                count += 1
+
         return round(total_jours / count, 1) if count > 0 else 0
     
     def get_type_nc_stats(self):
         """Statistiques par type de NC"""
-        types = Reclamation.objects.values('type_nc').annotate(
+        types = self._filter_reclamations(
+            Reclamation.objects.all()
+        ).values('type_nc').annotate(
             total=Count('id')
         ).order_by('-total')
         
@@ -181,7 +280,11 @@ class DashboardStats:
     
     def get_ppm_stats(self):
         """Statistiques PPM"""
-        ppm_calculator = PPMCalculator(annee=self.annee_courante)
+        if self.selected_year:
+            annee = self.selected_year
+        else:
+            annee = self.annee_courante
+        ppm_calculator = PPMCalculator(annee=annee)
         
         ppm_global_data = ppm_calculator.get_ppm_global()
         ppm_clients = ppm_calculator.get_all_clients_ppm()
@@ -202,7 +305,7 @@ class DashboardStats:
     def get_objectifs_annee(self):
         """Objectifs de l'année courante"""
         objectifs = ObjectifsAnnuel.objects.filter(
-            annee=self.annee_courante
+            annee=int(self.selected_year) if self.selected_year else self.annee_courante
         ).select_related('site__uap').order_by('site__nom')
         
         if objectifs.exists():
@@ -224,8 +327,8 @@ class DashboardStats:
         Calcul du NQC (Non-Quality Cost) par mois
         Somme des coûts NQC des réclamations pour chaque mois
         """
-        nqc_par_mois = Reclamation.objects.filter(
-            date_reclamation__gte=self.date_debut_12m
+        nqc_par_mois = self._filter_reclamations(
+            Reclamation.objects.all()
         ).annotate(
             mois=TruncMonth('date_reclamation')
         ).values('mois').annotate(
@@ -269,8 +372,10 @@ class DashboardStats:
         """
         Calcul du NQC par client (Top 10)
         """
-        nqc_client = Reclamation.objects.filter(
-            date_reclamation__year=self.annee_courante
+        annee = self.selected_year if self.selected_year else self.annee_courante
+
+        nqc_client = self._filter_reclamations(
+            Reclamation.objects.filter(date_reclamation__year=annee)
         ).values('client__nom').annotate(
             nombre=Count('id'),
             cout_total=Sum('nqc'),
@@ -283,8 +388,10 @@ class DashboardStats:
         """
         Calcul du NQC par type de NC
         """
-        nqc_type = Reclamation.objects.filter(
-            date_reclamation__year=self.annee_courante
+        annee = self.selected_year if self.selected_year else self.annee_courante
+
+        nqc_type = self._filter_reclamations(
+            Reclamation.objects.filter(date_reclamation__year=annee)
         ).values('type_nc').annotate(
             nombre=Count('id'),
             cout_total=Sum('nqc')
@@ -305,12 +412,23 @@ class DashboardStats:
     def get_top_produits_recurrents(self, top_n=5):
         """Récupère les produits les plus récurrents"""
         # Compter les réclamations par produit
-        produits = Produit.objects.annotate(
-            nb_reclamations=Count('lignes_reclamation__reclamation', distinct=True),
-            quantite_totale=Sum('lignes_reclamation__quantite')
+        reclamations_qs = self._filter_reclamations(Reclamation.objects.all())
+
+        produits = Produit.objects.filter(
+            lignes_reclamation__reclamation__in=reclamations_qs
+        ).annotate(
+            nb_reclamations=Count(
+                'lignes_reclamation__reclamation',
+                filter=Q(lignes_reclamation__reclamation__in=reclamations_qs),
+                distinct=True
+            ),
+            quantite_totale=Sum(
+                'lignes_reclamation__quantite',
+                filter=Q(lignes_reclamation__reclamation__in=reclamations_qs)
+            )
         ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:top_n]
-        
-        total_reclamations = Reclamation.objects.count()
+
+        total_reclamations = reclamations_qs.count()
         
         resultats = []
         for produit in produits:
@@ -328,11 +446,19 @@ class DashboardStats:
  
     def get_reclamations_par_site_client(self):
         """Nombre de réclamations par site client (Top 10)"""
-        from .models import SiteClient, LigneReclamation
         
         # Compter les réclamations par site client
-        sites_client = SiteClient.objects.filter(actif=True).annotate(
-            nb_reclamations=Count('reclamations')
+        reclamations_qs = self._filter_reclamations(Reclamation.objects.all())
+
+        sites_client = SiteClient.objects.filter(
+            actif=True,
+            reclamations__in=reclamations_qs
+        ).annotate(
+            nb_reclamations=Count(
+                'reclamations',
+                filter=Q(reclamations__in=reclamations_qs),
+                distinct=True
+            )
         ).filter(nb_reclamations__gt=0).order_by('-nb_reclamations')[:10]
         
         labels = []
@@ -353,7 +479,6 @@ class DashboardStats:
 
     def _calculer_date_limite(self, date_debut, jours_ouvres):
         """Calcule la date limite en jours ouvrés à partir de la date de réclamation"""
-        from datetime import timedelta
         
         # Commencer à compter à partir du jour suivant la date de réclamation
         date_courante = date_debut
@@ -368,13 +493,16 @@ class DashboardStats:
 
     def get_taux_reactivite_par_uap(self):
         """
-        Calcule le taux de réactivité par UAP par mois
+        Calcule le taux de réactivité par UAP par mois,
         """
+ 
         
-        # Récupérer toutes les données
-        lignes = LigneReclamation.objects.filter(
-            uap_concernee__isnull=False
-        ).select_related('reclamation', 'uap_concernee').values(
+        # Récupérer les lignes pour les réclamations des 12 derniers mois
+        lignes = self._filter_lignes_reclamation(
+                LigneReclamation.objects.filter(
+                    uap_concernee__isnull=False,
+                )
+            ).select_related('reclamation', 'uap_concernee').values(
             'reclamation__id',
             'reclamation__numero_reclamation',
             'reclamation__date_reclamation',
@@ -385,71 +513,55 @@ class DashboardStats:
             'uap_concernee__nom'
         )
         
-        # Structure
+        # Structure : stats[année][mois][UAP] = { total, cloture_4d, cloture_8d }
         stats = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {
             'total_reclamations': 0,
             'cloture_4d_delai': 0,
             'cloture_8d_delai': 0,
-            'details': []  # Pour le débogage
         })))
         
         reclamations_traitees = set()
         
         for ligne in lignes:
             rec_id = ligne['reclamation__id']
-            rec_num = ligne['reclamation__numero_reclamation']
             rec_date = ligne['reclamation__date_reclamation']
             uap = ligne['uap_concernee__nom']
             if not rec_date:
                 continue
-                
+            
             annee = rec_date.year
             mois = rec_date.month
-            
             key = (annee, mois, uap, rec_id)
             
-            if key not in reclamations_traitees:
-                reclamations_traitees.add(key)
-                
-                
-                # Vérifier état 4D
-                est_reactif_4d = False
-                if ligne['reclamation__etat_4d'] == 'CLOTURE' and ligne['reclamation__date_cloture_4d']:
-                    date_limite = self._calculer_date_limite(rec_date, 2)
-                    if ligne['reclamation__date_cloture_4d'] <= date_limite:
-                        stats[annee][mois][uap]['cloture_4d_delai'] += 1
-                        stats[annee][mois][uap]['total_reclamations'] += 1
-                        est_reactif_4d = True
-                    else:
-                        stats[annee][mois][uap]['total_reclamations'] += 1
-                        
-                else: 
-                    date_limite = self._calculer_date_limite(rec_date, 2)
-                    date_actuelle = timezone.now().date()
-                    if date_limite<date_actuelle:
-                        stats[annee][mois][uap]['total_reclamations'] += 1
-                
-                
-                # Vérifier état 8D
-                est_reactif_8d = False
-                if ligne['reclamation__etat_8d'] == 'CLOTURE' and ligne['reclamation__date_cloture_8d']:
-                    date_limite = self._calculer_date_limite(rec_date, 10)
-                    if ligne['reclamation__date_cloture_8d'] <= date_limite:
-                        stats[annee][mois][uap]['cloture_8d_delai'] += 1
-                        stats[annee][mois][uap]['total_reclamations'] += 1
-                        est_reactif_8d = True
-                    else:
-                        stats[annee][mois][uap]['total_reclamations'] += 1
-                else: 
-                    date_limite = self._calculer_date_limite(rec_date, 2)
-                    date_actuelle = timezone.now().date()
-                    if date_limite<date_actuelle:
-                        stats[annee][mois][uap]['total_reclamations'] += 1
-                
-                       
-        # Construire le résultat final
-        resultats_par_annee = {}
+            if key in reclamations_traitees:
+                continue
+            reclamations_traitees.add(key)
+            
+            # --- Traitement 4D ---
+            if ligne['reclamation__etat_4d'] == 'CLOTURE' and ligne['reclamation__date_cloture_4d']:
+                date_limite_4d = self._calculer_date_limite(rec_date, 2)
+                if ligne['reclamation__date_cloture_4d'] <= date_limite_4d:
+                    stats[annee][mois][uap]['cloture_4d_delai'] += 1
+                stats[annee][mois][uap]['total_reclamations'] += 1
+            else:
+                # Réclamation non clôturée ou clôturée hors délai
+                date_limite_4d = self._calculer_date_limite(rec_date, 2)
+                if date_limite_4d < self.today:
+                    stats[annee][mois][uap]['total_reclamations'] += 1
+            
+            # --- Traitement 8D ---
+            if ligne['reclamation__etat_8d'] == 'CLOTURE' and ligne['reclamation__date_cloture_8d']:
+                date_limite_8d = self._calculer_date_limite(rec_date, 10)
+                if ligne['reclamation__date_cloture_8d'] <= date_limite_8d:
+                    stats[annee][mois][uap]['cloture_8d_delai'] += 1
+                stats[annee][mois][uap]['total_reclamations'] += 1
+            else:
+                date_limite_8d = self._calculer_date_limite(rec_date, 10)
+                if date_limite_8d < self.today:
+                    stats[annee][mois][uap]['total_reclamations'] += 1
         
+        # --- Construction du résultat ---
+        resultats_par_annee = {}
         for annee in sorted(stats.keys(), reverse=True):
             mois_data = stats[annee]
             mois_labels = []
@@ -459,38 +571,26 @@ class DashboardStats:
             for mois in sorted(mois_data.keys()):
                 mois_nom = self._get_mois_nom(mois, annee)
                 mois_labels.append(mois_nom)
-                
                 donnees_uap = {}
-                
                 for uap, valeurs in mois_data[mois].items():
                     uap_noms_set.add(uap)
-                    
-                    total_reclamations = valeurs['total_reclamations']
+                    total = valeurs['total_reclamations']
                     cloture_4d = valeurs['cloture_4d_delai']
                     cloture_8d = valeurs['cloture_8d_delai']
                     
-                    total_etats = total_reclamations
-                    reactif_etats = cloture_4d + cloture_8d
-                    
-                    if total_etats > 0:
-                        taux = (reactif_etats / total_etats) * 100
-                    else:
-                        taux = 100
-                    
+                    reactif = cloture_4d + cloture_8d
+                    taux = (reactif / total * 100) if total > 0 else 100.0
                     donnees_uap[uap] = round(taux, 1)
-                
                 data_mensuelle[mois_nom] = donnees_uap
-            
             uap_noms = sorted(uap_noms_set)
-            
+            # Compléter les UAP manquants pour chaque mois
             for mois_nom in mois_labels:
                 if mois_nom not in data_mensuelle:
-                    data_mensuelle[mois_nom] = {uap: 0 for uap in uap_noms}
+                    data_mensuelle[mois_nom] = {uap: 100.0 for uap in uap_noms}
                 else:
                     for uap in uap_noms:
                         if uap not in data_mensuelle[mois_nom]:
-                            taux=100
-                            data_mensuelle[mois_nom][uap] = round(taux, 1)
+                            data_mensuelle[mois_nom][uap] = 100.0
             
             resultats_par_annee[annee] = {
                 'mois_labels': mois_labels,
@@ -498,7 +598,16 @@ class DashboardStats:
                 'data': data_mensuelle
             }
         
-        return resultats_par_annee
+        # --- Moyenne des taux sur les 12 derniers mois (tous les mois filtrés) ---
+        tous_les_taux = []
+        for annee, annee_data in resultats_par_annee.items():
+            for mois, uap_data in annee_data['data'].items():
+                for uap, taux in uap_data.items():
+                    tous_les_taux.append(taux)
+        
+        moyenne_reactivite = sum(tous_les_taux) / len(tous_les_taux) if tous_les_taux else 100
+        
+        return resultats_par_annee, moyenne_reactivite
 
     def _get_mois_nom(self, mois_num, annee):
         """
@@ -514,7 +623,7 @@ class DashboardStats:
         """
         
         # Filtrer par client si spécifié
-        queryset = Reclamation.objects.all()
+        queryset = self._filter_reclamations(Reclamation.objects.all())
         if client_id:
             queryset = queryset.filter(client_id=client_id)
         
@@ -547,7 +656,7 @@ class DashboardStats:
             'client_id': client_id
         }
 
-    def get_top_defauts_recurrents(self, top_n=5, imputation='CIM'):
+    def get_top_defauts_recurrents(self, top_n=5, imputation=None):
         """
         Récupère les défauts (descriptions de non-conformité) les plus récurrents
         Taux de récurrence = Nombre de réclamations contenant le défaut / Nombre total de réclamations
@@ -555,7 +664,7 @@ class DashboardStats:
         """
         
         # Construire le filtre de base pour les réclamations
-        reclamations_queryset = Reclamation.objects.all()
+        reclamations_queryset = self._filter_reclamations(Reclamation.objects.all())
         if imputation:
             reclamations_queryset = reclamations_queryset.filter(imputation=imputation)
         
@@ -567,7 +676,7 @@ class DashboardStats:
             return []
         
         # Construire le filtre de base pour les non-conformités
-        queryset = NonConformite.objects.all()
+        queryset = self._filter_non_conformites(NonConformite.objects.all())
         if imputation:
             queryset = queryset.filter(ligne_reclamation__reclamation__imputation=imputation)
         
@@ -595,10 +704,31 @@ class DashboardStats:
             taux = (nb_reclamations_concernees / total_reclamations * 100) if total_reclamations > 0 else 0
             
             # Récupérer les produits concernés
-            produits_queryset = Produit.objects.filter(
-            lignes_reclamation__non_conformites__description=description,
-            lignes_reclamation__reclamation__imputation='CIM'
-            ).distinct().values_list('product_number', flat=True)[:10]
+            produits_base = Produit.objects.filter(
+                lignes_reclamation__non_conformites__description=description
+            )
+
+            if imputation:
+                produits_base = produits_base.filter(
+                    lignes_reclamation__reclamation__imputation=imputation
+                )
+
+            if self.selected_client:
+                produits_base = produits_base.filter(
+                    lignes_reclamation__reclamation__client_id=self.selected_client
+                )
+
+            if self.selected_year:
+                produits_base = produits_base.filter(
+                    lignes_reclamation__reclamation__date_reclamation__year=self.selected_year
+                )
+
+            if self.selected_uap:
+                produits_base = produits_base.filter(
+                    lignes_reclamation__uap_concernee_id=self.selected_uap
+                )
+
+            produits_queryset = produits_base.distinct().values_list('product_number', flat=True)[:10]
             produits_concernes = produits_queryset.count()
             
             # Récupérer les IDs des réclamations concernées (pour référence)
@@ -627,7 +757,7 @@ class DashboardStats:
         
         return resultats
 
-    def get_taux_recurrence_globale(self, imputation='CIM'):
+    def get_taux_recurrence_globale(self, imputation=None):
         """
         Calcule le taux de récurrence globale des défauts
         Taux = Nombre de défauts qui apparaissent dans PLUSIEURS RÉCLAMATIONS / Nombre total de défauts distincts × 100
@@ -635,10 +765,9 @@ class DashboardStats:
         """
         
         # Construire le filtre de base
-        queryset = NonConformite.objects.all()
-        
+        queryset = self._filter_non_conformites(NonConformite.objects.all())
         if imputation:
-            queryset = queryset.filter(ligne_reclamation__reclamation__imputation=imputation)
+            queryset = queryset.filter(ligne_reclamation__reclamation__date_reclamation__gte=self.date_debut_12m, ligne_reclamation__reclamation__imputation=imputation)
         
         # Compter les défauts par description avec le nombre de RÉCLAMATIONS distinctes
         defauts_stats = queryset.values('description').annotate(
@@ -656,14 +785,14 @@ class DashboardStats:
         # Nombre de défauts récurrents (apparaissent dans PLUSIEURS réclamations différentes)
         defauts_recurrents = defauts_stats.filter(nb_reclamations__gte=2).count()
         
-        # Calcul du taux de récurrence selon la nouvelle définition
+        # Calcul du taux de récurrence
         if total_defauts > 0:
             taux_recurrence = (defauts_recurrents / total_defauts) * 100
         else:
             taux_recurrence = 0
         
         # Statistiques supplémentaires
-        total_reclamations = Reclamation.objects.all()
+        total_reclamations = self._filter_reclamations(Reclamation.objects.all())
         if imputation:
             total_reclamations = total_reclamations.filter(imputation=imputation)
         total_reclamations_count = total_reclamations.count()
@@ -700,6 +829,7 @@ class DashboardStats:
 
     def get_all_stats(self):
         """Récupère toutes les statistiques"""
+        taux_reactivite_par_uap, taux_reactivite = self.get_taux_reactivite_par_uap()
         return {
             'global': self.get_global_stats(),
             'clients': self.get_reclamations_par_client(),
@@ -718,7 +848,8 @@ class DashboardStats:
             },
             'top_produits_recurrents': self.get_top_produits_recurrents(),
             'reclamations_par_site_client': self.get_reclamations_par_site_client(),
-            'taux_reactivite_par_uap': self.get_taux_reactivite_par_uap(),
+            'taux_reactivite_par_uap': taux_reactivite_par_uap,
+            'taux_reactivite': taux_reactivite,
             'reclamations_par_client_mois': self.get_reclamations_par_client_mois(),
             'top_defauts_recurrents': self.get_top_defauts_recurrents(),
             'taux_recurrence_globale': self.get_taux_recurrence_globale(),

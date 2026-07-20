@@ -11,6 +11,7 @@
         color: white;
         transition: transform 0.3s ease;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        position: relative;
     }
     .stats-card:hover { transform: translateY(-3px); }
     .stats-card .stats-number { font-size: 2.5rem; font-weight: bold; }
@@ -21,6 +22,28 @@
     .stats-card.clotures { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); }
     .stats-card.na { background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); }
     
+    /* Indicateur d'évolution */
+    .stats-evolution {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-top: 5px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .stats-evolution i {
+        font-size: 1rem;
+    }
+    .stats-evolution.bonne {
+        color: #2ecc71;
+    }
+    .stats-evolution.mauvaise {
+        color: #e74c3c;
+    }
+    .stats-evolution.neutre {
+        color: #f1c40f;
+    }
+
     .reclamation-card {
         border-radius: 10px;
         border-left: 4px solid #e74c3c;
@@ -84,111 +107,141 @@
         </div>
     </div>
 
-    <!-- Cartes de statistiques -->
+    <!-- Cartes de statistiques avec indicateurs de variation -->
     <div class="row mb-4">
         <div class="col-md-3 mb-3">
             <div class="stats-card ouvertes">
                 <div class="stats-number">{{ stats.total_ouvertes }}</div>
                 <div class="stats-label">Réclamations ouvertes</div>
+                {% if stats.evolution_ouvertes is not None %}
+                <div class="stats-evolution {% if stats.evolution_ouvertes > 0 %}mauvaise{% elif stats.evolution_ouvertes < 0 %}bonne{% else %}neutre{% endif %}">
+                    <i class="fas {% if stats.evolution_ouvertes > 0 %}fa-arrow-up{% elif stats.evolution_ouvertes < 0 %}fa-arrow-down{% else %}fa-minus{% endif %}"></i>
+                    {{ stats.evolution_ouvertes|floatformat:1 }}%
+                    <span class="small">(vs mois préc.)</span>
+                </div>
+                {% endif %}
             </div>
         </div>
         <div class="col-md-3 mb-3">
             <div class="stats-card sans-8d">
                 <div class="stats-number">{{ stats.sans_8d }}</div>
                 <div class="stats-label">En attente de 8D</div>
+                {% if stats.evolution_sans_8d is not None %}
+                <div class="stats-evolution {% if stats.evolution_sans_8d > 0 %}mauvaise{% elif stats.evolution_sans_8d < 0 %}bonne{% else %}neutre{% endif %}">
+                    <i class="fas {% if stats.evolution_sans_8d > 0 %}fa-arrow-up{% elif stats.evolution_sans_8d < 0 %}fa-arrow-down{% else %}fa-minus{% endif %}"></i>
+                    {{ stats.evolution_sans_8d|floatformat:1 }}%
+                    <span class="small">(vs mois préc.)</span>
+                </div>
+                {% endif %}
             </div>
         </div>
         <div class="col-md-3 mb-3">
             <div class="stats-card avec-8d">
                 <div class="stats-number">{{ stats.avec_8d }}</div>
                 <div class="stats-label">8D en cours</div>
+                {% if stats.evolution_avec_8d is not None %}
+                <div class="stats-evolution {% if stats.evolution_avec_8d > 0 %}bonne{% elif stats.evolution_avec_8d < 0 %}mauvaise{% else %}neutre{% endif %}">
+                    <i class="fas {% if stats.evolution_avec_8d > 0 %}fa-arrow-up{% elif stats.evolution_avec_8d < 0 %}fa-arrow-down{% else %}fa-minus{% endif %}"></i>
+                    {{ stats.evolution_avec_8d|floatformat:1 }}%
+                    <span class="small">(vs mois préc.)</span>
+                </div>
+                {% endif %}
             </div>
         </div>
         <div class="col-md-3 mb-3">
             <div class="stats-card na">
                 <div class="stats-number">{{ stats.na_8d }}</div>
                 <div class="stats-label">8D non applicable</div>
+                {% if stats.evolution_na_8d is not None %}
+                <div class="stats-evolution {% if stats.evolution_na_8d > 0 %}bonne{% elif stats.evolution_na_8d < 0 %}mauvaise{% else %}neutre{% endif %}">
+                    <i class="fas {% if stats.evolution_na_8d > 0 %}fa-arrow-up{% elif stats.evolution_na_8d < 0 %}fa-arrow-down{% else %}fa-minus{% endif %}"></i>
+                    {{ stats.evolution_na_8d|floatformat:1 }}%
+                    <span class="small">(vs mois préc.)</span>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
-<!-- Réclamations SANS 8D -->
-<div class="card mb-4">
-    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Réclamations en attente de 8D</h5>
-        <span class="badge bg-light text-danger">{{ reclamations_sans_8d|length }} réclamation(s)</span>
-    </div>
-    <div class="card-body p-0">
-        {% if reclamations_sans_8d %}
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 15%">N° Réclamation</th>
-                        <th style="width: 20%">Client</th>
-                        <th style="width: 15%">Date</th>
-                        <th style="width: 25%">Produits</th>
-                        <th style="width: 15%">Imputation</th>
-                        <th style="width: 10%">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for rec in reclamations_sans_8d %}
-                    <tr class="align-middle">
-                        <td>
-                            <a href="{% url 'reclamations:detail_reclamation' rec.id %}" class="fw-bold text-decoration-none">
-                                {{ rec.numero_reclamation }}
-                            </a>
-                        </td>
-                        <td>
-                            <strong>{{ rec.client.nom }}</strong>
-                        </td>
-                        <td>
-                            <i class="far fa-calendar-alt text-muted me-1"></i>
-                            {{ rec.date_reclamation|date:"d/m/Y" }}
-                        </td>
-                        <td>
-                            {% for ligne in rec.lignes.all|slice:":2" %}
-                            <span class="badge bg-secondary me-1 mb-1">{{ ligne.produit.product_number }}</span>
-                            {% endfor %}
-                            {% if rec.lignes.all.count > 2 %}
-                            <span class="badge bg-light text-dark border">+{{ rec.lignes.all.count|add:"-2" }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge {% if rec.imputation == 'CIM' %}bg-primary{% elif rec.imputation == 'CIB' %}bg-success{% else %}bg-info{% endif %}">
-                                {{ rec.get_imputation_display }}
-                            </span>
-                        </td>
-                        <td>
-                            <div class="d-flex gap-2">
-                                <form method="post" action="{% url 'reclamations:marquer_8d_na' rec.id %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary" 
-                                            onclick="return confirm('Marquer cette réclamation comme 8D non applicable ?')"
-                                            title="8D non applicable">
-                                        <i class="fas fa-ban"></i>
-                                    </button>
-                                </form>
-                                <a href="{% url 'reclamations:huitd_creer' rec.id %}" class="btn btn-sm btn-danger" title="Créer 8D">
-                                    <i class="fas fa-plus-circle"></i> 8D
+    <!-- Réclamations SANS 8D -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Réclamations en attente de 8D</h5>
+            <span class="badge bg-light text-danger">{{ reclamations_sans_8d|length }} réclamation(s)</span>
+        </div>
+        <div class="card-body p-0">
+            {% if reclamations_sans_8d %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 15%">N° Réclamation</th>
+                            <th style="width: 20%">Client</th>
+                            <th style="width: 15%">Date</th>
+                            <th style="width: 25%">Produits</th>
+                            <th style="width: 15%">Imputation</th>
+                            <th style="width: 10%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in reclamations_sans_8d %}
+                        <tr class="align-middle">
+                            <td>
+                                <a href="{% url 'reclamations:detail_reclamation' rec.id %}" class="fw-bold text-decoration-none">
+                                    {{ rec.numero_reclamation }}
                                 </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </td>
+                            <td>
+                                <strong>{{ rec.client.nom }}</strong>
+                            </td>
+                            <td>
+                                <i class="far fa-calendar-alt text-muted me-1"></i>
+                                {{ rec.date_reclamation|date:"d/m/Y" }}
+                            </td>
+                            <td>
+                                {% for ligne in rec.lignes.all|slice:":2" %}
+                                <span class="badge bg-secondary me-1 mb-1">{{ ligne.produit.product_number }}</span>
+                                {% endfor %}
+                                {% if rec.lignes.all.count > 2 %}
+                                <span class="badge bg-light text-dark border">+{{ rec.lignes.all.count|add:"-2" }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if rec.imputation == 'CIM' %}bg-primary{% elif rec.imputation == 'CIB' %}bg-success{% else %}bg-info{% endif %}">
+                                    {{ rec.get_imputation_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    {% if user.role == 'admin' or user.role == 'quality_manager' or user.role == 'quality_engineer' %}
+                                    <form method="post" action="{% url 'reclamations:marquer_8d_na' rec.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" 
+                                                onclick="return confirm('Marquer cette réclamation comme 8D non applicable ?')"
+                                                title="8D non applicable">
+                                            <i class="fas fa-ban"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    <a href="{% url 'reclamations:huitd_creer' rec.id %}" class="btn btn-sm btn-danger" title="Créer 8D">
+                                        <i class="fas fa-plus-circle"></i> 8D
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                <h5 class="text-success">Toutes les réclamations ouvertes ont un 8D</h5>
+                <p class="text-muted">Aucune réclamation en attente de création de 8D</p>
+            </div>
+            {% endif %}
         </div>
-        {% else %}
-        <div class="text-center py-5">
-            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
-            <h5 class="text-success">Toutes les réclamations ouvertes ont un 8D</h5>
-            <p class="text-muted">Aucune réclamation en attente de création de 8D</p>
-        </div>
-        {% endif %}
     </div>
-</div>
 
     <!-- Réclamations AVEC 8D en cours -->
     <div class="card mb-4">
@@ -257,6 +310,7 @@
     </div>
 
     <!-- Réclamations avec 8D non applicable -->
+    {% if user.role == 'admin' or user.role == 'quality_manager' or user.role == 'quality_engineer' %}
     <div class="card">
         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-ban me-2"></i>8D non applicable</h5>
@@ -303,5 +357,6 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}

@@ -209,7 +209,7 @@
                 <div class="card-body text-center">
                     <i class="fas fa-chart-bar fs-1 mb-2 opacity-50"></i>
                     <h2 class="mb-0">{{ total_occurences_nc }}</h2>
-                    <p>Total réclamations concernées</p>
+                    <p>Total produits concernées</p>
                 </div>
             </div>
         </div>
@@ -267,11 +267,7 @@
                             <td class="text-end align-middle" style="width: 180px;">
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="progress flex-grow-1" style="height: 8px;">
-                                        <div class="progress-bar 
-                                            {% if desc.taux_recurrence < 5 %}bg-success
-                                            {% elif desc.taux_recurrence < 15 %}bg-warning
-                                            {% else %}bg-danger{% endif %}" 
-                                            style="width: {{ desc.taux_recurrence }}%;">
+                                        <div class="progress-bar bg-{{ desc.couleur }}">
                                         </div>
                                     </div>
                                     <small class="fw-bold {% if desc.taux_recurrence < 5 %}text-success

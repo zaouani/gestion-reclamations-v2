@@ -225,7 +225,7 @@
             <div class="kpi-value" id="totalReclamations">{{ kpi_stats.total_reclamations|default:0 }}</div>
             <div>
                 <span class="kpi-trend {% if kpi_variation.total_reclamations > 0 %}trend-up{% elif kpi_variation.total_reclamations < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.total_reclamations > 0 %}+{% endif %}{{ kpi_variation.total_reclamations|default:0 }}%
+                    {% if kpi_variation.total_reclamations > 0 %}+{% endif %}{{ kpi_variation.total_reclamations|default:0 }}
                 </span>
                 <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
             </div>
@@ -242,7 +242,7 @@
             <div class="kpi-value" id="nonCloturees">{{ kpi_stats.ouvertes|default:0 }}</div>
             <div>
                 <span class="kpi-trend {% if kpi_variation.ouvertes > 0 %}trend-up{% elif kpi_variation.ouvertes < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.ouvertes > 0 %}+{% endif %}{{ kpi_variation.ouvertes|default:0 }}%
+                    {% if kpi_variation.ouvertes > 0 %}+{% endif %}{{ kpi_variation.ouvertes|default:0 }}
                 </span>
                 <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
             </div>
@@ -257,12 +257,6 @@
                 <i class="fas fa-shield-alt"></i> SÉCURISATION EN COURS
             </div>
             <div class="kpi-value" id="securisationEnCours">{{ kpi_stats.securisation_en_cours|default:0 }}</div>
-            <div>
-                <span class="kpi-trend {% if kpi_variation.securisation_en_cours > 0 %}trend-up{% elif kpi_variation.securisation_en_cours < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.securisation_en_cours > 0 %}+{% endif %}{{ kpi_variation.securisation_en_cours|default:0 }}%
-                </span>
-                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
-            </div>
             <div class="kpi-footer">
                 <i class="fas fa-chart-line"></i> Sécurisation en cours
             </div>
@@ -274,12 +268,7 @@
                 <i class="fas fa-clock"></i> ATTENTE CRÉATION 8D
             </div>
             <div class="kpi-value" id="reclamationsSans8d">{{ kpi_stats.reclamations_sans_8d|default:0 }}</div>
-            <div>
-                <span class="kpi-trend {% if kpi_variation.reclamations_sans_8d > 0 %}trend-up{% elif kpi_variation.reclamations_sans_8d < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.reclamations_sans_8d > 0 %}+{% endif %}{{ kpi_variation.reclamations_sans_8d|default:0 }}%
-                </span>
-                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
-            </div>
+
             <div class="kpi-footer">
                 <i class="fas fa-chart-line"></i> Réclamations sans 8D
             </div>
@@ -291,12 +280,6 @@
                 <i class="fas fa-chart-line"></i> 8D EN COURS
             </div>
             <div class="kpi-value" id="reclamationsAvec8d">{{ kpi_stats.reclamations_avec_8d|default:0 }}</div>
-            <div>
-                <span class="kpi-trend {% if kpi_variation.reclamations_avec_8d > 0 %}trend-up{% elif kpi_variation.reclamations_avec_8d < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.reclamations_avec_8d > 0 %}+{% endif %}{{ kpi_variation.reclamations_avec_8d|default:0 }}%
-                </span>
-                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
-            </div>
             <div class="kpi-footer">
                 <i class="fas fa-chart-line"></i> Réclamations avec 8D 
             </div>
@@ -308,12 +291,6 @@
                 <i class="fas fa-tasks"></i> ACTIONS PDCA EN COURS
             </div>
             <div class="kpi-value" id="actionsEncours">{{ kpi_stats.actions_encours|default:0 }}</div>
-            <div>
-                <span class="kpi-trend {% if kpi_variation.actions_encours > 0 %}trend-up{% elif kpi_variation.actions_encours < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.actions_encours > 0 %}+{% endif %}{{ kpi_variation.actions_encours|default:0 }}%
-                </span>
-                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs hier</span>
-            </div>
             <div class="kpi-footer">
                 <i class="fas fa-chart-line"></i> Actions en cours
             </div>
@@ -342,12 +319,6 @@
                 <i class="fas fa-hourglass-half"></i> DÉLAI MOYEN
             </div>
             <div class="kpi-value" id="delaiMoyen">{{ kpi_stats.delai_moyen|default:0 }}<span style="font-size:1.5rem;">j</span></div>
-            <div>
-                <span class="kpi-trend {% if kpi_variation.delai_moyen > 0 %}trend-up{% elif kpi_variation.delai_moyen < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.delai_moyen > 0 %}+{% endif %}{{ kpi_variation.delai_moyen|default:0 }}%
-                </span>
-                <span style="color:#666; font-size:0.7rem; margin-left:8px;">évolution</span>
-            </div>
             <div class="kpi-footer">
                 <i class="fas fa-chart-line"></i> Délai moyen de traitement
             </div>
@@ -359,12 +330,6 @@
                 <i class="fas fa-sync-alt"></i> TAUX DE RÉCURRENCE
             </div>
             <div class="kpi-value" id="tauxRecurrenceValue">{{ kpi_stats.taux_recurrence|default:0 }}<span style="font-size:1.5rem;">%</span></div>
-            <div>
-                <span class="kpi-trend {% if kpi_variation.taux_recurrence > 0 %}trend-up{% elif kpi_variation.taux_recurrence < 0 %}trend-down{% else %}trend-stable{% endif %}">
-                    {% if kpi_variation.taux_recurrence > 0 %}+{% endif %}{{ kpi_variation.taux_recurrence|default:0 }}%
-                </span>
-                <span style="color:#666; font-size:0.7rem; margin-left:8px;">vs mois dernier</span>
-            </div>
             <div class="kpi-footer">
                 <i class="fas fa-chart-line"></i> Défauts récurrents
             </div>
@@ -394,7 +359,6 @@
     }
     
     function refreshDashboard() {
-        console.log('🔄 Rafraîchissement dashboard...');
         
         // Ajouter animation de rafraîchissement
         const kpiContainer = document.getElementById('kpiContainer');
@@ -413,7 +377,6 @@
             return response.json();
         })
         .then(data => {
-            console.log('📊 Données reçues:', data);
             
             // Mettre à jour les valeurs numériques
             if (data.total_reclamations !== undefined) {

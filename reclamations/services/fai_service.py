@@ -295,6 +295,7 @@ class FAIService:
         for statut_code, statut_label in ArticleFAI.STATUT_CHOICES:
             resultats[statut_code] = ArticleFAI.objects.filter(statut=statut_code).select_related('produit').order_by('-derniere_production')
         return resultats
+    
     def get_articles_par_statut(self, limit=20):
         """Retourne les articles groupés par statut avec limite"""
         resultats = {}

@@ -103,7 +103,7 @@
     <!-- En-tête -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h2 mb-1">Tableau de bord</h1>
+          
             <p class="text-muted mb-0">Synthèse des indicateurs qualité et performances</p>
         </div>
 
@@ -131,6 +131,300 @@
     </div>
 
     <div id="aiAnalysisResult" style="display: none;" class="mb-4"></div>
+<!-- Filter bar one-line -->
+<div class="filter-bar filter-bar-one-line">
+    <form method="GET" id="filterForm" class="filter-form-one-line">
+
+        <!-- Client -->
+        <div class="filter-field">
+            <label for="clientFilter">
+                <i class="fas fa-building"></i> Client
+            </label>
+            <select name="client" id="clientFilter" class="form-select filter-select">
+                <option value="">Tous</option>
+                {% for client in clients %}
+                    <option value="{{ client.id }}" {% if selected_client == client.id|stringformat:"s" %}selected{% endif %}>
+                        {{ client.nom }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Année -->
+        <div class="filter-field ">
+            <label for="yearFilter">
+                <i class="fas fa-calendar"></i> Année
+            </label>
+            <select name="year" id="yearFilter" class="form-select filter-select">
+                <option value="">12 derniers mois</option>
+                {% for year in years %}
+                    <option value="{{ year.year }}" {% if selected_year == year.year|stringformat:"s" %}selected{% endif %}>
+                        {{ year.year }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- UAP -->
+        <div class="filter-field ">
+            <label for="uapFilter">
+                <i class="fas fa-industry"></i> UAP
+            </label>
+            <select name="uap" id="uapFilter" class="form-select filter-select">
+                <option value="">Toutes</option>
+                {% for uap in uaps %}
+                    <option value="{{ uap.id }}" {% if selected_uap == uap.id|stringformat:"s" %}selected{% endif %}>
+                        {{ uap.nom }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Imputation -->
+        <div class="filter-field">
+            <label for="imputationFilter">
+                <i class="fas fa-tag"></i> Imputation
+            </label>
+            <select name="imputation" id="imputationFilter" class="form-select filter-select">
+                <option value="">Toutes</option>
+                {% for imputation in imputations %}
+                    <option value="{{ imputation.id }}" {% if selected_imputation == imputation.id %}selected{% endif %}>
+                        {{ imputation.nom }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Actions -->
+        <div class="filter-actions-one-line">
+            <button type="submit" class="btn-filter btn-apply">
+                <i class="fas fa-search"></i>
+                Appliquer
+            </button>
+            <a href="{% url 'reclamations:dashboard' %}">
+                <i class="fas fa-undo"></i> 
+            </a>
+        </div>
+
+    </form>
+
+    <!-- Filtres actifs -->
+    {% if has_filters %}
+    <div class="filter-tags-one-line">
+        <span class="filter-tags-title">
+            <i class="fas fa-filter"></i> Actifs :
+        </span>
+
+        {% if selected_client_name %}
+            <span class="filter-tag">
+                Client : {{ selected_client_name }}
+                ?{% for key, value in request.GET.items %}{% if key != 'client' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+            </span>
+        {% endif %}
+
+        {% if selected_year %}
+            <span class="filter-tag">
+                Année : {{ selected_year }}
+                ?{% for key, value in request.GET.items %}{% if key != 'year' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+            </span>
+        {% endif %}
+
+        {% if selected_uap_name %}
+            <span class="filter-tag">
+                UAP : {{ selected_uap_name }}
+                ?{% for key, value in request.GET.items %}{% if key != 'uap' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+            </span>
+        {% endif %}
+
+        {% if selected_imputation_name %}
+            <span class="filter-tag">
+                Imputation : {{ selected_imputation_name }}
+                ?{% for key, value in request.GET.items %}{% if key != 'imputation' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+            </span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+<style>
+/* Barre globale */
+.filter-bar-one-line {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05);
+}
+
+/* Formulaire en une seule ligne */
+.filter-form-one-line {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+/* Chaque champ */
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    flex: 1;
+}
+
+
+/* Labels */
+.filter-field label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.filter-field label i {
+    color: #2563eb;
+    font-size: 10px;
+    margin-right: 3px;
+}
+
+/* Select compact */
+.filter-select {
+    height: 32px;
+    min-height: 32px;
+    border-radius: 8px;
+    border: 1px solid #dbe1ea;
+    background-color: #f8fafc;
+    font-size: 12px;
+    color: #0f172a;
+    padding: 4px 26px 4px 9px;
+    box-shadow: none;
+}
+
+.filter-select:focus {
+    border-color: #2563eb;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Boutons alignés */
+.filter-actions-one-line {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+/* Boutons compacts */
+.btn-filter {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-apply {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.btn-apply:hover {
+    background: #1d4ed8;
+    color: #ffffff;
+}
+
+.btn-reset {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.btn-reset:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+/* Tags actifs */
+.filter-tags-one-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed #e2e8f0;
+    white-space: nowrap;
+}
+
+.filter-tags-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    flex: 0 0 auto;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+    font-size: 11px;
+    font-weight: 600;
+    flex: 0 0 auto;
+}
+
+.remove-filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #1e40af;
+    text-decoration: none;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.remove-filter:hover {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+/* Scroll discret si l'écran est petit */
+.filter-form-one-line::-webkit-scrollbar,
+.filter-tags-one-line::-webkit-scrollbar {
+    height: 4px;
+}
+
+.filter-form-one-line::-webkit-scrollbar-thumb,
+.filter-tags-one-line::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+</style>
+
     <!-- Cartes KPI principales -->
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6">
@@ -171,9 +465,6 @@
                     <div class="stat-value">{{ moyenne_reactivite|default:0 }}%</div>
                     <small>
                         moyenne {{ annee_courante }} 
-                        {% if moyenne_reactivite_2025 %}
-                        | 2025: {{ moyenne_reactivite_2025 }}%
-                        {% endif %}
                     </small>
                 </div>
             </div>
@@ -225,7 +516,7 @@
             </div>
         </div>
     </div>
-
+    
     <!-- Objectifs (version compacte) -->
     {% if objectifs_par_site %}
     <div class="card mb-4 border-0 shadow-sm">
@@ -701,49 +992,26 @@
             </div>
         </div>
     </div>
-     <!-- Taux de réactivité par UAP -->
+
+    <!-- Taux de réactivité par UAP -->
     <div class="col-12">
         <div class="card shadow-sm">
             <div class="card-header bg-white border-bottom">
                 <i class="fas fa-chart-line text-success me-2"></i> 
                 Taux de réactivité par UAP (%)
                 <span class="badge bg-info ms-2">4D: 2 jours ouvrés | 8D: 10 jours ouvrés</span>
+                <span class="badge bg-secondary ms-2">12 derniers mois</span>
             </div>
             <div class="card-body">
                 {% if reactivite_uap_par_annee %}
-                <!-- Sélecteur d'année -->
-                <ul class="nav nav-tabs mb-3" id="reactiviteUAPTabs" role="tablist">
-                    {% for annee in reactivite_uap_annees %}
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link {% if forloop.first %}active{% endif %}" 
-                                id="tab-{{ annee }}" 
-                                data-bs-toggle="tab" 
-                                data-bs-target="#content-{{ annee }}" 
-                                type="button" 
-                                role="tab">
-                            Année {{ annee }}
-                        </button>
-                    </li>
-                    {% endfor %}
-                </ul>
-                
-                <!-- Contenu des onglets -->
-                <div class="tab-content">
-                    {% for annee, data in reactivite_uap_par_annee.items %}
-                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
-                        id="content-{{ annee }}" 
-                        role="tabpanel">
-                        <div class="chart-container" style="height: 400px;">
-                            <canvas id="chartReactiviteUAP_{{ annee }}"></canvas>
-                        </div>
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="chartReactiviteUAP_global"></canvas>
                     </div>
-                    {% endfor %}
-                </div>
                 {% else %}
-                <div class="alert alert-info text-center">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Aucune donnée de réactivité disponible.
-                </div>
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Aucune donnée de réactivité disponible.
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -1086,159 +1354,203 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 12. Graphique par site client - Version améliorée
     {% if site_client_labels and site_client_data %}
-    (function() {
-        try {
-            const labels = {{ site_client_labels|safe }};
-            const data = {{ site_client_data|safe }};
-            
-            // Générer des couleurs basées sur la valeur
-            const colors = data.map(value => {
-                if (value < 5) return 'rgba(40, 167, 69, 0.6)';     // Vert
-                if (value < 15) return 'rgba(255, 193, 7, 0.6)';    // Jaune
-                return 'rgba(220, 53, 69, 0.6)';                    // Rouge
-            });
-            
-            const borderColors = data.map(value => {
-                if (value < 5) return 'rgb(40, 167, 69)';
-                if (value < 15) return 'rgb(255, 193, 7)';
-                return 'rgb(220, 53, 69)';
-            });
-            
-            safeCreateChart('chartSiteClient', {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Nombre de réclamations',
-                        data: data,
-                        backgroundColor: colors,
-                        borderColor: borderColors,
-                        borderRadius: 6,
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.raw;
-                                    let status = '';
-                                    if (value < 5) status = '✓ Bon';
-                                    else if (value < 15) status = '⚠️ Moyen';
-                                    else status = '✗ Critique';
-                                    return `${context.raw} réclamation(s) - ${status}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Nombre de réclamations' },
-                            ticks: { stepSize: 1, precision: 0 }
+            (function() {
+                try {
+                    const labels = {{ site_client_labels|safe }};
+                    const data = {{ site_client_data|safe }};
+                    
+                    // Générer des couleurs basées sur la valeur
+                    const colors = data.map(value => {
+                        if (value < 5) return 'rgba(40, 167, 69, 0.6)';     // Vert
+                        if (value < 15) return 'rgba(255, 193, 7, 0.6)';    // Jaune
+                        return 'rgba(220, 53, 69, 0.6)';                    // Rouge
+                    });
+                    
+                    const borderColors = data.map(value => {
+                        if (value < 5) return 'rgb(40, 167, 69)';
+                        if (value < 15) return 'rgb(255, 193, 7)';
+                        return 'rgb(220, 53, 69)';
+                    });
+                    
+                    safeCreateChart('chartSiteClient', {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Nombre de réclamations',
+                                data: data,
+                                backgroundColor: colors,
+                                borderColor: borderColors,
+                                borderRadius: 6,
+                                borderWidth: 1
+                            }]
                         },
-                        x: {
-                            title: { display: true, text: 'Site client' },
-                            ticks: { maxRotation: 45, minRotation: 45 }
-                        }
-                    }
-                }
-            });
-        } catch(e) {
-            console.error('Erreur création graphique site client:', e);
-        }
-    })();
-    {% endif %}
-
-    {% if reactivite_uap_par_annee %}
-    {% for annee, data in reactivite_uap_par_annee.items %}
-    (function() {
-        const moisLabels = {{ data.mois_labels|safe }};
-        const uapNoms = {{ data.uap_noms|safe }};
-        const dataValues = {{ data.data|safe }};
-        
-        if (moisLabels && moisLabels.length > 0 && uapNoms && uapNoms.length > 0) {
-            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FF5733', '#C70039'];
-            
-            const datasets = uapNoms.map((uap, idx) => {
-                const dataUAP = moisLabels.map(mois => dataValues[mois]?.[uap] || 0);
-                return {
-                    label: uap,
-                    data: dataUAP,
-                    borderColor: colors[idx % colors.length],
-                    backgroundColor: colors[idx % colors.length] + '33', // léger remplissage
-                    borderWidth: 3,
-                    tension: 0.2,                    // courbe légère
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#fff',
-                    pointBorderWidth: 2,
-                    fill: false
-                };
-            });
-            
-            const canvas = document.getElementById('chartReactiviteUAP_{{ annee }}');
-            if (canvas) {
-                new Chart(canvas, {
-                    type: 'line',                    
-                    data: {
-                        labels: moisLabels,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
-                        },
-                        plugins: {
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return `${context.dataset.label}: ${context.raw.toFixed(1)}%`;
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const value = context.raw;
+                                            let status = '';
+                                            if (value < 5) status = '✓ Bon';
+                                            else if (value < 15) status = '⚠️ Moyen';
+                                            else status = '✗ Critique';
+                                            return `${context.raw} réclamation(s) - ${status}`;
+                                        }
                                     }
                                 }
                             },
-                            legend: {
-                                position: 'top',
-                                labels: { 
-                                    boxWidth: 12, 
-                                    font: { size: 12 },
-                                    padding: 15
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 100,
-                                title: { 
-                                    display: true, 
-                                    text: 'Taux de réactivité (%)' 
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'Nombre de réclamations' },
+                                    ticks: { stepSize: 1, precision: 0 }
                                 },
-                                ticks: { 
-                                    callback: v => v + '%' 
-                                }
-                            },
-                            x: {
-                                title: { display: true, text: 'Mois' },
-                                ticks: { 
-                                    maxRotation: 45, 
-                                    minRotation: 45 
+                                x: {
+                                    title: { display: true, text: 'Site client' },
+                                    ticks: { maxRotation: 45, minRotation: 45 }
                                 }
                             }
                         }
-                    }
-                });
-            }
-        }
-    })();
-    {% endfor %}
+                    });
+                } catch(e) {
+                    console.error('Erreur création graphique site client:', e);
+                }
+            })();
     {% endif %}
+
+//reactivité UAP   
+{% if reactivite_uap_par_annee %}
+(function() {
+    const dataByYear = {{ reactivite_uap_par_annee|safe }};
+
+    let allMonths = [];
+    const uapSet = new Set();
+
+    // Mapping pour parser "July 2025" de façon fiable (indépendant du navigateur/locale)
+    const moisIndex = {
+        'January': 0, 'February': 1, 'March': 2, 'April': 3,
+        'May': 4, 'June': 5, 'July': 6, 'August': 7,
+        'September': 8, 'October': 9, 'November': 10, 'December': 11
+    };
+
+    function parseMoisLabel(label) {
+        // label du type "July 2025"
+        const [nomMois, anneeStr] = label.split(' ');
+        const m = moisIndex[nomMois];
+        const y = parseInt(anneeStr, 10);
+        return new Date(y, m ?? 0, 1);
+    }
+
+    const years = Object.keys(dataByYear).map(Number).sort((a, b) => a - b);
+
+    years.forEach(year => {
+        const yearData = dataByYear[year];
+        const moisLabels = yearData.mois_labels; // déjà au format "Mois Année"
+        const uapNoms = yearData.uap_noms;
+        const dataValues = yearData.data;
+
+        uapNoms.forEach(u => uapSet.add(u));
+
+        moisLabels.forEach(mois => {
+            const dateObj = parseMoisLabel(mois);
+
+            const uapValues = {};
+            uapNoms.forEach(uap => {
+                const val = dataValues[mois]?.[uap];
+                // ⚠️ utiliser ?? et non || pour ne pas écraser les vrais 0%
+                uapValues[uap] = (val !== undefined && val !== null) ? val : 100;
+            });
+
+            allMonths.push({
+                label: mois,   // déjà "Mois Année", pas besoin de re-concaténer l'année
+                date: dateObj,
+                values: uapValues
+            });
+        });
+    });
+
+    // Trier les mois par date
+    allMonths.sort((a, b) => a.date - b.date);
+
+    const monthLabels = allMonths.map(m => m.label);
+    const uapNoms = Array.from(uapSet).sort();
+
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FF5733', '#C70039'];
+
+    const datasets = uapNoms.map((uap, idx) => {
+        const dataUAP = allMonths.map(month => {
+            const v = month.values[uap];
+            return (v !== undefined && v !== null) ? v : null; // null = pas de donnée -> "trou" dans la courbe
+        });
+        return {
+            label: uap,
+            data: dataUAP,
+            borderColor: colors[idx % colors.length],
+            backgroundColor: colors[idx % colors.length] + '33',
+            borderWidth: 3,
+            tension: 0.2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#fff',
+            pointBorderWidth: 2,
+            fill: false,
+            spanGaps: true // relie les points malgré les null
+        };
+    });
+
+    const canvas = document.getElementById('chartReactiviteUAP_global');
+    if (canvas) {
+        new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: monthLabels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (context.raw === null) return `${context.dataset.label}: N/A`;
+                                return `${context.dataset.label}: ${context.raw.toFixed(1)}%`;
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            boxWidth: 12,
+                            font: { size: 12 },
+                            padding: 15
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: { display: true, text: 'Taux de réactivité (%)' },
+                        ticks: { callback: v => v + '%' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Mois' },
+                        ticks: { maxRotation: 45, minRotation: 45 }
+                    }
+                }
+            }
+        });
+    }
+})();
+{% endif %}
 
 });
 </script>
@@ -1344,6 +1656,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 </script>
+<!-- AI -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const btnAnalysis = document.getElementById('btnAIAnalysis');

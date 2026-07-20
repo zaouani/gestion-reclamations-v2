@@ -1,10 +1,10 @@
+'''
 import os
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 import logging
-from django.conf import settings 
 from django.utils import timezone
 from .models import (Reclamation, Client, Produit, LigneReclamation, NonConformite, UAP, Site, ObjectifsAnnuel, 
     Programme, SiteClient, Livraison, HuitD, Participant8D, ArticleFAI, HistoriqueImportFAI, CauseIshikawa, 
@@ -53,1605 +53,8 @@ ollama_service = OllamaService(model="phi3:mini")
 moyenne_reactivite=100 
 ollama_service = OllamaService(model="llama3.2:3b")
 
-# ================ EXPORT PDF  ================
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def export_dashboard_pdf(request):
-    """Exporte le tableau de bord en PDF avec ReportLab"""
-    
-    stats = DashboardStats()
-    data = stats.get_all_stats()
-    
-    # Créer la réponse HTTP
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="dashboard_{timezone.now().date()}.pdf"'
-    
-    # Créer le document PDF
-    doc = SimpleDocTemplate(response, pagesize=A4, 
-                           topMargin=1*cm, bottomMargin=1*cm,
-                           leftMargin=1.5*cm, rightMargin=1.5*cm)
-    
-    # Styles
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        alignment=1,  # Centré
-        spaceAfter=20,
-        textColor=colors.HexColor('#4CAF50')
-    )
-    
-    heading_style = ParagraphStyle(
-        'HeadingStyle',
-        parent=styles['Heading2'],
-        fontSize=12,
-        spaceAfter=10,
-        spaceBefore=15,
-        textColor=colors.HexColor('#333333')
-    )
-    
-    normal_style = styles['Normal']
-    
-    # Liste des éléments à ajouter
-    elements = []
-    
-    # Titre
-    elements.append(Paragraph("Tableau de bord - Gestion des Réclamations", title_style))
-    elements.append(Paragraph(f"Exporté le : {timezone.now().strftime('%d/%m/%Y %H:%M')}", normal_style))
-    elements.append(Spacer(1, 0.5*cm))
-    
-    # KPIs
-    elements.append(Paragraph("Indicateurs clés", heading_style))
-    
-    kpis_data = [
-        ['Indicateur', 'Valeur'],
-        ['Total réclamations', str(data['global']['total'])],
-        ['Réclamations ouvertes', str(data['global']['ouvertes'])],
-        ['Réclamations clôturées', str(data['global']['cloturees'])],
-        ['Taux de clôture', f"{data['global']['taux_cloture']}%"],
-        ['Délai moyen de clôture', f"{data['delai_moyen']} jours"],
-        ['Taux de réactivité', f"{data['global']['taux_reactivite']}%"],
-        ['PPM Global', f"{data['ppm']['global']:.0f}"],
-    ]
-    
-    kpis_table = Table(kpis_data, colWidths=[6*cm, 4*cm])
-    kpis_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-    ]))
-    elements.append(kpis_table)
-    elements.append(Spacer(1, 0.5*cm))
-    
-    # Top clients
-    elements.append(Paragraph("Top 10 clients", heading_style))
-    
-    clients_data = [['Client', 'Nombre de réclamations']]
-    for label, value in zip(data['clients']['labels'], data['clients']['data']):
-        clients_data.append([label, str(value)])
-    
-    clients_table = Table(clients_data, colWidths=[9*cm, 3*cm])
-    clients_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-    ]))
-    elements.append(clients_table)
-    elements.append(Spacer(1, 0.5*cm))
-    
-    # Évolution mensuelle
-    elements.append(Paragraph("Évolution mensuelle", heading_style))
-    
-    mois_data = [['Mois', 'Nombre de réclamations']]
-    for label, value in zip(data['mois']['labels'], data['mois']['data']):
-        mois_data.append([label, str(value)])
-    
-    mois_table = Table(mois_data, colWidths=[7*cm, 5*cm])
-    mois_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-    ]))
-    elements.append(mois_table)
-    elements.append(Spacer(1, 0.5*cm))
-    
-    # Types de NC
-    elements.append(Paragraph("Répartition par type de NC", heading_style))
-    
-    type_data = [['Type', 'Nombre']]
-    for type_item in data['type_nc']:
-        type_data.append([type_item['label'], str(type_item['total'])])
-    
-    type_table = Table(type_data, colWidths=[9*cm, 3*cm])
-    type_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-    ]))
-    elements.append(type_table)
-    
-    # Construire le PDF
-    doc.build(elements)
-    
-    return response
-
-# ================ EXPORT EXCEL ================
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def export_reclamations_excel(request):
-    """Exporte toutes les réclamations en Excel avec les non-conformités"""
-    
-    output = io.BytesIO()
-    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-    
-    # Formats
-    header_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#4CAF50',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    header_blue_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#2196F3',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    header_orange_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#FF9800',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    cell_format = workbook.add_format({
-        'border': 1,
-        'align': 'left',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    cell_center_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    number_format = workbook.add_format({
-        'border': 1,
-        'align': 'right',
-        'valign': 'vcenter'
-    })
-    
-    date_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'num_format': 'dd/mm/yyyy'
-    })
-    
-    datetime_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'num_format': 'dd/mm/yyyy hh:mm'
-    })
-    
-    # Récupérer toutes les réclamations avec les relations nécessaires
-    reclamations = Reclamation.objects.select_related(
-        'client', 
-        'site_client', 
-        'programme', 
-        'createur'
-    ).prefetch_related(
-        Prefetch('lignes', queryset=LigneReclamation.objects.select_related(
-            'produit', 'site', 'site__uap', 'uap_concernee'
-        ).prefetch_related('non_conformites'))
-    ).order_by('-date_reclamation')
-    
-    # ==================== FEUILLE 1: RÉCLAMATIONS ====================
-    worksheet_reclamations = workbook.add_worksheet('Réclamations')
-    
-    headers = [
-        'N° Réclamation', 'Date réclamation', 'Client', 'Site client', 'Programme',
-        'Type NC', 'Imputation', 'N° 4D', 'N° 8D', 'État 4D', 'État 8D', 
-        'Clôturé', 'Date clôture', 'Date clôture 4D', 'Date clôture 8D',
-        'Evidence', 'ME', 'Décision', 'NQC (MAD)', 'Créateur', 'Date création'
-    ]
-    
-    for col, header in enumerate(headers):
-        worksheet_reclamations.write(0, col, header, header_format)
-    
-    row = 1
-    for rec in reclamations:
-        col = 0
-        worksheet_reclamations.write(row, col, rec.numero_reclamation, cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.date_reclamation.strftime('%d/%m/%Y') if rec.date_reclamation else '-', date_format); col += 1
-        worksheet_reclamations.write(row, col, rec.client.nom, cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.site_client.nom if rec.site_client else '-', cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.programme.nom if rec.programme else '-', cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.get_type_nc_display(), cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.get_imputation_display(), cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.numero_4d or '-', cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.numero_8d or '-', cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.get_etat_4d_display(), cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.get_etat_8d_display(), cell_format); col += 1
-        worksheet_reclamations.write(row, col, 'Oui' if rec.cloture else 'Non', cell_center_format); col += 1
-        worksheet_reclamations.write(row, col, rec.date_cloture.strftime('%d/%m/%Y') if rec.date_cloture else '-', date_format); col += 1
-        worksheet_reclamations.write(row, col, rec.date_cloture_4d.strftime('%d/%m/%Y') if rec.date_cloture_4d else '-', date_format); col += 1
-        worksheet_reclamations.write(row, col, rec.date_cloture_8d.strftime('%d/%m/%Y') if rec.date_cloture_8d else '-', date_format); col += 1
-        worksheet_reclamations.write(row, col, rec.evidence or '-', cell_format); col += 1
-        worksheet_reclamations.write(row, col, 'Oui' if rec.me else 'Non', cell_center_format); col += 1
-        worksheet_reclamations.write(row, col, rec.decision or '-', cell_format); col += 1
-        worksheet_reclamations.write(row, col, float(rec.nqc) if rec.nqc else 0, number_format); col += 1
-        worksheet_reclamations.write(row, col, rec.createur.get_full_name() or rec.createur.username if rec.createur else '-', cell_format); col += 1
-        worksheet_reclamations.write(row, col, rec.date_creation.strftime('%d/%m/%Y %H:%M'), datetime_format); col += 1
-        row += 1
-    
-    # Ajuster les colonnes
-    column_widths = [18, 14, 22, 18, 18, 14, 12, 15, 15, 12, 12, 10, 14, 14, 14, 30, 8, 30, 12, 20, 18]
-    for col, width in enumerate(column_widths):
-        worksheet_reclamations.set_column(col, col, width)
-    
-    # Ajouter un filtre
-    worksheet_reclamations.autofilter(0, 0, row - 1, len(headers) - 1)
-    
-    # ==================== FEUILLE 2: LIGNES DE RÉCLAMATION ====================
-    worksheet_lignes = workbook.add_worksheet('Lignes de réclamation')
-    
-    headers_lignes = [
-        'N° Réclamation', 'Date', 'Client', 'Site production', 'UAP', 
-        'Produit', 'Désignation', 'Quantité', 'Description NC', 'Commentaire'
-    ]
-    
-    for col, header in enumerate(headers_lignes):
-        worksheet_lignes.write(0, col, header, header_blue_format)
-    
-    row = 1
-    for rec in reclamations:
-        for ligne in rec.lignes.all():
-            col = 0
-            worksheet_lignes.write(row, col, rec.numero_reclamation, cell_format); col += 1
-            worksheet_lignes.write(row, col, rec.date_reclamation.strftime('%d/%m/%Y') if rec.date_reclamation else '-', date_format); col += 1
-            worksheet_lignes.write(row, col, rec.client.nom, cell_format); col += 1
-            worksheet_lignes.write(row, col, ligne.site.nom if ligne.site else '-', cell_format); col += 1
-            worksheet_lignes.write(row, col, ligne.uap_concernee.nom if ligne.uap_concernee else (ligne.site.uap.nom if ligne.site and ligne.site.uap else '-'), cell_format); col += 1
-            worksheet_lignes.write(row, col, ligne.produit.product_number, cell_format); col += 1
-            worksheet_lignes.write(row, col, ligne.produit.designation or '-', cell_format); col += 1
-            worksheet_lignes.write(row, col, ligne.quantite, number_format); col += 1
-            worksheet_lignes.write(row, col, ligne.description_non_conformite or '-', cell_format); col += 1
-            worksheet_lignes.write(row, col, ligne.commentaire or '-', cell_format); col += 1
-            row += 1
-    
-    column_widths_lignes = [18, 12, 22, 18, 15, 15, 30, 10, 40, 30]
-    for col, width in enumerate(column_widths_lignes):
-        worksheet_lignes.set_column(col, col, width)
-    
-    if row > 1:
-        worksheet_lignes.autofilter(0, 0, row - 1, len(headers_lignes) - 1)
-    
-    # ==================== FEUILLE 3: NON-CONFORMITÉS ====================
-    worksheet_nc = workbook.add_worksheet('Non-conformités')
-    
-    headers_nc = [
-        'N° Réclamation', 'Date', 'Client', 'Site', 'Produit', 
-        'Quantité ligne', 'Description NC', 'Quantité NC', 'Date création NC'
-    ]
-    
-    for col, header in enumerate(headers_nc):
-        worksheet_nc.write(0, col, header, header_orange_format)
-    
-    row = 1
-    for rec in reclamations:
-        for ligne in rec.lignes.all():
-            for nc in ligne.non_conformites.all():
-                col = 0
-                worksheet_nc.write(row, col, rec.numero_reclamation, cell_format); col += 1
-                worksheet_nc.write(row, col, rec.date_reclamation.strftime('%d/%m/%Y') if rec.date_reclamation else '-', date_format); col += 1
-                worksheet_nc.write(row, col, rec.client.nom, cell_format); col += 1
-                worksheet_nc.write(row, col, ligne.site.nom if ligne.site else '-', cell_format); col += 1
-                worksheet_nc.write(row, col, ligne.produit.product_number, cell_format); col += 1
-                worksheet_nc.write(row, col, ligne.quantite, number_format); col += 1
-                worksheet_nc.write(row, col, nc.description, cell_format); col += 1
-                worksheet_nc.write(row, col, nc.quantite, number_format); col += 1
-                worksheet_nc.write(row, col, nc.date_creation.strftime('%d/%m/%Y %H:%M'), datetime_format); col += 1
-                row += 1
-    
-    column_widths_nc = [18, 12, 22, 18, 15, 12, 45, 12, 18]
-    for col, width in enumerate(column_widths_nc):
-        worksheet_nc.set_column(col, col, width)
-    
-    if row > 1:
-        worksheet_nc.autofilter(0, 0, row - 1, len(headers_nc) - 1)
-    
-    # ==================== FEUILLE 4: RÉSUMÉ STATISTIQUE ====================
-    worksheet_stats = workbook.add_worksheet('Statistiques')
-    
-    # Titre
-    title_format = workbook.add_format({
-        'bold': True,
-        'font_size': 16,
-        'font_color': '#2196F3'
-    })
-    
-    stat_label_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#E3F2FD',
-        'border': 1,
-        'align': 'left',
-        'valign': 'vcenter'
-    })
-    
-    stat_value_format = workbook.add_format({
-        'border': 1,
-        'align': 'right',
-        'valign': 'vcenter'
-    })
-    
-    worksheet_stats.write(0, 0, 'RÉSUMÉ DES RÉCLAMATIONS', title_format)
-    worksheet_stats.write(1, 0, f'Export réalisé le {timezone.now().strftime("%d/%m/%Y à %H:%M")}', cell_format)
-    
-    # Statistiques générales
-    row = 3
-    stats = [
-        ('Total réclamations', reclamations.count()),
-        ('Réclamations ouvertes', reclamations.filter(cloture=False).count()),
-        ('Réclamations clôturées', reclamations.filter(cloture=True).count()),
-        ('', ''),
-        ('Par type de NC', ''),
-    ]
-    
-    for label, value in stats:
-        worksheet_stats.write(row, 0, label, stat_label_format)
-        worksheet_stats.write(row, 1, value, stat_value_format)
-        row += 1
-    
-    # Statistiques par type de NC
-    from django.db.models import Count
-    type_stats = reclamations.values('type_nc').annotate(count=Count('id'))
-    
-    for stat in type_stats:
-        type_display = dict(Reclamation.TYPE_NC_CHOICES).get(stat['type_nc'], stat['type_nc'])
-        worksheet_stats.write(row, 0, f"  - {type_display}", stat_label_format)
-        worksheet_stats.write(row, 1, stat['count'], stat_value_format)
-        row += 1
-    
-    row += 1
-    worksheet_stats.write(row, 0, 'Par imputation', stat_label_format)
-    row += 1
-    
-    # Statistiques par imputation
-    imp_stats = reclamations.values('imputation').annotate(count=Count('id'))
-    for stat in imp_stats:
-        imp_display = dict(Reclamation.IMPUTATION_CHOICES).get(stat['imputation'], stat['imputation'])
-        worksheet_stats.write(row, 0, f"  - {imp_display}", stat_label_format)
-        worksheet_stats.write(row, 1, stat['count'], stat_value_format)
-        row += 1
-    
-    worksheet_stats.set_column(0, 0, 30)
-    worksheet_stats.set_column(1, 1, 15)
-    
-    # ==================== FINALISATION ====================
-    workbook.close()
-    
-    output.seek(0)
-    response = HttpResponse(
-        output.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="reclamations_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
-    
-    return response
-
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def export_dashboard_excel(request):
-    """Exporte les données du dashboard en Excel"""
-    
-    stats = DashboardStats()
-    data = stats.get_all_stats()
-    
-    output = io.BytesIO()
-    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-    
-    header_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#4CAF50',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center'
-    })
-    
-    cell_format = workbook.add_format({'border': 1})
-    number_format = workbook.add_format({'border': 1, 'align': 'right'})
-    
-    # KPIs
-    worksheet_kpi = workbook.add_worksheet('KPIs')
-    kpis = [
-        ['Indicateur', 'Valeur'],
-        ['Total réclamations', data['global']['total']],
-        ['Réclamations ouvertes', data['global']['ouvertes']],
-        ['Réclamations clôturées', data['global']['cloturees']],
-        ['Taux de clôture', f"{data['global']['taux_cloture']}%"],
-        ['Délai moyen de clôture', f"{data['delai_moyen']} jours"],
-        ['Taux de réactivité', f"{data['global']['taux_reactivite']}%"],
-        ['PPM Global', f"{data['ppm']['global']:.0f}"],
-    ]
-    
-    for row, row_data in enumerate(kpis):
-        for col, value in enumerate(row_data):
-            if row == 0:
-                worksheet_kpi.write(row, col, value, header_format)
-            else:
-                worksheet_kpi.write(row, col, value, cell_format)
-    
-    worksheet_kpi.set_column(0, 0, 25)
-    worksheet_kpi.set_column(1, 1, 20)
-    
-    # Top clients
-    worksheet_clients = workbook.add_worksheet('Top clients')
-    worksheet_clients.write(0, 0, 'Client', header_format)
-    worksheet_clients.write(0, 1, 'Nombre', header_format)
-    
-    for row, (label, value) in enumerate(zip(data['clients']['labels'], data['clients']['data']), 1):
-        worksheet_clients.write(row, 0, label, cell_format)
-        worksheet_clients.write(row, 1, value, number_format)
-    
-    worksheet_clients.set_column(0, 0, 30)
-    worksheet_clients.set_column(1, 1, 15)
-    
-    # Évolution mensuelle
-    worksheet_mois = workbook.add_worksheet('Évolution mensuelle')
-    worksheet_mois.write(0, 0, 'Mois', header_format)
-    worksheet_mois.write(0, 1, 'Nombre', header_format)
-    
-    for row, (label, value) in enumerate(zip(data['mois']['labels'], data['mois']['data']), 1):
-        worksheet_mois.write(row, 0, label, cell_format)
-        worksheet_mois.write(row, 1, value, number_format)
-    
-    worksheet_mois.set_column(0, 0, 20)
-    worksheet_mois.set_column(1, 1, 15)
-    
-    workbook.close()
-    
-    output.seek(0)
-    response = HttpResponse(
-        output.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="dashboard_{timezone.now().date()}.xlsx"'
-    
-    return response
 
 # ================ GESTION DES KPIs ================
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer','viewer'])
-def dashboard(request):
-    """Tableau de bord avec toutes les statistiques"""
-    
-    # Initialiser le calculateur de statistiques
-    stats = DashboardStats()
-    
-    # Récupérer toutes les statistiques
-    data = stats.get_all_stats()
-
-    # Extraire les données NQC
-    nqc_data = data.get('nqc', {}).get('mois', {})
-
-    # Récupérer les données pour le graphique par site client
-    site_client_data = data.get('reclamations_par_site_client', {})
-
-    # Récupérer tous les clients pour le filtre
-    clients = Client.objects.filter(actif=True).order_by('nom')
-    
-    # Convertir les Decimal en float pour NQC par client
-    nqc_par_client_raw = data.get('nqc', {}).get('par_client', [])
-    nqc_par_client = []
-    for item in nqc_par_client_raw:
-        nqc_par_client.append({
-            'client__nom': item.get('client__nom', item.get('client_nom', 'Client inconnu')),
-            'client_nom': item.get('client__nom', item.get('client_nom', 'Client inconnu')),
-            'cout_total': float(item.get('cout_total', 0)) if item.get('cout_total') else 0,
-            'nombre': int(item.get('nombre', 0))
-        })
-    
-    # Convertir les Decimal en float pour NQC par type
-    nqc_par_type_raw = data.get('nqc', {}).get('par_type', [])
-    nqc_par_type = []
-    for item in nqc_par_type_raw:
-        nqc_par_type.append({
-            'label': item.get('label', ''),
-            'cout': float(item.get('cout', 0)) if item.get('cout') else 0,
-            'nombre': int(item.get('nombre', 0))
-        })
-    
-    # Récupérer les données de réactivité par UAP
-    reactivite_uap_data = data.get('taux_reactivite_par_uap', {})
-    # Récupérer les top défauts récurrents
-    top_defauts_recurrents = data.get('top_defauts_recurrents', [])
-    # Récupérer le taux de récurrence globale
-    taux_recurrence_globale = data.get('taux_recurrence_globale', {})
-    # Convertir les Decimal pour PPM evolution
-    ppm_evolution_raw = data.get('ppm', {}).get('evolution', [])
-    ppm_evolution = []
-    for item in ppm_evolution_raw:
-        ppm_evolution.append({
-            'mois_nom': item.get('mois_nom', ''),
-            'ppm': float(item.get('ppm', 0)) if item.get('ppm') else 0
-        })
-
-    # Calculer la moyenne des taux de réactivité par UAP pour l'année courante
-    moyenne_reactivite = 0
-    annee_courante = timezone.now().year
-    
-    if reactivite_uap_data and annee_courante in reactivite_uap_data:
-        annees_data = reactivite_uap_data.get(annee_courante, {})
-        data_mensuelle = annees_data.get('data', {})
-        
-        # Récupérer tous les taux
-        tous_les_taux = []
-        for mois, uap_data in data_mensuelle.items():
-            for uap, taux in uap_data.items():
-                if taux > 0:  # Ne compter que les UAP avec des données
-                    tous_les_taux.append(taux)
-        
-        # Calculer la moyenne
-        if tous_les_taux:
-            moyenne_reactivite = sum(tous_les_taux) / len(tous_les_taux)
-    
-    # Calculer aussi la moyenne pour 2025 (ou autre année)
-    moyenne_reactivite_2025 = 0
-    if reactivite_uap_data and 2025 in reactivite_uap_data:
-        annees_data = reactivite_uap_data.get(2025, {})
-        data_mensuelle = annees_data.get('data', {})
-        
-        tous_les_taux = []
-        for mois, uap_data in data_mensuelle.items():
-            for uap, taux in uap_data.items():
-                if taux > 0:
-                    tous_les_taux.append(taux)
-        
-        if tous_les_taux:
-            moyenne_reactivite_2025 = sum(tous_les_taux) / len(tous_les_taux)
-
-    
-    
-    # Préparer le contexte avec les données JSON
-    context = {
-        # Stats globales
-        'total_reclamations': data.get('global', {}).get('total', 0),
-        'reclamations_ouvertes': data.get('global', {}).get('ouvertes', 0),
-        'reclamations_cloturees': data.get('global', {}).get('cloturees', 0),
-        'taux_cloture': data.get('global', {}).get('taux_cloture', 0),
-        'taux_reactivite': data.get('global', {}).get('taux_reactivite', 0),
-        'duree_moyenne': data.get('delai_moyen', 0),
-        
-        # Données pour les graphiques
-        'clients_labels': json.dumps(data.get('clients', {}).get('labels', []), ensure_ascii=False),
-        'clients_data': json.dumps(data.get('clients', {}).get('data', [])),
-        
-        'uap_labels': json.dumps(data.get('uap', {}).get('labels', []), ensure_ascii=False),
-        'uap_data': json.dumps(data.get('uap', {}).get('data', [])),
-        
-        'mois_labels': json.dumps(data.get('mois', {}).get('labels', []), ensure_ascii=False),
-        'mois_data': json.dumps(data.get('mois', {}).get('data', [])),
-        
-        'typologie_par_mois': json.dumps(data.get('typologie', []), ensure_ascii=False),
-        'type_nc_labels': json.dumps([t.get('label', '') for t in data.get('typologie', [])], ensure_ascii=False),
-        
-        'imputation_labels': json.dumps(data.get('imputation', {}).get('labels', []), ensure_ascii=False),
-        'imputation_data': json.dumps(data.get('imputation', {}).get('data', [])),
-
-        # NQC (converti)
-        'nqc_mois_labels': json.dumps(nqc_data.get('labels', []), ensure_ascii=False),
-        'nqc_mois_nombre': json.dumps(nqc_data.get('data_nombre', [])),
-        'nqc_mois_cout': json.dumps(nqc_data.get('data_cout', [])),
-        'nqc_total': float(nqc_data.get('total_nqc', 0)),
-        'nqc_total_reclamations': nqc_data.get('total_reclamations', 0),
-        'nqc_cout_moyen': float(nqc_data.get('cout_moyen_global', 0)),
-        'nqc_par_client': nqc_par_client,
-        'nqc_par_type': nqc_par_type,
-        
-        # Stats supplémentaires
-        'type_nc_stats': data.get('type_nc', []),
-        
-        # Données PPM (converti)
-        'ppm_clients': data.get('ppm', {}).get('clients', []),
-        'ppm_labels': json.dumps(data.get('ppm', {}).get('labels', []), ensure_ascii=False),
-        'ppm_data': json.dumps(data.get('ppm', {}).get('data', [])),
-        'ppm_evolution': json.dumps(ppm_evolution, ensure_ascii=False),
-        'ppm_global': float(data.get('ppm', {}).get('global', 0)),
-        
-        # Objectifs
-        'objectifs_par_site': data.get('objectifs', {}).get('objectifs', []),
-        'objectifs_moyennes': data.get('objectifs', {}).get('moyennes', {}),
-        'annee_courante': stats.annee_courante,
-        
-        # Taux de récurrence (converti)
-        'top_produits_recurrents': data.get('top_produits_recurrents', []),
-        'top_defauts_recurrents': top_defauts_recurrents,
-        'taux_recurrence_globale': taux_recurrence_globale,
-
-        # Données pour le graphique par site client
-        'site_client_labels': json.dumps(site_client_data.get('labels', []), ensure_ascii=False),
-        'site_client_data': json.dumps(site_client_data.get('data', [])),
-
-        # Données pour le graphique de réactivité par UAP (toutes années)
-        'reactivite_uap_par_annee': reactivite_uap_data,
-        'reactivite_uap_annees': list(reactivite_uap_data.keys()),
-
-        # Taux de réactivité moyens
-        'moyenne_reactivite': round(moyenne_reactivite, 1),
-        'moyenne_reactivite_2025': round(moyenne_reactivite_2025, 1),
-        'clients': clients,
-
-    }
-    
-    return render(request, 'reclamations/dashboard.html', context)
-
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def taux_recurrence_produits(request):
-    """Calcule le taux de récurrence des défauts par produit"""
-    
-    # Récupérer tous les produits actifs
-    produits = Produit.objects.filter(actif=True).order_by('product_number')
-    
-    # Nombre total de réclamations
-    total_reclamations = Reclamation.objects.count()
-    
-    produits_data = []
-    
-    for produit in produits:
-        # Récupérer les lignes de réclamation pour ce produit
-        lignes = LigneReclamation.objects.filter(produit=produit, reclamation__imputation__in=['CIM', 'ALERTE'])
-        
-        if not lignes.exists():
-            continue
-        
-        # Compter le nombre de réclamations distinctes pour ce produit
-        nb_reclamations = lignes.values('reclamation').distinct().count()
-        
-        # Calculer le taux de récurrence
-        if total_reclamations > 0:
-            taux = (nb_reclamations / total_reclamations) * 100
-        else:
-            taux = 0
-        
-        # Ajouter à la liste des données
-        produits_data.append({
-            'produit': produit,  # ← L'objet produit complet avec son ID
-            'nb_reclamations': nb_reclamations,
-            'taux_recurrence': round(taux, 2)
-        })
-    
-    # Trier par taux de récurrence décroissant
-    produits_data.sort(key=lambda x: x['taux_recurrence'], reverse=True)
-    
-    context = {
-        'produits_data': produits_data,
-        'total_reclamations': total_reclamations,
-    }
-    
-    return render(request, 'reclamations/produit/recurrence.html', context)
-
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def detail_recurrence_produit(request, product_id):
-    """Détail de la récurrence pour un produit spécifique"""
-    
-    produit = get_object_or_404(Produit, pk=product_id)
-    
-    # Récupérer toutes les lignes de réclamation pour ce produit
-    lignes = LigneReclamation.objects.filter(
-        produit=produit
-    ).select_related(
-        'reclamation', 
-        'reclamation__client', 
-        'uap_concernee'
-    ).prefetch_related(
-        'non_conformites'  # ← Précharger les non-conformités
-    ).order_by('-reclamation__date_reclamation')
-    
-    # Nombre de réclamations distinctes
-    nb_reclamations = lignes.values('reclamation').distinct().count()
-    
-    # CORRECTION : Utiliser NonConformite pour les descriptions
-    non_conformites = NonConformite.objects.filter(
-        ligne_reclamation__produit=produit
-    )
-    
-    # Analyser les descriptions de non-conformité
-    descriptions = non_conformites.values('description').annotate(
-        nb_occurences=Count('id'),
-        quantite_totale=Sum('quantite'),
-        nb_reclamations=Count('ligne_reclamation__reclamation', distinct=True)
-    ).order_by('-nb_occurences')
-    
-    defauts_data = []
-    total_nc = non_conformites.count()
-    
-    for desc in descriptions:
-        # Calcul du taux basé sur le nombre total de NC
-        if total_nc > 0:
-            taux = (desc['nb_occurences'] / total_nc) * 100
-        else:
-            taux = 0
-        
-        defauts_data.append({
-            'description': desc['description'] or "Non spécifié",
-            'nb_occurences': desc['nb_occurences'],
-            'quantite_totale': desc['quantite_totale'] or 0,
-            'nb_reclamations': desc['nb_reclamations'],
-            'taux': round(taux, 2)
-        })
-    
-    # Statistiques supplémentaires
-    stats = {
-        'total_nc': total_nc,
-        'total_quantite': non_conformites.aggregate(total=Sum('quantite'))['total'] or 0,
-        'nb_reclamations': nb_reclamations,
-        'nb_lignes': lignes.count(),
-        'nb_defauts_distincts': descriptions.count(),
-    }
-    
-    context = {
-        'produit': produit,
-        'nb_reclamations': nb_reclamations,
-        'defauts': defauts_data,
-        'lignes': lignes[:20],  # Dernières 20 réclamations
-        'stats': stats,
-        'non_conformites': non_conformites[:50],  # Dernières 50 NC
-    }
-    
-    return render(request, 'reclamations/produit/recurrence_detail.html', context)
-
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def taux_recurrence_nc(request):
-    """
-    Calcule le taux de récurrence des descriptions de non-conformité (NC)
-    Taux de récurrence = Nombre de réclamations contenant au moins un produit avec le défaut / Nombre total de réclamations
-    """
-    
-    # Récupérer les filtres
-    search = request.GET.get('search', '')
-    imputation = request.GET.get('imputation', 'CIM')
-    
-    # Filtre de base des réclamations
-    reclamations_filter = Reclamation.objects.all()
-    if imputation:
-        reclamations_filter = reclamations_filter.filter(imputation=imputation)
-    
-    # Total des réclamations pour le filtre choisi (dénominateur)
-    total_reclamations = reclamations_filter.count()
-    
-    # Filtre des non-conformités
-    nc_filter = NonConformite.objects.filter(
-        ligne_reclamation__reclamation__imputation=imputation if imputation else None
-    )
-    
-    # Appliquer la recherche si présente
-    if search:
-        nc_filter = nc_filter.filter(description__icontains=search)
-    
-    # Récupérer toutes les descriptions de NC distinctes
-    descriptions = nc_filter.values('description').annotate(
-        nb_occurences=Count('id'),
-        quantite_totale=Sum('quantite'),
-        nb_produits=Count('ligne_reclamation__produit', distinct=True),
-        nb_reclamations_concernees=Count('ligne_reclamation__reclamation', distinct=True)
-    ).filter(
-        description__isnull=False
-    ).exclude(
-        description=''
-    ).order_by('-nb_reclamations_concernees')
-    
-    resultats = []
-    for desc in descriptions:
-        description = desc['description']
-        nb_reclamations_concernees = desc['nb_reclamations_concernees']
-        
-        # Calcul du taux de récurrence
-        taux = (nb_reclamations_concernees / total_reclamations * 100) if total_reclamations > 0 else 0
-        
-        # Produits concernés
-        produits_concernes = Produit.objects.filter(
-            lignes_reclamation__non_conformites__description=description,
-            lignes_reclamation__reclamation__imputation=imputation if imputation else None
-        ).distinct().values_list('product_number', flat=True)[:10]
-        
-        resultats.append({
-            'description': description,
-            'nb_occurences': nb_reclamations_concernees,
-            'quantite_totale': desc['quantite_totale'] or 0,
-            'nb_produits': desc['nb_produits'],
-            'nb_reclamations': nb_reclamations_concernees,
-            'taux_recurrence': round(taux, 2),
-            'produits_concernes': list(produits_concernes),
-        })
-    
-    # Statistiques globales
-    total_nc_distinctes = len(resultats)
-    total_occurences_nc = sum(r['nb_occurences'] for r in resultats)
-    
-    context = {
-        'descriptions': resultats,
-        'total_reclamations_cim': total_reclamations,
-        'total_nc_distinctes': total_nc_distinctes,
-        'total_occurences_nc': total_occurences_nc,
-        'date_analyse': timezone.now(),
-        'filtre_imputation': imputation,
-        'search': search,
-        'imputation_choices': Reclamation.IMPUTATION_CHOICES,
-        'imputation_label': dict(Reclamation.IMPUTATION_CHOICES).get(imputation, 'Toutes') if imputation else 'Toutes',
-    }
-    
-    return render(request, 'reclamations/produit/recurrence_nc.html', context)
-
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def detail_recurrence_nc(request, description):
-    """
-    Détail de la récurrence pour une description de non-conformité spécifique
-    UNIQUEMENT pour les réclamations avec imputation CIM
-    """
-    
-    description = unquote(description)
-    
-    # Récupérer tous les produits concernés (CIM uniquement)
-    produits = Produit.objects.filter(
-        lignes_reclamation__non_conformites__description=description,
-        lignes_reclamation__reclamation__imputation='CIM'
-    ).distinct().annotate(
-        nb_occurences=Count('lignes_reclamation__non_conformites'),
-        quantite_totale=Sum('lignes_reclamation__non_conformites__quantite')
-    ).order_by('-nb_occurences')
-    
-    # Récupérer toutes les non-conformités (CIM uniquement)
-    non_conformites = NonConformite.objects.filter(
-        description=description,
-        ligne_reclamation__reclamation__imputation='CIM'
-    ).select_related(
-        'ligne_reclamation__reclamation',
-        'ligne_reclamation__reclamation__client',
-        'ligne_reclamation__produit',
-        'ligne_reclamation__uap_concernee'
-    ).order_by('-ligne_reclamation__reclamation__date_reclamation')
-    
-    nb_reclamations = non_conformites.values('ligne_reclamation__reclamation').distinct().count()
-    
-    # Produits data
-    produits_data = []
-    for produit in produits:
-        produits_data.append({
-            'produit': produit,
-            'nb_occurences': produit.nb_occurences,
-            'quantite_totale': produit.quantite_totale or 0,
-            'taux': round(produit.nb_occurences / non_conformites.count() * 100, 1) if non_conformites.count() > 0 else 0
-        })
-    
-    # Clients data (CIM uniquement)
-    clients_data = non_conformites.values('ligne_reclamation__reclamation__client__nom').annotate(
-        nb_occurences=Count('id'),
-        quantite_totale=Sum('quantite')
-    ).order_by('-nb_occurences')[:10]
-    
-    # Évolution (CIM uniquement)
-    evolution = non_conformites.annotate(
-        mois=TruncMonth('ligne_reclamation__reclamation__date_reclamation')
-    ).values('mois').annotate(
-        nb_occurences=Count('id')
-    ).order_by('mois')
-    
-    evolution_data = []
-    for item in evolution:
-        if item['mois']:
-            evolution_data.append({
-                'mois': item['mois'].strftime('%B %Y').capitalize(),
-                'nb_occurences': item['nb_occurences']
-            })
-    
-    # ========== SECTION ANALYSE : Causes racines à partir d'Ishikawa ==========
-    # Récupérer les réclamations CIM concernées
-    reclamations_cim = Reclamation.objects.filter(
-        imputation='CIM',
-        lignes__non_conformites__description=description
-    ).distinct()
-    
-    # Récupérer les causes Ishikawa liées à ces réclamations
-    causes_ishikawa = CauseIshikawa.objects.filter(
-        huitd__reclamation__in=reclamations_cim
-    ).select_related(
-        'huitd__reclamation'
-    )
-    
-    # Causes racines distinctes (occurrence et non détection)
-    causes_racines = []
-    
-    # Ajouter les causes Ishikawa
-    for cause in causes_ishikawa:
-        causes_racines.append({
-            'cause': cause.cause,
-            'categorie': cause.get_categorie_display(),
-            'type': cause.get_type_cause_display(),
-            'methode': 'Ishikawa (6M)',
-            'reclamation': cause.huitd.reclamation,
-            'produit': None,
-            'statut': 'Analyse'
-        })
-    
-    # Ajouter également les causes 5P
-    causes_5p = CauseCinqP.objects.filter(
-        huitd__reclamation__in=reclamations_cim
-    ).select_related(
-        'huitd__reclamation'
-    )
-    
-    for cause in causes_5p:
-        causes_racines.append({
-            'cause': f"5P - Facteur: {cause.facteur_prouve}",
-            'categorie': cause.get_type_cause_display(),
-            'type': cause.get_type_cause_display(),
-            'methode': '5 Pourquoi',
-            'reclamation': cause.huitd.reclamation,
-            'produit': None,
-            'statut': 'Analyse'
-        })
-    
-    # Regrouper les causes par type
-    causes_par_type = {}
-    for cause in causes_racines:
-        type_cause = cause.get('type', 'Général')
-        if type_cause not in causes_par_type:
-            causes_par_type[type_cause] = []
-        causes_par_type[type_cause].append(cause)
-    
-    # ========== SECTION ACTIONS : Plan d'actions 8D ==========
-    # Récupérer les actions 8D liées aux réclamations CIM
-    actions_8d = Action8D.objects.filter(
-        huitd__reclamation__in=reclamations_cim
-    ).select_related(
-        'huitd__reclamation'
-    ).order_by('statut', '-date_prevue')
-    
-    actions_par_statut = {
-        'PLANIFIE': actions_8d.filter(statut='PLANIFIE'),
-        'EN_COURS': actions_8d.filter(statut='EN_COURS'),
-        'REALISE': actions_8d.filter(statut='REALISE'),
-        'ABANDONNE': actions_8d.filter(statut='ABANDONNE'),
-    }
-    
-    actions_stats = {
-        'total': actions_8d.count(),
-        'planifiees': actions_8d.filter(statut='PLANIFIE').count(),
-        'en_cours': actions_8d.filter(statut='EN_COURS').count(),
-        'realisees': actions_8d.filter(statut='REALISE').count(),
-        'abandonnees': actions_8d.filter(statut='ABANDONNE').count(),
-        'efficaces': actions_8d.filter(efficacite='100').count(),
-    }
-    
-    # Actions par type
-    actions_par_type = {
-        'CORRECTIVE': actions_8d.filter(type_action='CORRECTIVE'),
-        'PREVENTIVE': actions_8d.filter(type_action='PREVENTIVE'),
-    }
-    
-    # Calculer le taux de réalisation
-    taux_realisation = 0
-    if actions_stats['total'] > 0:
-        taux_realisation = round((actions_stats['realisees'] / actions_stats['total']) * 100, 1)
-    
-    # Formater les lignes pour l'affichage
-    lignes_data = []
-    
-    for nc in non_conformites[:50]:
-        reclamation = nc.ligne_reclamation.reclamation
-        
-        # Récupérer les actions 8D pour cette réclamation
-        actions_reclamation = actions_8d.filter(huitd__reclamation=reclamation)
-        
-        lignes_data.append({
-            'reclamation': reclamation,
-            'produit': nc.ligne_reclamation.produit,
-            'quantite': nc.quantite,
-            'description_nc': nc.description,
-            'uap_concernee': nc.ligne_reclamation.uap_concernee,
-            'commentaire': nc.ligne_reclamation.commentaire,
-            'actions': actions_reclamation,
-            'nb_actions': actions_reclamation.count(),
-        })
-    
-    context = {
-        'description': description,
-        'nb_reclamations': nb_reclamations,
-        'total_occurences': non_conformites.count(),
-        'quantite_totale': non_conformites.aggregate(Sum('quantite'))['quantite__sum'] or 0,
-        'produits': produits_data,
-        'clients': list(clients_data),
-        'evolution': evolution_data,
-        'lignes': lignes_data,
-        'filtre_imputation': 'CIM',
-        'causes_racines': causes_racines,
-        'causes_par_type': causes_par_type,
-        'actions_8d': actions_8d,
-        'actions_par_statut': actions_par_statut,
-        'actions_par_type': actions_par_type,
-        'actions_stats': actions_stats,
-        'taux_realisation': taux_realisation,
-    }
-    
-    return render(request, 'reclamations/produit/detail_recurrence_nc.html', context)
-
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def exporter_recurrence_nc_excel(request):
-    """
-    Exporte les données de taux de récurrence NC vers un fichier Excel
-    """
-    # Même logique que taux_recurrence_nc
-    total_reclamations_cim = Reclamation.objects.filter(
-        imputation='CIM'
-    ).count()
-    
-    descriptions = NonConformite.objects.filter(
-        ligne_reclamation__reclamation__imputation='CIM'
-    ).values('description').annotate(
-        nb_occurences=Count('id'),
-        quantite_totale=Sum('quantite'),
-        nb_produits=Count('ligne_reclamation__produit', distinct=True),
-        nb_reclamations_concernees=Count('ligne_reclamation__reclamation', distinct=True)
-    ).filter(
-        description__isnull=False
-    ).exclude(
-        description=''
-    ).order_by('-nb_reclamations_concernees')
-    
-    # Création du fichier Excel
-    output = BytesIO()
-    workbook = xlsxwriter.Workbook(output)
-    
-    # Formats
-    header_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#4472C4',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    title_format = workbook.add_format({
-        'bold': True,
-        'font_size': 14,
-        'bg_color': '#D9E1F2',
-        'border': 1
-    })
-    
-    cell_format = workbook.add_format({'border': 1, 'valign': 'vcenter'})
-    number_format = workbook.add_format({'border': 1, 'align': 'right', 'valign': 'vcenter'})
-    percent_format = workbook.add_format({'border': 1, 'align': 'right', 'num_format': '0.00%', 'valign': 'vcenter'})
-    
-    # ============ FEUILLE 1 : Récapitulatif ============
-    worksheet_summary = workbook.add_worksheet("Récapitulatif")
-    
-    # Titre
-    worksheet_summary.merge_range('A1:D1', "STATISTIQUES GLOBALES - RÉCURRENCE NC", title_format)
-    
-    # En-têtes
-    headers_summary = ['Indicateur', 'Valeur', '', '']
-    for col, header in enumerate(headers_summary[:2]):
-        worksheet_summary.write(1, col, header, header_format)
-    
-    # Données
-    summary_data = [
-        ['Total réclamations CIM', total_reclamations_cim],
-        ['Nombre de descriptions NC distinctes', descriptions.count()],
-        ['Total occurrences NC', sum(d['nb_occurences'] for d in descriptions)],
-        ['Taux moyen de récurrence', f"{sum(d['nb_reclamations_concernees'] for d in descriptions) / total_reclamations_cim * 100:.2f}%" if total_reclamations_cim > 0 else "0%"],
-    ]
-    
-    row = 2
-    for data in summary_data:
-        worksheet_summary.write(row, 0, data[0], cell_format)
-        worksheet_summary.write(row, 1, data[1], number_format if isinstance(data[1], int) else cell_format)
-        row += 1
-    
-    worksheet_summary.set_column('A:A', 30)
-    worksheet_summary.set_column('B:B', 20)
-    
-    # ============ FEUILLE 2 : Détail des NC ============
-    worksheet_details = workbook.add_worksheet("Détail des NC")
-    
-    # En-têtes
-    headers_details = [
-        'Description NC',
-        'Nb réclamations concernées',
-        'Taux de récurrence',
-        'Nb occurrences',
-        'Quantité totale',
-        'Nb produits distincts',
-        'Produits concernés (échantillon)'
-    ]
-    
-    for col, header in enumerate(headers_details):
-        worksheet_details.write(0, col, header, header_format)
-    
-    # Données
-    row = 1
-    for desc in descriptions:
-        nb_reclamations = desc['nb_reclamations_concernees']
-        taux = (nb_reclamations / total_reclamations_cim) if total_reclamations_cim > 0 else 0
-        
-        # Récupérer les produits concernés (max 5)
-        produits_concernes = Produit.objects.filter(
-            lignes_reclamation__non_conformites__description=desc['description'],
-            lignes_reclamation__reclamation__imputation='CIM'
-        ).distinct().values_list('product_number', flat=True)[:5]
-        
-        worksheet_details.write(row, 0, desc['description'], cell_format)
-        worksheet_details.write(row, 1, nb_reclamations, number_format)
-        worksheet_details.write(row, 2, taux, percent_format)
-        worksheet_details.write(row, 3, desc['nb_occurences'], number_format)
-        worksheet_details.write(row, 4, desc['quantite_totale'] or 0, number_format)
-        worksheet_details.write(row, 5, desc['nb_produits'], number_format)
-        worksheet_details.write(row, 6, ', '.join(produits_concernes), cell_format)
-        row += 1
-    
-    # Ajuster les colonnes
-    worksheet_details.set_column('A:A', 50)
-    worksheet_details.set_column('B:B', 22)
-    worksheet_details.set_column('C:C', 18)
-    worksheet_details.set_column('D:D', 18)
-    worksheet_details.set_column('E:E', 15)
-    worksheet_details.set_column('F:F', 18)
-    worksheet_details.set_column('G:G', 40)
-    
-    # ============ FEUILLE 3 : Top 20 des NC ============
-    worksheet_top = workbook.add_worksheet("Top 20 NC")
-    
-    headers_top = ['Rang', 'Description NC', 'Nb réclamations', 'Taux de récurrence']
-    for col, header in enumerate(headers_top):
-        worksheet_top.write(0, col, header, header_format)
-    
-    top_descriptions = descriptions.order_by('-nb_reclamations_concernees')[:20]
-    row = 1
-    for idx, desc in enumerate(top_descriptions, 1):
-        nb_reclamations = desc['nb_reclamations_concernees']
-        taux = (nb_reclamations / total_reclamations_cim) if total_reclamations_cim > 0 else 0
-        
-        worksheet_top.write(row, 0, idx, number_format)
-        worksheet_top.write(row, 1, desc['description'], cell_format)
-        worksheet_top.write(row, 2, nb_reclamations, number_format)
-        worksheet_top.write(row, 3, taux, percent_format)
-        row += 1
-    
-    worksheet_top.set_column('A:A', 8)
-    worksheet_top.set_column('B:B', 60)
-    worksheet_top.set_column('C:C', 18)
-    worksheet_top.set_column('D:D', 18)
-    
-    workbook.close()
-    output.seek(0)
-    
-    # Création de la réponse HTTP
-    response = HttpResponse(
-        output.getvalue(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="recurrence_nc_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
-    
-    return response
-
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def export_recurrence_produits_excel(request):
-    """Exporte les données de récurrence des produits en Excel"""
-    
-    import io
-    import xlsxwriter
-    from django.utils import timezone
-    
-    output = io.BytesIO()
-    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-    
-    # ==================== FORMATS ====================
-    
-    # Format titre principal
-    title_format = workbook.add_format({
-        'bold': True,
-        'font_size': 16,
-        'font_color': '#1a5276',
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    # Format sous-titre
-    subtitle_format = workbook.add_format({
-        'font_size': 11,
-        'font_color': '#666666',
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    # Format en-tête de tableau
-    header_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#2E86C1',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    # Format en-tête secondaire
-    header_secondary_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#5DADE2',
-        'font_color': 'white',
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'text_wrap': True
-    })
-    
-    # Format cellule standard
-    cell_format = workbook.add_format({
-        'border': 1,
-        'align': 'left',
-        'valign': 'vcenter'
-    })
-    
-    # Format cellule centrée
-    cell_center_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter'
-    })
-    
-    # Format nombre
-    number_format = workbook.add_format({
-        'border': 1,
-        'align': 'right',
-        'valign': 'vcenter'
-    })
-    
-    # Format pourcentage
-    percent_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'num_format': '0.00%'
-    })
-    
-    # Format pour les taux élevés (rouge)
-    high_rate_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'num_format': '0.00%',
-        'bg_color': '#FADBD8',
-        'font_color': '#922B21'
-    })
-    
-    # Format pour les taux moyens (orange)
-    medium_rate_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'num_format': '0.00%',
-        'bg_color': '#FDEBD0',
-        'font_color': '#D35400'
-    })
-    
-    # Format pour les taux faibles (vert)
-    low_rate_format = workbook.add_format({
-        'border': 1,
-        'align': 'center',
-        'valign': 'vcenter',
-        'num_format': '0.00%',
-        'bg_color': '#D5F5E3',
-        'font_color': '#1E8449'
-    })
-    
-    # Format date
-    date_format = workbook.add_format({
-        'border': 1,
-        'align': 'right',
-        'valign': 'vcenter',
-        'font_color': '#666666'
-    })
-    
-    # ==================== COLLECTE DES DONNÉES ====================
-    
-    produits = Produit.objects.filter(actif=True).order_by('product_number')
-    total_reclamations = Reclamation.objects.filter(imputation__in=['CIM', 'ALERTE']).count()
-    
-    produits_data = []
-    
-    for produit in produits:
-        lignes = LigneReclamation.objects.filter(
-            produit=produit, 
-            reclamation__imputation__in=['CIM', 'ALERTE']
-        ).select_related('reclamation', 'produit')
-        
-        if not lignes.exists():
-            continue
-        
-        nb_reclamations = lignes.values('reclamation').distinct().count()
-        nb_lignes = lignes.count()
-        quantite_totale = lignes.aggregate(Sum('quantite'))['quantite__sum'] or 0
-        
-        # Récupérer les non-conformités associées
-        nc_count = NonConformite.objects.filter(
-            ligne_reclamation__in=lignes
-        ).count()
-        
-        nc_distinctes = NonConformite.objects.filter(
-            ligne_reclamation__in=lignes
-        ).values('description').distinct().count()
-        
-        if total_reclamations > 0:
-            taux = (nb_reclamations / total_reclamations) * 100
-        else:
-            taux = 0
-        
-        # Déterminer le niveau de criticité
-        if taux >= 5:
-            criticite = 'CRITIQUE'
-        elif taux >= 2:
-            criticite = 'SURVEILLANCE'
-        else:
-            criticite = 'FAIBLE'
-        
-        produits_data.append({
-            'produit': produit,
-            'nb_reclamations': nb_reclamations,
-            'nb_lignes': nb_lignes,
-            'quantite_totale': quantite_totale,
-            'nc_count': nc_count,
-            'nc_distinctes': nc_distinctes,
-            'taux_recurrence': round(taux, 2),
-            'criticite': criticite
-        })
-    
-    produits_data.sort(key=lambda x: x['taux_recurrence'], reverse=True)
-    
-    # ==================== FEUILLE 1 : SYNTHÈSE PRODUITS ====================
-    
-    worksheet = workbook.add_worksheet('Récurrence Produits')
-    
-    # Titres
-    worksheet.merge_range('A1:K1', 'ANALYSE DE RÉCURRENCE DES DÉFAUTS PAR PRODUIT', title_format)
-    worksheet.merge_range('A2:K2', f'Export généré le {timezone.now().strftime("%d/%m/%Y à %H:%M")}', subtitle_format)
-    worksheet.merge_range('A3:K3', f'Périmètre : Imputations CIM et ALERTE | Total réclamations : {total_reclamations}', subtitle_format)
-    
-    # En-têtes du tableau
-    headers = [
-        'Rang', 'N° Produit', 'Désignation',
-        'Nb Réclamations', 'Nb Lignes', 'Quantité Totale',
-        'Nb NC', 'NC Distinctes', 'Taux Récurrence',
-        'Criticité', 'Actions Recommandées'
-    ]
-    
-    row = 4
-    for col, header in enumerate(headers):
-        worksheet.write(row, col, header, header_format)
-    
-    # Données
-    row = 5
-    for idx, data in enumerate(produits_data, 1):
-        taux = data['taux_recurrence']
-        
-        # Choisir le format selon le taux
-        if taux >= 5:
-            taux_format = high_rate_format
-        elif taux >= 2:
-            taux_format = medium_rate_format
-        else:
-            taux_format = low_rate_format
-        
-        # Actions recommandées selon criticité
-        if data['criticite'] == 'CRITIQUE':
-            actions = '⚠️ 8D Urgent - Analyse causes racines'
-        elif data['criticite'] == 'SURVEILLANCE':
-            actions = '📊 Suivi mensuel - Contrôle renforcé'
-        else:
-            actions = '✅ Surveillance normale'
-        
-        worksheet.write(row, 0, idx, cell_center_format)
-        worksheet.write(row, 1, data['produit'].product_number, cell_format)
-        worksheet.write(row, 2, data['produit'].designation or '-', cell_format)
-        worksheet.write(row, 3, data['nb_reclamations'], number_format)
-        worksheet.write(row, 4, data['nb_lignes'], number_format)
-        worksheet.write(row, 5, data['quantite_totale'], number_format)
-        worksheet.write(row, 6, data['nc_count'], number_format)
-        worksheet.write(row, 7, data['nc_distinctes'], number_format)
-        worksheet.write(row, 8, taux / 100, taux_format)
-        
-        # Criticité avec couleur
-        if data['criticite'] == 'CRITIQUE':
-            worksheet.write(row, 9, data['criticite'], high_rate_format)
-        elif data['criticite'] == 'SURVEILLANCE':
-            worksheet.write(row, 9, data['criticite'], medium_rate_format)
-        else:
-            worksheet.write(row, 9, data['criticite'], low_rate_format)
-        
-        worksheet.write(row, 10, actions, cell_format)
-        row += 1
-    
-    # Ajuster les colonnes
-    column_widths = [6, 15, 30, 14, 12, 14, 10, 12, 14, 14, 35]
-    for col, width in enumerate(column_widths):
-        worksheet.set_column(col, col, width)
-    
-    # Ajouter un filtre automatique
-    worksheet.autofilter(4, 0, row - 1, len(headers) - 1)
-    
-    # Figer les volets
-    worksheet.freeze_panes(5, 0)
-    
-    # ==================== FEUILLE 2 : TOP 10 PRODUITS ====================
-    
-    worksheet_top = workbook.add_worksheet('Top 10 Produits')
-    
-    worksheet_top.merge_range('A1:E1', 'TOP 10 PRODUITS - TAUX DE RÉCURRENCE', title_format)
-    worksheet_top.merge_range('A2:E2', f'Export généré le {timezone.now().strftime("%d/%m/%Y")}', subtitle_format)
-    
-    headers_top = ['Rang', 'Produit', 'Nb Réclamations', 'Taux Récurrence', 'Recommandation']
-    
-    row = 3
-    for col, header in enumerate(headers_top):
-        worksheet_top.write(row, col, header, header_secondary_format)
-    
-    row = 4
-    for idx, data in enumerate(produits_data[:10], 1):
-        worksheet_top.write(row, 0, idx, cell_center_format)
-        worksheet_top.write(row, 1, f"{data['produit'].product_number} - {data['produit'].designation[:30]}", cell_format)
-        worksheet_top.write(row, 2, data['nb_reclamations'], number_format)
-        worksheet_top.write(row, 3, data['taux_recurrence'] / 100, percent_format)
-        worksheet_top.write(row, 4, f"Plan d'action {data['criticite'].lower()}", cell_format)
-        row += 1
-    
-    worksheet_top.set_column(0, 0, 6)
-    worksheet_top.set_column(1, 1, 40)
-    worksheet_top.set_column(2, 2, 15)
-    worksheet_top.set_column(3, 3, 15)
-    worksheet_top.set_column(4, 4, 25)
-    
-    # ==================== FEUILLE 3 : DÉTAIL PAR PRODUIT ====================
-    
-    worksheet_detail = workbook.add_worksheet('Détail Non-Conformités')
-    
-    worksheet_detail.merge_range('A1:F1', 'DÉTAIL DES NON-CONFORMITÉS PAR PRODUIT', title_format)
-    
-    headers_detail = ['Produit', 'Description NC', 'Nb Occurrences', 'Quantité Totale', 'Dernière Occurrence', 'Statut']
-    
-    row = 2
-    for col, header in enumerate(headers_detail):
-        worksheet_detail.write(row, col, header, header_secondary_format)
-    
-    row = 3
-    for data in produits_data[:30]:  # Limiter aux 30 premiers pour la lisibilité
-        produit = data['produit']
-        
-        # Récupérer les NC pour ce produit
-        ncs = NonConformite.objects.filter(
-            ligne_reclamation__produit=produit,
-            ligne_reclamation__reclamation__imputation__in=['CIM', 'ALERTE']
-        ).values('description').annotate(
-            nb_occurences=Count('id'),
-            quantite_totale=Sum('quantite'),
-            derniere_date=Max('ligne_reclamation__reclamation__date_reclamation')
-        ).order_by('-nb_occurences')[:5]
-        
-        for nc in ncs:
-            worksheet_detail.write(row, 0, produit.product_number, cell_format)
-            worksheet_detail.write(row, 1, nc['description'][:50], cell_format)
-            worksheet_detail.write(row, 2, nc['nb_occurences'], number_format)
-            worksheet_detail.write(row, 3, nc['quantite_totale'] or 0, number_format)
-            
-            if nc['derniere_date']:
-                worksheet_detail.write(row, 4, nc['derniere_date'].strftime('%d/%m/%Y'), date_format)
-            else:
-                worksheet_detail.write(row, 4, '-', cell_center_format)
-            
-            if nc['nb_occurences'] >= 5:
-                worksheet_detail.write(row, 5, '⚠️ Critique', high_rate_format)
-            else:
-                worksheet_detail.write(row, 5, 'À surveiller', medium_rate_format)
-            
-            row += 1
-    
-    worksheet_detail.set_column(0, 0, 15)
-    worksheet_detail.set_column(1, 1, 45)
-    worksheet_detail.set_column(2, 2, 12)
-    worksheet_detail.set_column(3, 3, 14)
-    worksheet_detail.set_column(4, 4, 14)
-    worksheet_detail.set_column(5, 5, 12)
-    
-    # ==================== FEUILLE 4 : STATISTIQUES GLOBALES ====================
-    
-    worksheet_stats = workbook.add_worksheet('Statistiques')
-    
-    worksheet_stats.merge_range('A1:C1', 'STATISTIQUES GLOBALES', title_format)
-    
-    stats_label_format = workbook.add_format({
-        'bold': True,
-        'bg_color': '#EBF5FB',
-        'border': 1,
-        'align': 'left',
-        'valign': 'vcenter'
-    })
-    
-    stats_value_format = workbook.add_format({
-        'border': 1,
-        'align': 'right',
-        'valign': 'vcenter'
-    })
-    
-    row = 3
-    
-    # Calculer les statistiques
-    total_produits_impactes = len(produits_data)
-    total_produits = Produit.objects.filter(actif=True).count()
-    pourcentage_impactes = (total_produits_impactes / total_produits * 100) if total_produits > 0 else 0
-    
-    produits_critiques = sum(1 for d in produits_data if d['criticite'] == 'CRITIQUE')
-    produits_surveillance = sum(1 for d in produits_data if d['criticite'] == 'SURVEILLANCE')
-    
-    stats = [
-        ('Total réclamations (CIM + ALERTE)', total_reclamations),
-        ('Total produits actifs', total_produits),
-        ('Produits impactés', total_produits_impactes),
-        ('Pourcentage produits impactés', f"{round(pourcentage_impactes, 1)}%"),
-        ('', ''),
-        ('Produits CRITIQUES (taux ≥ 5%)', produits_critiques),
-        ('Produits en SURVEILLANCE (taux 2-5%)', produits_surveillance),
-        ('Produits FAIBLES (taux < 2%)', total_produits_impactes - produits_critiques - produits_surveillance),
-    ]
-    
-    for label, value in stats:
-        worksheet_stats.write(row, 0, label, stats_label_format)
-        worksheet_stats.write(row, 1, value, stats_value_format)
-        row += 1
-    
-    worksheet_stats.set_column(0, 0, 35)
-    worksheet_stats.set_column(1, 1, 15)
-    
-    # ==================== FINALISATION ====================
-    
-    workbook.close()
-    output.seek(0)
-    
-    response = HttpResponse(
-        output.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="recurrence_produits_{timezone.now().strftime("%Y%m%d_%H%M")}.xlsx"'
-    
-    return response
 
 def calculer_duree_moyenne_sql():
     with connection.cursor() as cursor:
@@ -1667,28 +70,9 @@ def calculer_duree_moyenne_sql():
         result = cursor.fetchone()
         return round(result[0], 1) if result and result[0] else 0
 
-@login_required
-@role_required(['admin', 'quality_manager', 'quality_engineer'])
-def ppm_detail_client(request, client_id):
-    """Détail PPM pour un client spécifique"""
-    annee = request.GET.get('annee', datetime.now().year)
-    ppm_calculator = PPMCalculator(annee=annee)
-    
-    client = get_object_or_404(Client, id=client_id)
-    ppm_data = ppm_calculator.get_ppm_client(client)
-    evolution = ppm_calculator.get_tendance_ppm(client_id)
-    
-    context = {
-        'client': client,
-        'ppm_data': ppm_data,
-        'evolution': evolution,
-        'statut': ppm_calculator.get_statut_ppm(ppm_data['ppm'])
-    }
-    
-    return render(request, 'reclamations/kpi/ppm_detail.html', context)
-
 def mini_kpi_stats(request):
     """Calcule les KPI avec variations pour le dashboard"""
+    from dateutil.relativedelta import relativedelta
     dashboard_stats = DashboardStats()
     today = timezone.now().date()
     yesterday = today - timedelta(days=1)
@@ -1696,100 +80,74 @@ def mini_kpi_stats(request):
     month_before = today - timedelta(days=60)
 
     # ========== STATISTIQUES GLOBALES ==========
-    total_reclamations = Reclamation.objects.count()
+    date_limite_12m = datetime.now().date() - timedelta(days=365)
+    
+    total_reclamations = Reclamation.objects.filter(date_reclamation__gte=date_limite_12m).count()
     ouvertes = Reclamation.objects.filter(cloture=False).count()
     cloturees = Reclamation.objects.filter(cloture=True).count()
     taux_cloture = (cloturees / total_reclamations * 100) if total_reclamations > 0 else 0
-    reclamations_sans_8d = Reclamation.objects.filter(cloture=False, huitd_non_applicable=False).exclude(huitd__isnull=False).count()
-    print(f"Reclamations sans 8D : {reclamations_sans_8d}")
+    reclamations_sans_8d = Reclamation.objects.filter(cloture=False, huitd_non_applicable=False, imputation='CIM').exclude(huitd__isnull=False).count()
+    
     # Réclamations ouvertes AVEC 8D en cours
     reclamations_avec_8d = Reclamation.objects.filter(cloture=False, huitd__isnull=False, huitd_non_applicable=False).exclude(huitd__etat='CLOTURE').count()
     SECURISATION_EN_COURS = Reclamation.objects.filter(cloture=False, etat_4d='EN_COURS').count()
+
     # Taux de réactivité (clôturées dans les 30 jours)
-    reactivite_uap_data = dashboard_stats.get_taux_reactivite_par_uap()
-    taux_reactivite = 0
-    annee_courante = timezone.now().year
+    reactivite_uap_data, taux_reactivite = dashboard_stats.get_taux_reactivite_par_uap()
     
-    if reactivite_uap_data and annee_courante in reactivite_uap_data:
-        annees_data = reactivite_uap_data.get(annee_courante, {})
-        data_mensuelle = annees_data.get('data', {})
-        
-        # Récupérer tous les taux
-        tous_les_taux = []
-        for mois, uap_data in data_mensuelle.items():
-            for uap, taux in uap_data.items():
-                if taux > 0:  # Ne compter que les UAP avec des données
-                    tous_les_taux.append(taux)
-        
-        # Calculer la moyenne
-        if tous_les_taux:
-            taux_reactivite = sum(tous_les_taux) / len(tous_les_taux)
+    mois_prec = today.replace(day=1) - relativedelta(months=1)
+
+    label_courant = dashboard_stats._get_mois_nom(today.month, today.year)
+    label_precedent = dashboard_stats._get_mois_nom(mois_prec.month, mois_prec.year)
+
+    data_courant = reactivite_uap_data.get(today.year, {}).get('data', {}).get(label_courant, {})
+    data_precedent = reactivite_uap_data.get(mois_prec.year, {}).get('data', {}).get(label_precedent, {})
+
+    taux_courant = round(sum(data_courant.values()) / len(data_courant), 1) if data_courant else 0
+    taux_precedent = round(sum(data_precedent.values()) / len(data_precedent), 1) if data_precedent else 0
+
 
     actions_encours = Action8D.objects.select_related(
             'huitd__reclamation__client',
         ).filter(
             statut__in=['PLANIFIE', 'EN_COURS']
         ).count()
-    # Délai moyen de clôture
-    reclamations_closes = Reclamation.objects.filter(
-        cloture=True,
-        date_cloture__isnull=False,
-        date_reclamation__isnull=False
-    )
-    total_jours = 0
-    count = 0
-    for rec in reclamations_closes:
-        delta = rec.date_cloture - rec.date_reclamation
-        total_jours += delta.days
-        count += 1
-    delai_moyen = round(total_jours / count, 1) if count > 0 else 0
+    # Délai moyen de clôtureS
+    delai_moyen = dashboard_stats.get_delai_moyen_cloture()
     
     
     # Taux de récurrence
-    dashboard_stats = DashboardStats()
     recurrence_data = dashboard_stats.get_taux_recurrence_globale()
     taux_recurrence = recurrence_data.get('taux', 0)
     
     # ========== VARIATIONS ==========
     
     # Variation Total Réclamations (vs hier)
-    total_today = Reclamation.objects.filter(date_creation__date=today).count()
-    total_yesterday = Reclamation.objects.filter(date_creation__date=yesterday).count()
-    variation_total = ((total_today - total_yesterday) / total_yesterday * 100) if total_yesterday > 0 else 0
+    variation_total = Reclamation.objects.filter(date_creation__date=today).count()
     
     # Variation Ouvertes (vs hier)
-    ouvertes_today = Reclamation.objects.filter(cloture=False, date_creation__date=today).count()
-    ouvertes_yesterday = Reclamation.objects.filter(cloture=False, date_creation__date=yesterday).count()
-    variation_ouvertes = ((ouvertes_today - ouvertes_yesterday) / ouvertes_yesterday * 100) if ouvertes_yesterday > 0 else 0
+    variation_ouvertes = Reclamation.objects.filter(cloture=False, date_creation__date=today).count()
     
     # Variation Taux Réactivité (vs mois dernier)
-    reactives_last_month = Reclamation.objects.filter(
-        cloture=True,
-        date_cloture__gte=month_before,
-        date_cloture__lt=last_month
-    ).count()
-    total_cloturees_last_month = Reclamation.objects.filter(
-        cloture=True,
-        date_cloture__gte=month_before,
-        date_cloture__lt=last_month
-    ).count()
-    taux_reactivite_last = (reactives_last_month / total_cloturees_last_month * 100) if total_cloturees_last_month > 0 else 0
-    variation_reactivite = taux_reactivite - taux_reactivite_last
+
+    variation_reactivite = taux_courant-taux_precedent 
     
     # Variation Délai Moyen (évolution en pourcentage)
-    delai_precedent = 15  # Valeur par défaut, à ajuster selon historique
+    delai_precedent = 10  # Valeur par défaut, à ajuster selon historique
+
     variation_delai = ((delai_moyen - delai_precedent) / delai_precedent * 100) if delai_precedent > 0 else 0
     
    
     # Variation Taux Récurrence (vs mois dernier)
-    taux_recurrence_precedent = 15  # Valeur par défaut, à ajuster
+    taux_recurrence_precedent = 0  # Valeur par défaut, à ajuster
+    
     variation_recurrence = taux_recurrence - taux_recurrence_precedent
     
     stats = {
         'total_reclamations': total_reclamations,
         'ouvertes': ouvertes,
         'taux_cloture': round(taux_cloture, 1),
-        'taux_reactivite': round(taux_reactivite, 1),
+        'taux_reactivite': taux_courant,
         'delai_moyen': delai_moyen,
         'taux_recurrence': round(taux_recurrence, 1),
         'actions_encours': actions_encours,
@@ -1839,38 +197,19 @@ def api_dashboard_data(request):
 def big_screen_dashboard(request):
     """Dashboard grand écran pour le responsable"""
     
-    from reclamations.models import Reclamation, HuitD
-    
     # Récupérer les KPI
     kpi_data = mini_kpi_stats(request)
-    
-    # Réclamations ouvertes SANS 8D
-    reclamations_sans_8d = Reclamation.objects.filter(
-        cloture=False,
-        huitd_non_applicable=False
-    ).exclude(
-        huitd__isnull=False
-    ).select_related('client').order_by('-date_reclamation')
-    
-    # Réclamations ouvertes AVEC 8D en cours
-    reclamations_avec_8d = Reclamation.objects.filter(
-        cloture=False,
-        huitd__isnull=False,
-        huitd_non_applicable=False
-    ).exclude(
-        huitd__etat='CLOTURE'
-    ).select_related('client', 'huitd').order_by('-date_reclamation')
     
     context = {
         'kpi_stats': kpi_data['stats'],
         'kpi_variation': kpi_data['variation'],
         'current_year': kpi_data['current_year'],
-        'reclamations_sans_8d': reclamations_sans_8d.count(),
-        'reclamations_avec_8d': reclamations_avec_8d.count(),
         'now': timezone.now()
     }
     return render(request, 'reclamations/dashboard/big_screen_dashboard.html', context)
+
 # ================ GESTION DES RECLAMATIONS ================
+
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_reclamations(request):
@@ -2526,6 +865,7 @@ def reclamations_en_retard(request):
     }
     return render(request, 'reclamations/notifications/liste.html', context)
 
+
 # ================ GESTION DES UAP ================
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
@@ -2629,6 +969,8 @@ def supprimer_uap(request, pk):
     
     return render(request, 'reclamations/uap/supprimer.html', {'uap': uap})
 
+
+
 # ================ GESTION DES SITES ================
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
@@ -2714,6 +1056,9 @@ def supprimer_site(request, pk):
     
     # GET: afficher la page de confirmation
     return render(request, 'reclamations/site/supprimer.html', {'site': site})
+
+
+
 
 # ================ GESTION DES CLIENTS ================
 @login_required
@@ -2968,6 +1313,8 @@ def supprimer_client(request, pk):
     # GET: afficher la page de confirmation
     return render(request, 'reclamations/client/supprimer.html', {'client': client})
 
+
+
 # ================ GESTION DES PRODUITS ================
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
@@ -3084,6 +1431,8 @@ def supprimer_produit(request, pk):
     
     # GET: afficher la page de confirmation
     return render(request, 'reclamations/produit/supprimer.html', {'produit': produit})
+
+
 
 # ================ GESTION DES OBJECTIFS ================
 @login_required
@@ -3239,6 +1588,8 @@ def supprimer_objectifs_annee(request, annee):
         'objectifs': objectifs
     })
 
+
+
 # ================ GESTION DES PROGRAMMES ================
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
@@ -3338,9 +1689,9 @@ def supprimer_programme(request, pk):
     
     # GET: afficher la page de confirmation
     return render(request, 'reclamations/programme/supprimer.html', {'programme': programme})
-
+'''
 # API pour charger les programmes d'un client en AJAX
-@login_required
+'''@login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
 def get_programmes_by_client(request):
     """Endpoint AJAX pour récupérer les programmes d'un client"""
@@ -3350,6 +1701,7 @@ def get_programmes_by_client(request):
         return JsonResponse(list(programmes), safe=False)
     return JsonResponse([], safe=False)
 
+#livraisons
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
 def liste_livraisons(request):
@@ -4096,14 +2448,14 @@ def api_reclamations_client_mois(request):
     
     return JsonResponse(data)
 
-#=============8D=============================================
+#============================8D==============================
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer'])
 def dashboard_pdca(request):
     """Dashboard centralisé des actions PDCA (basé sur Action8D)
     Optimisé : n'affiche que les actions non réalisées par défaut
     """
-    
+
     # Filtres
     statut = request.GET.get('statut', '')
     type_action = request.GET.get('type_action', '')
@@ -4900,8 +3252,9 @@ def envoyer_alertes_fai_email(request):
         'nb_urgent': nb_urgent,
     }
     return render(request, 'reclamations/fai/envoyer_alertes.html', context)
-
+'''
 #Gestion des 8d
+'''
 @login_required
 @role_required(['admin', 'quality_manager', 'quality_engineer', 'product_quality_engineer'])
 def huitd_creer(request, reclamation_id):
@@ -5076,7 +3429,8 @@ def qualite_dashboard(request):
     # Réclamations ouvertes SANS 8D
     reclamations_sans_8d = Reclamation.objects.filter(
         cloture=False,
-        huitd_non_applicable=False
+        huitd_non_applicable=False,
+        imputation='CIM'
     ).exclude(
         huitd__isnull=False
     ).select_related(
@@ -5150,6 +3504,8 @@ def annuler_8d_non_applicable(request, pk):
     
     messages.success(request, f"✅ La mention 8D non applicable a été annulée pour {reclamation.numero_reclamation}. Un 8D est maintenant requis.")
     return redirect('reclamations:qualite_dashboard')
+
+
 
 def _save_general(request, huitd):
     huitd.numero_of = request.POST.get('numero_of', '')
@@ -5597,3 +3953,4 @@ def _save_evidences(request, huitd):
             huitd.save()
         messages.success(request, "✅ Évidences enregistrées avec succès!")
     return redirect('reclamations:huitd_modifier', pk=huitd.id)
+'''

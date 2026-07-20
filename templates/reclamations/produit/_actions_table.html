@@ -1,0 +1,48 @@
+{% load static %}
+
+<table class="table table-sm table-striped">
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Causes</th>
+            <th>Action</th>
+            <th>Pilote</th>
+            <th>Délai</th>
+            <th>Statut</th>
+            <th>Avancement</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for action in actions %}
+        <tr>
+            <td>{{ action.get_type_action_display }}</td>
+            <td>{{ action.numero_cause }}</td>
+            <td>{{ action.action|truncatechars:50 }}</td>
+            <td>{{ action.pilote }}</td>
+            <td>{{ action.delai_semaines }}</td>
+            <td>
+                <span class="badge 
+                    {% if action.statut == 'PLANIFIE' %}bg-secondary
+                    {% elif action.statut == 'EN_COURS' %}bg-primary
+                    {% elif action.statut == 'REALISE' %}bg-success
+                    {% elif action.statut == 'ABANDONNE' %}bg-danger
+                    {% else %}bg-warning{% endif %}">
+                    {{ action.get_statut_display }}
+                </span>
+            </td>
+            <td>
+                <div class="progress" style="height:20px;">
+                    <div class="progress-bar" role="progressbar" 
+                         style="width:{{ action.avancement }}%;" 
+                         aria-valuenow="{{ action.avancement }}" 
+                         aria-valuemin="0" aria-valuemax="100">
+                        {{ action.avancement }}%
+                    </div>
+                </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center">Aucune action enregistrée.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>

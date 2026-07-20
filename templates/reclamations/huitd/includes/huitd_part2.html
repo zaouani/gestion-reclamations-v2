@@ -133,7 +133,7 @@
                             <option value="PLANIFIE" {% if action.statut == 'PLANIFIE' %}selected{% endif %}>Planifié</option>
                             <option value="EN_COURS" {% if action.statut == 'EN_COURS' %}selected{% endif %}>En cours</option>
                             <option value="REALISE" {% if action.statut == 'REALISE' %}selected{% endif %}>Réalisé</option>
-                            <option value="EFFICACE" {% if action.statut == 'EFFICACE' %}selected{% endif %}>Efficace</option>
+                            <!-- Ajoutez EFFICACE si besoin -->
                         </select>
                     </td>
                     <td style="text-align:center;"><button type="button" class="btn-remove-row" onclick="supprimerLigne(this)">×</button></td>
@@ -145,7 +145,13 @@
                     <td><textarea name="action_desc[]" rows="2" placeholder="Décrire l'action..."></textarea></td>
                     <td><input type="text" name="action_pilote[]" placeholder="Nom du pilote"></td>
                     <td><input type="text" name="action_delai[]" placeholder="Ex: Week 22"></td>
-                    <td><select name="action_statut[]"><option>Planifié</option><option>En cours</option><option>Réalisé</option><option>Efficace</option></select></td>
+                    <td>
+                        <select name="action_statut[]">
+                            <option value="PLANIFIE" selected>Planifié</option>
+                            <option value="EN_COURS">En cours</option>
+                            <option value="REALISE">Réalisé</option>
+                        </select>
+                    </td>
                     <td style="text-align:center;"><button type="button" class="btn-remove-row" onclick="supprimerLigne(this)">×</button></td>
                 </tr>
                 {% endfor %}
@@ -166,7 +172,7 @@
         function ajouterAction(){
             var t=document.getElementById('actions-body'),r=document.createElement('tr');
             r.className='action-row';
-            r.innerHTML='<td><select name="action_type[]"><option value="CORRECTIVE">AC</option><option value="PREVENTIVE">AP</option></select></td><td><input type="text" name="action_cause[]" placeholder="Ex: B"></td><td><textarea name="action_desc[]" rows="2" placeholder="Action..."></textarea></td><td><input type="text" name="action_pilote[]" placeholder="Pilote"></td><td><input type="text" name="action_delai[]" placeholder="Ex: week 22"></td><td><select name="action_statut[]"><option>Planifié</option><option>En cours</option><option>Réalisé</option><option>Efficace</option></select></td><td><button type="button" onclick="supprimerLigne(this)" style="color:red;border:none;background:none;font-size:1.2rem;">×</button></td>';
+            r.innerHTML='<td><select name="action_type[]"><option value="CORRECTIVE">AC</option><option value="PREVENTIVE">AP</option></select></td><td><input type="text" name="action_cause[]" placeholder="Ex: B"></td><td><textarea name="action_desc[]" rows="2" placeholder="Action..."></textarea></td><td><input type="text" name="action_pilote[]" placeholder="Pilote"></td><td><input type="text" name="action_delai[]" placeholder="Ex: week 22"></td><td><select name="action_statut[]"><option value="PLANIFIE" selected>Planifié</option><option value="EN_COURS">En cours</option><option value="REALISE">Réalisé</option></select></td><td><button type="button" onclick="supprimerLigne(this)" style="color:red;border:none;background:none;font-size:1.2rem;">×</button></td>';
             t.appendChild(r);
         }
         function supprimerLigne(b){var r=document.querySelectorAll('#actions-body .action-row');if(r.length>1)b.closest('tr').remove();}

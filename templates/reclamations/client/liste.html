@@ -46,34 +46,6 @@
         </div>
     </div>
 
-    <!-- Statistiques rapides -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card text-white bg-primary">
-                <div class="card-body">
-                    <h5 class="card-title">Total clients</h5>
-                    <p class="display-6">{{ clients|length }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-white bg-success">
-                <div class="card-body">
-                    <h5 class="card-title">Clients actifs</h5>
-                    <p class="display-6">{{ clients_actifs|default:clients|length }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-white bg-info">
-                <div class="card-body">
-                    <h5 class="card-title">Total sites client</h5>
-                    <p class="display-6">{{ total_sites_client|default:0 }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Filtres -->
     <div class="card mb-4">
         <div class="card-header bg-light">

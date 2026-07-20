@@ -23,7 +23,7 @@
         <div class="container-fluid">
             <a class="navbar-brand">
                 <img src="{% static 'img/logo.png' %}" alt="Logo" onerror="this.src='https://placehold.co/35x35/03316e/white?text=Q'">
-                <span>Gestion des Réclamations</span>
+                <span>Quality Management System</span>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -57,10 +57,10 @@
                             {% endif %}
                         </a>
                     </li>
-                    <!-- Dropdown Administration -->
+                    <!-- Dropdown Analyses -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-cog me-1"></i> Administration
+                            <i class="fas fa-chart-bar me-1"></i> Analyses
                         </a>
                         <ul class="dropdown-menu">
                             
@@ -76,17 +76,26 @@
                                     <i class="fas fa-clipboard-check"></i> Suivi des 8D
                                 </a>
                             </li>
-                            
+                            <li><a class="dropdown-item" href="{% url 'reclamations:liste_livraisons' %}">
+                                <i class="fas fa-truck"></i> Suivi des PPM
+                            </a></li>
                             <li><a href="{% url 'reclamations:dashboard_pdca' %}" class="dropdown-item">
                                 <i class="fas fa-tasks"></i> Dashboard PDCA
                             </a></li>
                             <li><a href="{% url 'reclamations:big_screen_dashboard' %}" class="dropdown-item" target="_blank">
                                 <i class="fas fa-tv"></i> Dashboard Grand Écran
                             </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'reclamations:liste_livraisons' %}">
-                                <i class="fas fa-truck"></i> Suivi des PPM
+                                <li><a class="dropdown-item" href="{% url 'reclamations:liste_fai' %}">
+                                <i class="fas fa-microscope"></i> FAI - First Article Inspection
                             </a></li>
+                        </ul>
+                    </li>
+                    <!-- Dropdown Administration -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog me-1"></i> Administration
+                        </a>
+                        <ul class="dropdown-menu">
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'reclamations:liste_objectifs' %}">
                                 <i class="fas fa-bullseye"></i> Objectifs
@@ -108,10 +117,7 @@
                                 <i class="fas fa-boxes"></i> Produits
                             </a></li>
                             {% if user.role == 'admin' or user.role == 'quality_manager' %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'reclamations:liste_fai' %}">
-                                <i class="fas fa-microscope"></i> FAI - First Article Inspection
-                            </a></li>
+
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'reclamations:import_produits' %}">
                                 <i class="fas fa-file-import"></i> Importer produits
@@ -221,7 +227,7 @@
                 <div class="col-md-6">
                     <p class="text-muted mb-0 small">
                         <i class="fas fa-clipboard-list me-2"></i>
-                        Gestion des Réclamations v2.0
+                        Quality management 
                     </p>
                 </div>
                 <div class="col-md-6 text-end">
