@@ -229,8 +229,6 @@ class DashboardStats:
                     labels.append(label)
                     data.append(item['total'])
             
-            print(f"Nombre d'imputations: {len(labels)}")
-            
             return {'labels': labels, 'data': data}
     
     def get_delai_moyen_cloture(self):

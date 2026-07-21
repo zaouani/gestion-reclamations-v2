@@ -153,7 +153,7 @@ class Reclamation(models.Model):
     date_cloture = models.DateField(null=True, blank=True)
     date_cloture_4d = models.DateField(null=True, blank=True)
     date_cloture_8d = models.DateField(null=True, blank=True)
-    
+    verification_eficacite = models.BooleanField("Vérification efficacité", default=False)
     # Objectifs et décisions
     decision = models.TextField(blank=True)
     nqc = models.DecimalField("Coût NQC (MAD)", max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
@@ -231,8 +231,10 @@ class Reclamation(models.Model):
         """
         if self.peut_etre_cloturee_auto():
             self.cloture = True
-            self.date_cloture = timezone.now().date()
-            self.save(update_fields=['cloture', 'date_cloture'])
+            self.verification_eficacite = True
+            if not self.date_cloture:
+                self.date_cloture = timezone.now().date()
+            self.save(update_fields=['cloture', 'verification_eficacite', 'date_cloture'])
             
             # Optionnel : Clôturer aussi les états 4D et 8D
             if self.etat_4d != 'CLOTURE':
@@ -728,7 +730,6 @@ class FacteurVRS(models.Model):
     class Meta:
         ordering = ['categorie', 'ordre']
         
-
 class FacteurHumain(models.Model):
     """
     Human Factors Cause Analysis

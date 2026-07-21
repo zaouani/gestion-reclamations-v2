@@ -218,28 +218,28 @@
         {% if selected_client_name %}
             <span class="filter-tag">
                 Client : {{ selected_client_name }}
-                ?{% for key, value in request.GET.items %}{% if key != 'client' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+                ?{% for key, value in request.GET.items %}{% if key != 'client' %}{{ key }}={{ value }} & {% endif %}{% endfor %}✕</a>
             </span>
         {% endif %}
 
         {% if selected_year %}
             <span class="filter-tag">
                 Année : {{ selected_year }}
-                ?{% for key, value in request.GET.items %}{% if key != 'year' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+                </a>
             </span>
         {% endif %}
 
         {% if selected_uap_name %}
             <span class="filter-tag">
                 UAP : {{ selected_uap_name }}
-                ?{% for key, value in request.GET.items %}{% if key != 'uap' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+                </a>
             </span>
         {% endif %}
 
         {% if selected_imputation_name %}
             <span class="filter-tag">
                 Imputation : {{ selected_imputation_name }}
-                ?{% for key, value in request.GET.items %}{% if key != 'imputation' %}{{ key }}={{ value }}&{% endif %}{% endfor %}✕</a>
+                </a>
             </span>
         {% endif %}
     </div>
